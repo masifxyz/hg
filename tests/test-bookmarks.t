@@ -573,6 +573,7 @@ pull --update works the same as pull && update
   $ hg bookmark -r3 Y
   moving bookmark 'Y' forward from db815d6d32e6
   $ cp -r  ../cloned-bookmarks-update ../cloned-bookmarks-manual-update
+  $ cp -r  ../cloned-bookmarks-update ../cloned-bookmarks-manual-update-with-divergence
 
 (manual version)
 
@@ -598,7 +599,6 @@ pull --update works the same as pull && update
   $ hg -R ../cloned-bookmarks-manual-update update
   updating to active bookmark Y
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  (activating bookmark Y)
 
 (all in one version)
 
@@ -616,6 +616,33 @@ pull --update works the same as pull && update
   updating bookmark Z
   updating to active bookmark Y
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+
+We warn about divergent during bare update to the active bookmark
+
+  $ hg -R ../cloned-bookmarks-manual-update-with-divergence update Y
+  0 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  (activating bookmark Y)
+  $ hg -R ../cloned-bookmarks-manual-update-with-divergence bookmarks -r X2 Y@1
+  $ hg -R ../cloned-bookmarks-manual-update-with-divergence bookmarks
+     X2                        1:925d80f479bb
+   * Y                         2:db815d6d32e6
+     Y@1                       1:925d80f479bb
+     Z                         2:db815d6d32e6
+     x  y                      2:db815d6d32e6
+  $ hg -R ../cloned-bookmarks-manual-update-with-divergence pull
+  pulling from $TESTTMP
+  searching for changes
+  adding changesets
+  adding manifests
+  adding file changes
+  added 2 changesets with 2 changes to 2 files (+1 heads)
+  updating bookmark Y
+  updating bookmark Z
+  (run 'hg heads' to see heads, 'hg merge' to merge)
+  $ hg -R ../cloned-bookmarks-manual-update-with-divergence update
+  updating to active bookmark Y
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  1 other divergent bookmarks for "Y"
 
 test wrongly formated bookmark
 
@@ -706,34 +733,14 @@ tipmost surviving ancestor of the stripped revision.
      date:        Thu Jan 01 00:00:00 1970 +0000
      summary:     0
   
-test non-linear update not clearing active bookmark
-
-  $ hg up 1
-  1 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  (leaving bookmark four)
-  $ hg book drop
-  $ hg up -C
-  1 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  (leaving bookmark drop)
-  $ hg sum
-  parent: 2:db815d6d32e6 
-   2
-  branch: default
-  bookmarks: should-end-on-two
-  commit: 2 unknown (clean)
-  update: 1 new changesets, 2 branch heads (merge)
-  phases: 4 draft
-  $ hg book
-     drop                      1:925d80f479bb
-     four                      3:9ba5f110a0b3
-     should-end-on-two         2:db815d6d32e6
-  $ hg book -d drop
-  $ hg up four
-  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  (activating bookmark four)
 
 no-op update doesn't deactive bookmarks
 
+  $ hg bookmarks
+   * four                      3:9ba5f110a0b3
+     should-end-on-two         2:db815d6d32e6
+  $ hg up four
+  0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ hg up
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ hg sum

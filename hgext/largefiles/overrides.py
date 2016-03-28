@@ -12,7 +12,7 @@ import os
 import copy
 
 from mercurial import hg, util, cmdutil, scmutil, match as match_, \
-        archival, pathutil, revset, error
+        archival, pathutil, registrar, revset, error
 from mercurial.i18n import _
 
 import lfutil
@@ -452,11 +452,10 @@ def overridecheckunknownfile(origfn, repo, wctx, mctx, f, f2=None):
 # writing the files into the working copy and lfcommands.updatelfiles
 # will update the largefiles.
 def overridecalculateupdates(origfn, repo, p1, p2, pas, branchmerge, force,
-                             acceptremote, followcopies, matcher=None):
+                             acceptremote, *args, **kwargs):
     overwrite = force and not branchmerge
     actions, diverge, renamedelete = origfn(
-        repo, p1, p2, pas, branchmerge, force, acceptremote,
-        followcopies, matcher=matcher)
+        repo, p1, p2, pas, branchmerge, force, acceptremote, *args, **kwargs)
 
     if overwrite:
         return actions, diverge, renamedelete
@@ -802,7 +801,7 @@ def overridepull(orig, ui, repo, source=None, **opts):
         ui.status(_("%d largefiles cached\n") % numcached)
     return result
 
-revsetpredicate = revset.extpredicate()
+revsetpredicate = registrar.revsetpredicate()
 
 @revsetpredicate('pulled()')
 def pulledrevsetsymbol(repo, subset, x):
@@ -963,7 +962,7 @@ def overridearchive(orig, repo, dest, node, kind, decode=True, matchfn=None,
     if subrepos:
         for subpath in sorted(ctx.substate):
             sub = ctx.workingsub(subpath)
-            submatch = match_.narrowmatcher(subpath, matchfn)
+            submatch = match_.subdirmatcher(subpath, matchfn)
             sub._repo.lfstatus = True
             sub.archive(archiver, prefix, submatch)
 
@@ -1011,7 +1010,7 @@ def hgsubrepoarchive(orig, repo, archiver, prefix, match=None):
 
     for subpath in sorted(ctx.substate):
         sub = ctx.workingsub(subpath)
-        submatch = match_.narrowmatcher(subpath, match)
+        submatch = match_.subdirmatcher(subpath, match)
         sub._repo.lfstatus = True
         sub.archive(archiver, prefix + repo._path + '/', submatch)
 

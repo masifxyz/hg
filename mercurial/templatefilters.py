@@ -197,15 +197,8 @@ def json(obj):
         return {None: 'null', False: 'false', True: 'true'}[obj]
     elif isinstance(obj, int) or isinstance(obj, float):
         return str(obj)
-    elif isinstance(obj, encoding.localstr):
-        u = encoding.fromlocal(obj).decode('utf-8')  # can round-trip
-        return '"%s"' % jsonescape(u)
     elif isinstance(obj, str):
-        # no encoding.fromlocal() because it may abort if obj can't be decoded
-        u = unicode(obj, encoding.encoding, 'replace')
-        return '"%s"' % jsonescape(u)
-    elif isinstance(obj, unicode):
-        return '"%s"' % jsonescape(obj)
+        return '"%s"' % encoding.jsonescape(obj, paranoid=True)
     elif util.safehasattr(obj, 'keys'):
         out = []
         for k, v in sorted(obj.iteritems()):
@@ -221,23 +214,6 @@ def json(obj):
         return json(obj())
     else:
         raise TypeError('cannot encode type %s' % obj.__class__.__name__)
-
-def _uescape(c):
-    if 0x20 <= ord(c) < 0x80:
-        return c
-    else:
-        return '\\u%04x' % ord(c)
-
-_escapes = [
-    ('\\', '\\\\'), ('"', '\\"'), ('\t', '\\t'), ('\n', '\\n'),
-    ('\r', '\\r'), ('\f', '\\f'), ('\b', '\\b'),
-    ('<', '\\u003c'), ('>', '\\u003e'), ('\0', '\\u0000')
-]
-
-def jsonescape(s):
-    for k, v in _escapes:
-        s = s.replace(k, v)
-    return ''.join(_uescape(c) for c in s)
 
 def lower(text):
     """:lower: Any text. Converts the text to lowercase."""
@@ -377,6 +353,10 @@ def emailuser(text):
     """:emailuser: Any text. Returns the user portion of an email address."""
     return util.emailuser(text)
 
+def utf8(text):
+    """:utf8: Any text. Converts from the local character encoding to UTF-8."""
+    return encoding.fromlocal(text)
+
 def xmlescape(text):
     text = (text
             .replace('&', '&amp;')
@@ -402,7 +382,6 @@ filters = {
     "isodate": isodate,
     "isodatesec": isodatesec,
     "json": json,
-    "jsonescape": jsonescape,
     "lower": lower,
     "nonempty": nonempty,
     "obfuscate": obfuscate,
@@ -423,6 +402,7 @@ filters = {
     "urlescape": urlescape,
     "user": userfilter,
     "emailuser": emailuser,
+    "utf8": utf8,
     "xmlescape": xmlescape,
 }
 

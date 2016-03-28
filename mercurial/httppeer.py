@@ -92,43 +92,58 @@ class httppeer(wireproto.wirepeer):
         if cmd == 'pushkey':
             args['data'] = ''
         data = args.pop('data', None)
+        headers = args.pop('headers', {})
+
+        self.ui.debug("sending %s command\n" % cmd)
+        q = [('cmd', cmd)]
+        headersize = 0
+        # Important: don't use self.capable() here or else you end up
+        # with infinite recursion when trying to look up capabilities
+        # for the first time.
+        postargsok = self.caps is not None and 'httppostargs' in self.caps
+        # TODO: support for httppostargs when data is a file-like
+        # object rather than a basestring
+        canmungedata = not data or isinstance(data, basestring)
+        if postargsok and canmungedata:
+            strargs = urllib.urlencode(sorted(args.items()))
+            if strargs:
+                if not data:
+                    data = strargs
+                elif isinstance(data, basestring):
+                    data = strargs + data
+                headers['X-HgArgs-Post'] = len(strargs)
+        else:
+            if len(args) > 0:
+                httpheader = self.capable('httpheader')
+                if httpheader:
+                    headersize = int(httpheader.split(',', 1)[0])
+            if headersize > 0:
+                # The headers can typically carry more data than the URL.
+                encargs = urllib.urlencode(sorted(args.items()))
+                headerfmt = 'X-HgArg-%s'
+                contentlen = headersize - len(headerfmt % '000' + ': \r\n')
+                headernum = 0
+                varyheaders = []
+                for i in xrange(0, len(encargs), contentlen):
+                    headernum += 1
+                    header = headerfmt % str(headernum)
+                    headers[header] = encargs[i:i + contentlen]
+                    varyheaders.append(header)
+                headers['Vary'] = ','.join(varyheaders)
+            else:
+                q += sorted(args.items())
+        qs = '?%s' % urllib.urlencode(q)
+        cu = "%s%s" % (self._url, qs)
         size = 0
         if util.safehasattr(data, 'length'):
             size = data.length
         elif data is not None:
             size = len(data)
-        headers = args.pop('headers', {})
-        if data is not None and 'Content-Type' not in headers:
-            headers['Content-Type'] = 'application/mercurial-0.1'
-
-
         if size and self.ui.configbool('ui', 'usehttp2', False):
             headers['Expect'] = '100-Continue'
             headers['X-HgHttp2'] = '1'
-
-        self.ui.debug("sending %s command\n" % cmd)
-        q = [('cmd', cmd)]
-        headersize = 0
-        if len(args) > 0:
-            httpheader = self.capable('httpheader')
-            if httpheader:
-                headersize = int(httpheader.split(',')[0])
-        if headersize > 0:
-            # The headers can typically carry more data than the URL.
-            encargs = urllib.urlencode(sorted(args.items()))
-            headerfmt = 'X-HgArg-%s'
-            contentlen = headersize - len(headerfmt % '000' + ': \r\n')
-            headernum = 0
-            for i in xrange(0, len(encargs), contentlen):
-                headernum += 1
-                header = headerfmt % str(headernum)
-                headers[header] = encargs[i:i + contentlen]
-            varyheaders = [headerfmt % str(h) for h in range(1, headernum + 1)]
-            headers['Vary'] = ','.join(varyheaders)
-        else:
-            q += sorted(args.items())
-        qs = '?%s' % urllib.urlencode(q)
-        cu = "%s%s" % (self._url, qs)
+        if data is not None and 'Content-Type' not in headers:
+            headers['Content-Type'] = 'application/mercurial-0.1'
         req = self.requestbuilder(cu, data, headers)
         if data is not None:
             self.ui.debug("sending %s bytes\n" % size)

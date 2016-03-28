@@ -366,7 +366,7 @@ def verify_modern_convention(module, root, localmods, root_col_offset=0):
     fromlocal = fromlocalfunc(module, localmods)
 
     # Whether a local/non-stdlib import has been performed.
-    seenlocal = False
+    seenlocal = None
     # Whether a relative, non-symbol import has been seen.
     seennonsymbolrelative = False
     # The last name to be imported (for sorting).
@@ -403,10 +403,11 @@ def verify_modern_convention(module, root, localmods, root_col_offset=0):
             # stdlib imports should be before local imports.
             stdlib = name in stdlib_modules
             if stdlib and seenlocal and node.col_offset == root_col_offset:
-                yield msg('stdlib import follows local import: %s', name)
+                yield msg('stdlib import "%s" follows local import: %s',
+                          name, seenlocal)
 
             if not stdlib:
-                seenlocal = True
+                seenlocal = name
 
             # Import of sibling modules should use relative imports.
             topname = name.split('.')[0]
@@ -437,7 +438,7 @@ def verify_modern_convention(module, root, localmods, root_col_offset=0):
                 if not fullname or fullname in stdlib_modules:
                     yield msg('relative import of stdlib module')
                 else:
-                    seenlocal = True
+                    seenlocal = fullname
 
             # Direct symbol import is only allowed from certain modules and
             # must occur before non-symbol imports.
@@ -493,10 +494,6 @@ def verify_modern_convention(module, root, localmods, root_col_offset=0):
 def verify_stdlib_on_own_line(root):
     """Given some python source, verify that stdlib imports are done
     in separate statements from relative local module imports.
-
-    Observing this limitation is important as it works around an
-    annoying lib2to3 bug in relative import rewrites:
-    http://bugs.python.org/issue19510.
 
     >>> list(verify_stdlib_on_own_line(ast.parse('import sys, foo')))
     [('mixed imports\\n   stdlib:    sys\\n   relative:  foo', 1)]

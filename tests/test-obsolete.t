@@ -129,6 +129,13 @@ Register two markers with a missing node
   ca819180edb99ed25ceafb3e9584ac287e240b00 1337133713371337133713371337133713371337 0 (Thu Jan 01 00:22:18 1970 +0000) {'user': 'test'}
   1337133713371337133713371337133713371337 5601fb93a350734d935195fee37f4054c529ff39 0 (Thu Jan 01 00:22:19 1970 +0000) {'user': 'test'}
 
+Test the --index option of debugobsolete command
+  $ hg debugobsolete --index
+  0 245bde4270cd1072a27757984f9cda8ba26f08ca cdbce2fbb16313928851e97e0d85413f3f7eb77f C (Thu Jan 01 00:00:01 1970 -0002) {'user': 'test'}
+  1 cdbce2fbb16313928851e97e0d85413f3f7eb77f ca819180edb99ed25ceafb3e9584ac287e240b00 0 (Thu Jan 01 00:22:17 1970 +0000) {'user': 'test'}
+  2 ca819180edb99ed25ceafb3e9584ac287e240b00 1337133713371337133713371337133713371337 0 (Thu Jan 01 00:22:18 1970 +0000) {'user': 'test'}
+  3 1337133713371337133713371337133713371337 5601fb93a350734d935195fee37f4054c529ff39 0 (Thu Jan 01 00:22:19 1970 +0000) {'user': 'test'}
+
 Refuse pathological nullid successors
   $ hg debugobsolete -d '9001 0' 1337133713371337133713371337133713371337 0000000000000000000000000000000000000000
   transaction abort!
@@ -935,7 +942,7 @@ Test heads computation on pending index changes with obsolescence markers
   >   opts['message'] = 'Test'
   >   opts['logfile'] = None
   >   cmdutil.amend(ui, repo, commitfunc, repo['.'], {}, pats, opts)
-  >   print repo.changelog.headrevs()
+  >   ui.write('%s\n' % repo.changelog.headrevs())
   > EOF
   $ cat >> $HGRCPATH << EOF
   > [extensions]
@@ -960,6 +967,7 @@ Check that corrupted hidden cache does not crash
   $ hg log -r . -T '{node}' --debug
   8fd96dfc63e51ed5a8af1bec18eb4b19dbf83812 (no-eol)
 
+#if unix-permissions
 Check that wrong hidden cache permission does not crash
 
   $ chmod 000 .hg/cache/hidden
@@ -967,6 +975,7 @@ Check that wrong hidden cache permission does not crash
   cannot read hidden cache
   error writing hidden changesets cache
   8fd96dfc63e51ed5a8af1bec18eb4b19dbf83812 (no-eol)
+#endif
 
 Test cache consistency for the visible filter
 1) We want to make sure that the cached filtered revs are invalidated when

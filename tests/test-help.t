@@ -241,6 +241,7 @@ Test extension help:
   
       enabled extensions:
   
+       chgserver     command server extension for cHg (EXPERIMENTAL) (?)
        children      command to display child changesets (DEPRECATED)
        rebase        command to move sets of revisions to a different ancestor
   
@@ -861,6 +862,8 @@ Test list of internal help commands
    debugsub      (no help text available)
    debugsuccessorssets
                  show set of successors for revision
+   debugtemplate
+                 parse and apply a template
    debugwalk     show how files match on given patterns
    debugwireargs
                  (no help text available)
@@ -875,6 +878,7 @@ internals topic renders index of available sub-topics
   
        bundles       container for exchange of repository data
        changegroups  representation of revlog data
+       requirements  repository requirements
        revlogs       revision storage mechanism
 
 sub-topics can be accessed
@@ -1536,7 +1540,7 @@ Test dynamic list of merge tools only shows up once
         to resolve these conflicts.
   
       ":local"
-        Uses the local version of files as the merged version.
+        Uses the local 'p1()' version of files as the merged version.
   
       ":merge"
         Uses the internal non-interactive simple merge algorithm for merging
@@ -1546,11 +1550,11 @@ Test dynamic list of merge tools only shows up once
   
       ":merge-local"
         Like :merge, but resolve all conflicts non-interactively in favor of the
-        local changes.
+        local 'p1()' changes.
   
       ":merge-other"
         Like :merge, but resolve all conflicts non-interactively in favor of the
-        other changes.
+        other 'p2()' changes.
   
       ":merge3"
         Uses the internal non-interactive simple merge algorithm for merging
@@ -1559,11 +1563,11 @@ Test dynamic list of merge tools only shows up once
         side of the merge and one for the base content.
   
       ":other"
-        Uses the other version of files as the merged version.
+        Uses the other 'p2()' version of files as the merged version.
   
       ":prompt"
-        Asks the user which of the local or the other version to keep as the
-        merged version.
+        Asks the user which of the local 'p1()' or the other 'p2()' version to
+        keep as the merged version.
   
       ":tagmerge"
         Uses the internal tag merge algorithm (experimental).
@@ -2725,6 +2729,13 @@ Sub-topic indexes rendered properly
   </a>
   </td><td>
   representation of revlog data
+  </td></tr>
+  <tr><td>
+  <a href="/help/internals.requirements">
+  requirements
+  </a>
+  </td><td>
+  repository requirements
   </td></tr>
   <tr><td>
   <a href="/help/internals.revlogs">

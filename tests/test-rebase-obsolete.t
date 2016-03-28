@@ -527,7 +527,7 @@ Test hidden changesets in the rebase set (issue4504)
   $ hg commit -m J
   $ hg debugobsolete `hg log --rev . -T '{node}'`
 
-  $ hg rebase --rev .~1::. --dest 'max(desc(D))' --traceback
+  $ hg rebase --rev .~1::. --dest 'max(desc(D))' --traceback --config experimental.rebaseskipobsolete=off
   rebasing 9:4bde274eefcf "I"
   rebasing 13:06edfc82198f "J" (tip)
   $ hg log -G
@@ -771,8 +771,8 @@ If a rebase is going to create divergence, it should abort
   phases: 8 draft
   unstable: 1 changesets
   $ hg rebase -s 10 -d 12
-  abort: this rebase will cause divergence
-  (to force the rebase please set rebase.allowdivergence=True)
+  abort: this rebase will cause divergences from: 121d9e3bc4c6
+  (to force the rebase please set experimental.allowdivergence=True)
   [255]
   $ hg log -G
   @  15:73568ab6879d bar foo
@@ -791,9 +791,9 @@ If a rebase is going to create divergence, it should abort
   |
   o  0:4a2df7238c3b A
   
-With rebase.allowdivergence=True, rebase can create divergence
+With experimental.allowdivergence=True, rebase can create divergence
 
-  $ hg rebase -s 10 -d 12 --config rebase.allowdivergence=True
+  $ hg rebase -s 10 -d 12 --config experimental.allowdivergence=True
   rebasing 10:121d9e3bc4c6 "P"
   rebasing 15:73568ab6879d "bar foo" (tip)
   $ hg summary

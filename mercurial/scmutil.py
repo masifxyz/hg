@@ -276,8 +276,8 @@ class abstractvfs(object):
         with self(path, mode=mode) as fp:
             return fp.readlines()
 
-    def write(self, path, data):
-        with self(path, 'wb') as fp:
+    def write(self, path, data, backgroundclose=False):
+        with self(path, 'wb', backgroundclose=backgroundclose) as fp:
             return fp.write(data)
 
     def writelines(self, path, data, mode='wb', notindexed=False):
@@ -913,7 +913,7 @@ def addremove(repo, matcher, prefix, opts=None, dry_run=None, similarity=None):
         if opts.get('subrepos') or matchessubrepo(m, subpath):
             sub = wctx.sub(subpath)
             try:
-                submatch = matchmod.narrowmatcher(subpath, m)
+                submatch = matchmod.subdirmatcher(subpath, m)
                 if sub.addremove(submatch, prefix, opts, dry_run, similarity):
                     ret = 1
             except error.LookupError:

@@ -335,36 +335,17 @@ def has_pygments():
     except ImportError:
         return False
 
-@check("json", "some json module available")
-def has_json():
-    try:
-        import json
-        json.dumps
-        return True
-    except ImportError:
-        try:
-            import simplejson as json
-            json.dumps
-            return True
-        except ImportError:
-            pass
-    return False
-
 @check("outer-repo", "outer repo")
 def has_outer_repo():
     # failing for other reasons than 'no repo' imply that there is a repo
     return not matchoutput('hg root 2>&1',
                            r'abort: no repository found', True)
 
-@check("ssl", ("(python >= 2.6 ssl module and python OpenSSL) "
-               "OR python >= 2.7.9 ssl"))
+@check("ssl", "ssl module available")
 def has_ssl():
     try:
         import ssl
-        if getattr(ssl, 'create_default_context', False):
-            return True
-        import OpenSSL
-        OpenSSL.SSL.Context
+        ssl.CERT_NONE
         return True
     except ImportError:
         return False
@@ -458,6 +439,10 @@ def has_absimport():
 def has_py3k():
     return 3 == sys.version_info[0]
 
+@check("py3exe", "a Python 3.x interpreter is available")
+def has_python3exe():
+    return 'PYTHON3' in os.environ
+
 @check("pure", "running with pure Python code")
 def has_pure():
     return any([
@@ -469,7 +454,7 @@ def has_pure():
 def has_slow():
     return os.environ.get('HGTEST_SLOW') == 'slow'
 
-@check("hypothesis", "is Hypothesis installed")
+@check("hypothesis", "Hypothesis automated test generation")
 def has_hypothesis():
     try:
         import hypothesis

@@ -1,3 +1,9 @@
+  $ cat >> $HGRCPATH <<EOF
+  > [extdiff]
+  > # for portability:
+  > pdiff = sh "$RUNTESTDIR/pdiff"
+  > EOF
+
 Create a repo with some stuff in it:
 
   $ hg init a
@@ -40,6 +46,13 @@ Create a repo with some stuff in it:
   |
   o  test@0.public: 0
   
+Can't continue without starting:
+
+  $ hg rm -q e
+  $ hg graft --continue
+  abort: no graft in progress
+  [255]
+  $ hg revert -r . -q e
 
 Need to specify a rev:
 
@@ -154,6 +167,7 @@ Graft out of order, skipping a merge and a duplicate
    branchmerge: True, force: True, partial: False
    ancestor: 68795b066622, local: ef0ef43d49e7+, remote: 5d205f8b35b6
    preserving b for resolve of b
+  starting 4 threads for background file closing (?)
    b: local copied/moved from a -> m (premerge)
   picked tool ':merge' for b (binary False symlink False changedelete False)
   merging b and a to b
@@ -189,10 +203,10 @@ Graft out of order, skipping a merge and a duplicate
    e: versions differ -> m (premerge)
   picked tool ':merge' for e (binary False symlink False changedelete False)
   merging e
-  my e@1905859650ec+ other e@9c233e8e184d ancestor e@68795b066622
+  my e@1905859650ec+ other e@9c233e8e184d ancestor e@4c60f11aa304
    e: versions differ -> m (merge)
   picked tool ':merge' for e (binary False symlink False changedelete False)
-  my e@1905859650ec+ other e@9c233e8e184d ancestor e@68795b066622
+  my e@1905859650ec+ other e@9c233e8e184d ancestor e@4c60f11aa304
   warning: conflicts while merging e! (edit, then use 'hg resolve --mark')
   abort: unresolved conflicts, can't continue
   (use hg resolve and hg graft --continue --log)
@@ -342,9 +356,9 @@ Disallow grafting an already grafted cset onto its original branch
   skipping already grafted revision 7:ef0ef43d49e7 (was grafted from 2:5c095ad7e90f)
   [255]
 
-  $ hg extdiff --config extensions.extdiff= --patch -r 2 -r 13
-  --- */hg-5c095ad7e90f.patch	* +0000 (glob)
-  +++ */hg-7a4785234d87.patch	* +0000 (glob)
+  $ hg pdiff --config extensions.extdiff= --patch -r 2 -r 13
+  --- */hg-5c095ad7e90f.patch	* (glob)
+  +++ */hg-7a4785234d87.patch	* (glob)
   @@ -1,18 +1,18 @@
    # HG changeset patch
   -# User test
@@ -373,9 +387,9 @@ Disallow grafting an already grafted cset onto its original branch
   ++a
   [1]
 
-  $ hg extdiff --config extensions.extdiff= --patch -r 2 -r 13 -X .
-  --- */hg-5c095ad7e90f.patch	* +0000 (glob)
-  +++ */hg-7a4785234d87.patch	* +0000 (glob)
+  $ hg pdiff --config extensions.extdiff= --patch -r 2 -r 13 -X .
+  --- */hg-5c095ad7e90f.patch	* (glob)
+  +++ */hg-7a4785234d87.patch	* (glob)
   @@ -1,8 +1,8 @@
    # HG changeset patch
   -# User test
@@ -438,7 +452,7 @@ Resolve conflicted graft
   c
   =======
   b
-  >>>>>>> other: 5d205f8b35b6  - bar: 1
+  >>>>>>> graft: 5d205f8b35b6  - bar: 1
   $ echo b > a
   $ hg resolve -m a
   (no more unresolved files)

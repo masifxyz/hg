@@ -436,6 +436,9 @@ def dagrange(repo, subset, x, y):
 def andset(repo, subset, x, y):
     return getset(repo, getset(repo, subset, x), y)
 
+def differenceset(repo, subset, x, y):
+    return getset(repo, subset, x) - getset(repo, subset, y)
+
 def orset(repo, subset, *xs):
     assert xs
     if len(xs) == 1:
@@ -479,58 +482,7 @@ symbols = {}
 # functions that just return a lot of changesets (like all) don't count here
 safesymbols = set()
 
-class predicate(registrar.funcregistrar):
-    """Decorator to register revset predicate
-
-    Usage::
-
-        @predicate('mypredicate(arg1, arg2[, arg3])')
-        def mypredicatefunc(repo, subset, x):
-            '''Explanation of this revset predicate ....
-            '''
-            pass
-
-    The first string argument of the constructor is used also in
-    online help.
-
-    Use 'extpredicate' instead of this to register revset predicate in
-    extensions.
-    """
-    table = symbols
-    formatdoc = "``%s``\n    %s"
-    getname = registrar.funcregistrar.parsefuncdecl
-
-    def __init__(self, decl, safe=False):
-        """'safe' indicates whether a predicate is safe for DoS attack
-        """
-        super(predicate, self).__init__(decl)
-        self.safe = safe
-
-    def extraaction(self, name, func):
-        if self.safe:
-            safesymbols.add(name)
-
-class extpredicate(registrar.delayregistrar):
-    """Decorator to register revset predicate in extensions
-
-    Usage::
-
-        revsetpredicate = revset.extpredicate()
-
-        @revsetpredicate('mypredicate(arg1, arg2[, arg3])')
-        def mypredicatefunc(repo, subset, x):
-            '''Explanation of this revset predicate ....
-            '''
-            pass
-
-        def uisetup(ui):
-            revsetpredicate.setup()
-
-    'revsetpredicate' instance above can be used to decorate multiple
-    functions, and 'setup()' on it registers all such functions at
-    once.
-    """
-    registrar = predicate
+predicate = registrar.revsetpredicate()
 
 @predicate('_destupdate')
 def _destupdate(repo, subset, x):
@@ -541,8 +493,10 @@ def _destupdate(repo, subset, x):
 @predicate('_destmerge')
 def _destmerge(repo, subset, x):
     # experimental revset for merge destination
-    getargs(x, 0, 0, _("_mergedefaultdest takes no arguments"))
-    return subset & baseset([destutil.destmerge(repo)])
+    sourceset = None
+    if x is not None:
+        sourceset = getset(repo, fullreposet(repo), x)
+    return subset & baseset([destutil.destmerge(repo, sourceset=sourceset)])
 
 @predicate('adds(pattern)', safe=True)
 def adds(repo, subset, x):
@@ -624,7 +578,8 @@ def author(repo, subset, x):
     # i18n: "author" is a keyword
     n = encoding.lower(getstring(x, _("author requires a string")))
     kind, pattern, matcher = _substringmatcher(n)
-    return subset.filter(lambda x: matcher(encoding.lower(repo[x].user())))
+    return subset.filter(lambda x: matcher(encoding.lower(repo[x].user())),
+                         condrepr=('<user %r>', n))
 
 @predicate('bisect(string)', safe=True)
 def bisect(repo, subset, x):
@@ -710,19 +665,22 @@ def branch(repo, subset, x):
             # note: falls through to the revspec case if no branch with
             # this name exists and pattern kind is not specified explicitly
             if pattern in repo.branchmap():
-                return subset.filter(lambda r: matcher(getbi(r)[0]))
+                return subset.filter(lambda r: matcher(getbi(r)[0]),
+                                     condrepr=('<branch %r>', b))
             if b.startswith('literal:'):
                 raise error.RepoLookupError(_("branch '%s' does not exist")
                                             % pattern)
         else:
-            return subset.filter(lambda r: matcher(getbi(r)[0]))
+            return subset.filter(lambda r: matcher(getbi(r)[0]),
+                                 condrepr=('<branch %r>', b))
 
     s = getset(repo, fullreposet(repo), x)
     b = set()
     for r in s:
         b.add(getbi(r)[0])
     c = s.__contains__
-    return subset.filter(lambda r: c(r) or getbi(r)[0] in b)
+    return subset.filter(lambda r: c(r) or getbi(r)[0] in b,
+                         condrepr=lambda: '<branch %r>' % sorted(b))
 
 @predicate('bumped()', safe=True)
 def bumped(repo, subset, x):
@@ -777,7 +735,7 @@ def checkstatus(repo, subset, pat, field):
                 if m(f):
                     return True
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<status[%r] %r>', field, pat))
 
 def _children(repo, narrow, parentset):
     if not parentset:
@@ -809,7 +767,8 @@ def closed(repo, subset, x):
     """
     # i18n: "closed" is a keyword
     getargs(x, 0, 0, _("closed takes no arguments"))
-    return subset.filter(lambda r: repo[r].closesbranch())
+    return subset.filter(lambda r: repo[r].closesbranch(),
+                         condrepr='<branch closed>')
 
 @predicate('contains(pattern)')
 def contains(repo, subset, x):
@@ -836,7 +795,7 @@ def contains(repo, subset, x):
                     return True
         return False
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<contains %r>', pat))
 
 @predicate('converted([id])', safe=True)
 def converted(repo, subset, x):
@@ -858,7 +817,8 @@ def converted(repo, subset, x):
         source = repo[r].extra().get('convert_revision', None)
         return source is not None and (rev is None or source.startswith(rev))
 
-    return subset.filter(lambda r: _matchvalue(r))
+    return subset.filter(lambda r: _matchvalue(r),
+                         condrepr=('<converted %r>', rev))
 
 @predicate('date(interval)', safe=True)
 def date(repo, subset, x):
@@ -867,7 +827,8 @@ def date(repo, subset, x):
     # i18n: "date" is a keyword
     ds = getstring(x, _("date requires a string"))
     dm = util.matchdate(ds)
-    return subset.filter(lambda x: dm(repo[x].date()[0]))
+    return subset.filter(lambda x: dm(repo[x].date()[0]),
+                         condrepr=('<date %r>', ds))
 
 @predicate('desc(string)', safe=True)
 def desc(repo, subset, x):
@@ -880,7 +841,7 @@ def desc(repo, subset, x):
         c = repo[x]
         return ds in encoding.lower(c.description())
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<desc %r>', ds))
 
 def _descendants(repo, subset, x, followfirst=False):
     roots = getset(repo, fullreposet(repo), x)
@@ -955,7 +916,8 @@ def destination(repo, subset, x):
             r = src
             src = _getrevsource(repo, r)
 
-    return subset.filter(dests.__contains__)
+    return subset.filter(dests.__contains__,
+                         condrepr=lambda: '<destination %r>' % sorted(dests))
 
 @predicate('divergent()', safe=True)
 def divergent(repo, subset, x):
@@ -1004,7 +966,8 @@ def extra(repo, subset, x):
         extra = repo[r].extra()
         return label in extra and (value is None or matcher(extra[label]))
 
-    return subset.filter(lambda r: _matchvalue(r))
+    return subset.filter(lambda r: _matchvalue(r),
+                         condrepr=('<extra[%r] %r>', label, value))
 
 @predicate('filelog(pattern)', safe=True)
 def filelog(repo, subset, x):
@@ -1086,13 +1049,14 @@ def _follow(repo, subset, x, name, followfirst=False):
         matcher = matchmod.match(repo.root, repo.getcwd(), [x],
                                  ctx=repo[None], default='path')
 
+        files = c.manifest().walk(matcher)
+
         s = set()
-        for fname in c:
-            if matcher(fname):
-                fctx = c[fname]
-                s = s.union(set(c.rev() for c in fctx.ancestors(followfirst)))
-                # include the revision responsible for the most recent version
-                s.add(fctx.introrev())
+        for fname in files:
+            fctx = c[fname]
+            s = s.union(set(c.rev() for c in fctx.ancestors(followfirst)))
+            # include the revision responsible for the most recent version
+            s.add(fctx.introrev())
     else:
         s = _revancestors(repo, baseset([c.rev()]), followfirst)
 
@@ -1141,7 +1105,7 @@ def grep(repo, subset, x):
                 return True
         return False
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<grep %r>', gr.pattern))
 
 @predicate('_matchfiles', safe=True)
 def _matchfiles(repo, subset, x):
@@ -1157,13 +1121,11 @@ def _matchfiles(repo, subset, x):
     # initialized. Use 'd:' to set the default matching mode, default
     # to 'glob'. At most one 'r:' and 'd:' argument can be passed.
 
-    # i18n: "_matchfiles" is a keyword
-    l = getargs(x, 1, -1, _("_matchfiles requires at least one argument"))
+    l = getargs(x, 1, -1, "_matchfiles requires at least one argument")
     pats, inc, exc = [], [], []
     rev, default = None, None
     for arg in l:
-        # i18n: "_matchfiles" is a keyword
-        s = getstring(arg, _("_matchfiles requires string arguments"))
+        s = getstring(arg, "_matchfiles requires string arguments")
         prefix, value = s[:2], s[2:]
         if prefix == 'p:':
             pats.append(value)
@@ -1173,20 +1135,17 @@ def _matchfiles(repo, subset, x):
             exc.append(value)
         elif prefix == 'r:':
             if rev is not None:
-                # i18n: "_matchfiles" is a keyword
-                raise error.ParseError(_('_matchfiles expected at most one '
-                                         'revision'))
+                raise error.ParseError('_matchfiles expected at most one '
+                                       'revision')
             if value != '': # empty means working directory; leave rev as None
                 rev = value
         elif prefix == 'd:':
             if default is not None:
-                # i18n: "_matchfiles" is a keyword
-                raise error.ParseError(_('_matchfiles expected at most one '
-                                         'default mode'))
+                raise error.ParseError('_matchfiles expected at most one '
+                                       'default mode')
             default = value
         else:
-            # i18n: "_matchfiles" is a keyword
-            raise error.ParseError(_('invalid _matchfiles prefix: %s') % prefix)
+            raise error.ParseError('invalid _matchfiles prefix: %s' % prefix)
     if not default:
         default = 'glob'
 
@@ -1207,7 +1166,10 @@ def _matchfiles(repo, subset, x):
                 return True
         return False
 
-    return subset.filter(matches)
+    return subset.filter(matches,
+                         condrepr=('<matchfiles patterns=%r, include=%r '
+                                   'exclude=%r, default=%r, rev=%r>',
+                                   pats, inc, exc, default, rev))
 
 @predicate('file(pattern)', safe=True)
 def hasfile(repo, subset, x):
@@ -1268,7 +1230,7 @@ def keyword(repo, subset, x):
         return any(kw in encoding.lower(t)
                    for t in c.files() + [c.user(), c.description()])
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<keyword %r>', kw))
 
 @predicate('limit(set[, n[, offset]])', safe=True)
 def limit(repo, subset, x):
@@ -1304,7 +1266,8 @@ def limit(repo, subset, x):
             break
         elif y in subset:
             result.append(y)
-    return baseset(result)
+    return baseset(result, datarepr=('<limit n=%d, offset=%d, %r, %r>',
+                                     lim, ofs, subset, os))
 
 @predicate('last(set, [n])', safe=True)
 def last(repo, subset, x):
@@ -1330,7 +1293,7 @@ def last(repo, subset, x):
             break
         elif y in subset:
             result.append(y)
-    return baseset(result)
+    return baseset(result, datarepr=('<last n=%d, %r, %r>', lim, subset, os))
 
 @predicate('max(set)', safe=True)
 def maxrev(repo, subset, x):
@@ -1340,12 +1303,12 @@ def maxrev(repo, subset, x):
     try:
         m = os.max()
         if m in subset:
-            return baseset([m])
+            return baseset([m], datarepr=('<max %r, %r>', subset, os))
     except ValueError:
         # os.max() throws a ValueError when the collection is empty.
         # Same as python's max().
         pass
-    return baseset()
+    return baseset(datarepr=('<max %r, %r>', subset, os))
 
 @predicate('merge()', safe=True)
 def merge(repo, subset, x):
@@ -1354,7 +1317,8 @@ def merge(repo, subset, x):
     # i18n: "merge" is a keyword
     getargs(x, 0, 0, _("merge takes no arguments"))
     cl = repo.changelog
-    return subset.filter(lambda r: cl.parentrevs(r)[1] != -1)
+    return subset.filter(lambda r: cl.parentrevs(r)[1] != -1,
+                         condrepr='<merge>')
 
 @predicate('branchpoint()', safe=True)
 def branchpoint(repo, subset, x):
@@ -1373,7 +1337,8 @@ def branchpoint(repo, subset, x):
         for p in cl.parentrevs(r):
             if p >= baserev:
                 parentscount[p - baserev] += 1
-    return subset.filter(lambda r: parentscount[r - baserev] > 1)
+    return subset.filter(lambda r: parentscount[r - baserev] > 1,
+                         condrepr='<branchpoint>')
 
 @predicate('min(set)', safe=True)
 def minrev(repo, subset, x):
@@ -1383,12 +1348,12 @@ def minrev(repo, subset, x):
     try:
         m = os.min()
         if m in subset:
-            return baseset([m])
+            return baseset([m], datarepr=('<min %r, %r>', subset, os))
     except ValueError:
         # os.min() throws a ValueError when the collection is empty.
         # Same as python's min().
         pass
-    return baseset()
+    return baseset(datarepr=('<min %r, %r>', subset, os))
 
 @predicate('modifies(pattern)', safe=True)
 def modifies(repo, subset, x):
@@ -1630,7 +1595,8 @@ def _phase(repo, subset, target):
     else:
         phase = repo._phasecache.phase
         condition = lambda r: phase(repo, r) == target
-        return subset.filter(condition, cache=False)
+        return subset.filter(condition, condrepr=('<phase %r>', target),
+                             cache=False)
 
 @predicate('draft()', safe=True)
 def draft(repo, subset, x):
@@ -1703,7 +1669,8 @@ def _notpublic(repo, subset, x):
         phase = repo._phasecache.phase
         target = phases.public
         condition = lambda r: phase(repo, r) != target
-        return subset.filter(condition, cache=False)
+        return subset.filter(condition, condrepr=('<phase %r>', target),
+                             cache=False)
 
 @predicate('public()', safe=True)
 def public(repo, subset, x):
@@ -1713,7 +1680,8 @@ def public(repo, subset, x):
     phase = repo._phasecache.phase
     target = phases.public
     condition = lambda r: phase(repo, r) == target
-    return subset.filter(condition, cache=False)
+    return subset.filter(condition, condrepr=('<phase %r>', target),
+                         cache=False)
 
 @predicate('remote([id [,path]])', safe=True)
 def remote(repo, subset, x):
@@ -1888,7 +1856,7 @@ def matching(repo, subset, x):
                 return True
         return False
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<matching%r %r>', fields, revs))
 
 @predicate('reverse(set)', safe=True)
 def reverse(repo, subset, x):
@@ -1909,7 +1877,7 @@ def roots(repo, subset, x):
             if 0 <= p and p in s:
                 return False
         return True
-    return subset & s.filter(filter)
+    return subset & s.filter(filter, condrepr='<roots>')
 
 @predicate('sort(set[, [-]key...])', safe=True)
 def sort(repo, subset, x):
@@ -1981,6 +1949,7 @@ def subrepo(repo, subset, x):
     """
     # i18n: "subrepo" is a keyword
     args = getargs(x, 0, 1, _('subrepo takes at most one argument'))
+    pat = None
     if len(args) != 0:
         pat = getstring(args[0], _("subrepo requires a pattern"))
 
@@ -1996,7 +1965,7 @@ def subrepo(repo, subset, x):
         c = repo[x]
         s = repo.status(c.p1().node(), c.node(), match=m)
 
-        if len(args) == 0:
+        if pat is None:
             return s.added or s.modified or s.removed
 
         if s.added:
@@ -2015,7 +1984,7 @@ def subrepo(repo, subset, x):
 
         return False
 
-    return subset.filter(matches)
+    return subset.filter(matches, condrepr=('<subrepo %r>', pat))
 
 def _substringmatcher(pattern):
     kind, pattern, matcher = util.stringmatcher(pattern)
@@ -2144,6 +2113,7 @@ methods = {
     "and": andset,
     "or": orset,
     "not": notset,
+    "difference": differenceset,
     "list": listset,
     "keyvalue": keyvaluepair,
     "func": func,
@@ -2203,6 +2173,9 @@ def optimize(x, small):
             return w, ('func', ('symbol', 'only'), ('list', ta[2], tb[1][2]))
         if isonly(tb, ta):
             return w, ('func', ('symbol', 'only'), ('list', tb[2], ta[1][2]))
+
+        if tb is not None and tb[0] == 'not':
+            return wa, ('difference', ta, tb[1])
 
         if wa > wb:
             return w, (op, tb, ta)
@@ -2753,6 +2726,29 @@ def funcsused(tree):
             funcs.add(tree[1][1])
         return funcs
 
+def _formatsetrepr(r):
+    """Format an optional printable representation of a set
+
+    ========  =================================
+    type(r)   example
+    ========  =================================
+    tuple     ('<not %r>', other)
+    str       '<branch closed>'
+    callable  lambda: '<branch %r>' % sorted(b)
+    object    other
+    ========  =================================
+    """
+    if r is None:
+        return ''
+    elif isinstance(r, tuple):
+        return r[0] % r[1:]
+    elif isinstance(r, str):
+        return r
+    elif callable(r):
+        return r()
+    else:
+        return repr(r)
+
 class abstractsmartset(object):
 
     def __nonzero__(self):
@@ -2833,7 +2829,7 @@ class abstractsmartset(object):
         This is part of the mandatory API for smartset."""
         if isinstance(other, fullreposet):
             return self
-        return self.filter(other.__contains__, cache=False)
+        return self.filter(other.__contains__, condrepr=other, cache=False)
 
     def __add__(self, other):
         """Returns a new object with the union of the two collections.
@@ -2846,19 +2842,21 @@ class abstractsmartset(object):
 
         This is part of the mandatory API for smartset."""
         c = other.__contains__
-        return self.filter(lambda r: not c(r), cache=False)
+        return self.filter(lambda r: not c(r), condrepr=('<not %r>', other),
+                           cache=False)
 
-    def filter(self, condition, cache=True):
+    def filter(self, condition, condrepr=None, cache=True):
         """Returns this smartset filtered by condition as a new smartset.
 
         `condition` is a callable which takes a revision number and returns a
-        boolean.
+        boolean. Optional `condrepr` provides a printable representation of
+        the given `condition`.
 
         This is part of the mandatory API for smartset."""
         # builtin cannot be cached. but do not needs to
         if cache and util.safehasattr(condition, 'func_code'):
             condition = util.cachefunc(condition)
-        return filteredset(self, condition)
+        return filteredset(self, condition, condrepr)
 
 class baseset(abstractsmartset):
     """Basic data structure that represents a revset and contains the basic
@@ -2866,12 +2864,17 @@ class baseset(abstractsmartset):
 
     Every method in this class should be implemented by any smartset class.
     """
-    def __init__(self, data=()):
+    def __init__(self, data=(), datarepr=None):
+        """
+        datarepr: a tuple of (format, obj, ...), a function or an object that
+                  provides a printable representation of the given data.
+        """
         if not isinstance(data, list):
             if isinstance(data, set):
                 self._set = data
             data = list(data)
         self._list = data
+        self._datarepr = datarepr
         self._ascending = None
 
     @util.propertycache
@@ -2955,20 +2958,26 @@ class baseset(abstractsmartset):
 
     def __repr__(self):
         d = {None: '', False: '-', True: '+'}[self._ascending]
-        return '<%s%s %r>' % (type(self).__name__, d, self._list)
+        s = _formatsetrepr(self._datarepr)
+        if not s:
+            s = repr(self._list)
+        return '<%s%s %s>' % (type(self).__name__, d, s)
 
 class filteredset(abstractsmartset):
     """Duck type for baseset class which iterates lazily over the revisions in
     the subset and contains a function which tests for membership in the
     revset
     """
-    def __init__(self, subset, condition=lambda x: True):
+    def __init__(self, subset, condition=lambda x: True, condrepr=None):
         """
         condition: a function that decide whether a revision in the subset
                    belongs to the revset or not.
+        condrepr: a tuple of (format, obj, ...), a function or an object that
+                  provides a printable representation of the given condition.
         """
         self._subset = subset
         self._condition = condition
+        self._condrepr = condrepr
 
     def __contains__(self, x):
         return x in self._subset and self._condition(x)
@@ -3048,7 +3057,11 @@ class filteredset(abstractsmartset):
             return x
 
     def __repr__(self):
-        return '<%s %r>' % (type(self).__name__, self._subset)
+        xs = [repr(self._subset)]
+        s = _formatsetrepr(self._condrepr)
+        if s:
+            xs.append(s)
+        return '<%s %s>' % (type(self).__name__, ', '.join(xs))
 
 def _iterordered(ascending, iter1, iter2):
     """produce an ordered iteration from two iterators with the same order
@@ -3621,6 +3634,17 @@ def prettyformatset(revs):
         lines.append((l, rs[p:q].rstrip()))
         p = q
     return '\n'.join('  ' * l + s for l, s in lines)
+
+def loadpredicate(ui, extname, registrarobj):
+    """Load revset predicates from specified registrarobj
+    """
+    for name, func in registrarobj._table.iteritems():
+        symbols[name] = func
+        if func._safe:
+            safesymbols.add(name)
+
+# load built-in predicates explicitly to setup safesymbols
+loadpredicate(None, None, predicate)
 
 # tell hggettext to extract docstrings from these functions:
 i18nfunctions = symbols.values()

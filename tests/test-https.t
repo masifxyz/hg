@@ -264,7 +264,7 @@ cacert mismatch
 
 Test server cert which isn't valid yet
 
-  $ hg -R test serve -p $HGPORT1 -d --pid-file=hg1.pid --certificate=server-not-yet.pem
+  $ hg serve -R test -p $HGPORT1 -d --pid-file=hg1.pid --certificate=server-not-yet.pem
   $ cat hg1.pid >> $DAEMON_PIDS
   $ hg -R copy-pull pull --config web.cacerts=pub-not-yet.pem https://localhost:$HGPORT1/
   pulling from https://localhost:$HGPORT1/
@@ -273,7 +273,7 @@ Test server cert which isn't valid yet
 
 Test server cert which no longer is valid
 
-  $ hg -R test serve -p $HGPORT2 -d --pid-file=hg2.pid --certificate=server-expired.pem
+  $ hg serve -R test -p $HGPORT2 -d --pid-file=hg2.pid --certificate=server-expired.pem
   $ cat hg2.pid >> $DAEMON_PIDS
   $ hg -R copy-pull pull --config web.cacerts=pub-expired.pem https://localhost:$HGPORT2/
   pulling from https://localhost:$HGPORT2/
@@ -289,6 +289,21 @@ Fingerprints
 - works without cacerts
   $ hg -R copy-pull id https://localhost:$HGPORT/ --config web.cacerts=!
   5fed3813f7f5
+
+- multiple fingerprints specified and first matches
+  $ hg --config 'hostfingerprints.localhost=914f1aff87249c09b6859b88b1906d30756491ca, deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' -R copy-pull id https://localhost:$HGPORT/ --config web.cacerts=!
+  5fed3813f7f5
+
+- multiple fingerprints specified and last matches
+  $ hg --config 'hostfingerprints.localhost=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef, 914f1aff87249c09b6859b88b1906d30756491ca' -R copy-pull id https://localhost:$HGPORT/ --config web.cacerts=!
+  5fed3813f7f5
+
+- multiple fingerprints specified and none match
+
+  $ hg --config 'hostfingerprints.localhost=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef, aeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' -R copy-pull id https://localhost:$HGPORT/ --config web.cacerts=!
+  abort: certificate for localhost has unexpected fingerprint 91:4f:1a:ff:87:24:9c:09:b6:85:9b:88:b1:90:6d:30:75:64:91:ca
+  (check hostfingerprint configuration)
+  [255]
 
 - fails when cert doesn't match hostname (port is ignored)
   $ hg -R copy-pull id https://localhost:$HGPORT1/

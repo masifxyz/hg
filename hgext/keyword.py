@@ -82,12 +82,32 @@ like CVS' $Log$, are not supported. A keyword template map "Log =
 {desc}" expands to the first line of the changeset description.
 '''
 
-from mercurial import commands, context, cmdutil, dispatch, filelog, extensions
-from mercurial import localrepo, match, patch, templatefilters, util, error
-from mercurial import scmutil, pathutil
+
+from __future__ import absolute_import
+
+import os
+import re
+import tempfile
+
 from mercurial.hgweb import webcommands
 from mercurial.i18n import _
-import os, re, tempfile
+
+from mercurial import (
+    cmdutil,
+    commands,
+    context,
+    dispatch,
+    error,
+    extensions,
+    filelog,
+    localrepo,
+    match,
+    patch,
+    pathutil,
+    scmutil,
+    templatefilters,
+    util,
+)
 
 cmdtable = {}
 command = cmdutil.command(cmdtable)
@@ -410,10 +430,8 @@ def demo(ui, repo, *args, **opts):
             ui.readconfig(opts.get('rcfile'))
         if args:
             # simulate hgrc parsing
-            rcmaps = ['[keywordmaps]\n'] + [a + '\n' for a in args]
-            fp = repo.vfs('hgrc', 'w')
-            fp.writelines(rcmaps)
-            fp.close()
+            rcmaps = '[keywordmaps]\n%s\n' % '\n'.join(args)
+            repo.vfs.write('hgrc', rcmaps)
             ui.readconfig(repo.join('hgrc'))
         kwmaps = dict(ui.configitems('keywordmaps'))
     elif opts.get('default'):

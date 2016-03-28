@@ -149,6 +149,8 @@ def topicmatch(ui, kw):
     for name, docs in itertools.chain(
         extensions.enabled(False).iteritems(),
         extensions.disabled().iteritems()):
+        if not docs:
+            continue
         mod = extensions.load(ui, name, '')
         name = name.rpartition('.')[-1]
         if lowercontains(name) or lowercontains(docs):
@@ -186,6 +188,8 @@ internalstable = sorted([
      loaddoc('bundles', subdir='internals')),
     (['changegroups'], _('representation of revlog data'),
      loaddoc('changegroups', subdir='internals')),
+    (['requirements'], _('repository requirements'),
+     loaddoc('requirements', subdir='internals')),
     (['revlogs'], _('revision storage mechanism'),
      loaddoc('revlogs', subdir='internals')),
 ])

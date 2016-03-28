@@ -19,9 +19,13 @@ when a rule triggers wrong, do one of the following (prefer one from top):
  * ONLY use no--check-code for skipping entire files from external sources
 """
 
-import re, glob, os, sys
+from __future__ import absolute_import, print_function
+import glob
 import keyword
 import optparse
+import os
+import re
+import sys
 try:
     import re2
 except ImportError:
@@ -90,7 +94,7 @@ testpats = [
     (r'pushd|popd', "don't use 'pushd' or 'popd', use 'cd'"),
     (r'\W\$?\(\([^\)\n]*\)\)', "don't use (()) or $(()), use 'expr'"),
     (r'grep.*-q', "don't use 'grep -q', redirect to /dev/null"),
-    (r'(?<!hg )grep.*-a', "don't use 'grep -a', use in-line python"),
+    (r'(?<!hg )grep.* -a', "don't use 'grep -a', use in-line python"),
     (r'sed.*-i', "don't use 'sed -i', use a temporary file"),
     (r'\becho\b.*\\n', "don't use 'echo \\n', use printf"),
     (r'echo -n', "don't use 'echo -n', use printf"),
@@ -176,6 +180,19 @@ utestpats = [
      'write "file:/*/$TESTTMP" + (glob) to match on windows too'),
     (r'^  (cat|find): .*: No such file or directory',
      'use test -f to test for file existence'),
+    (r'^  diff -[^ -]*p',
+     "don't use (external) diff with -p for portability"),
+    (r'^  [-+][-+][-+] .* [-+]0000 \(glob\)',
+     "glob timezone field in diff output for portability"),
+    (r'^  @@ -[0-9]+ [+][0-9]+,[0-9]+ @@',
+     "use '@@ -N* +N,n @@ (glob)' style chunk header for portability"),
+    (r'^  @@ -[0-9]+,[0-9]+ [+][0-9]+ @@',
+     "use '@@ -N,n +N* @@ (glob)' style chunk header for portability"),
+    (r'^  @@ -[0-9]+ [+][0-9]+ @@',
+     "use '@@ -N* +N* @@ (glob)' style chunk header for portability"),
+    (uprefix + r'hg( +-[^ ]+( +[^ ]+)?)* +extdiff'
+     r'( +(-[^ po-]+|--(?!program|option)[^ ]+|[^-][^ ]*))*$',
+     "use $RUNTESTDIR/pdiff via extdiff (or -o/-p for false-positives)"),
   ],
   # warnings
   [
@@ -205,9 +222,6 @@ pypats = [
      "tuple parameter unpacking not available in Python 3+"),
     (r'lambda\s*\(.*,.*\)',
      "tuple parameter unpacking not available in Python 3+"),
-    (r'import (.+,[^.]+\.[^.]+|[^.]+\.[^.]+,)',
-     '2to3 can\'t always rewrite "import qux, foo.bar", '
-     'use "import foo.bar" on its own line instead.'),
     (r'(?<!def)\s+(cmp)\(', "cmp is not available in Python 3+"),
     (r'\breduce\s*\(.*', "reduce is not available in Python 3+"),
     (r'dict\(.*=', 'dict() is different in Py2 and 3 and is slower than {}',
@@ -232,9 +246,11 @@ pypats = [
      "don't use camelcase in identifiers"),
     (r'^\s*(if|while|def|class|except|try)\s[^[\n]*:\s*[^\\n]#\s]+',
      "linebreak after :"),
-    (r'class\s[^( \n]+:', "old-style class, use class foo(object)"),
+    (r'class\s[^( \n]+:', "old-style class, use class foo(object)",
+     r'#.*old-style'),
     (r'class\s[^( \n]+\(\):',
-     "class foo() creates old style object, use class foo(object)"),
+     "class foo() creates old style object, use class foo(object)",
+     r'#.*old-style'),
     (r'\b(%s)\(' % '|'.join(k for k in keyword.kwlist
                             if k not in ('print', 'exec')),
      "Python keyword is not a function"),
@@ -343,6 +359,8 @@ cpats = [
     (r'^#\s+\w', "use #foo, not # foo"),
     (r'[^\n]\Z', "no trailing newline"),
     (r'^\s*#import\b', "use only #include in standard C code"),
+    (r'strcpy\(', "don't use strcpy, use strlcpy or memcpy"),
+    (r'strcat\(', "don't use strcat"),
   ],
   # warnings
   []
@@ -431,12 +449,12 @@ class norepeatlogger(object):
         msgid = fname, lineno, line
         if msgid != self._lastseen:
             if blame:
-                print "%s:%d (%s):" % (fname, lineno, blame)
+                print("%s:%d (%s):" % (fname, lineno, blame))
             else:
-                print "%s:%d:" % (fname, lineno)
-            print " > %s" % line
+                print("%s:%d:" % (fname, lineno))
+            print(" > %s" % line)
             self._lastseen = msgid
-        print " " + msg
+        print(" " + msg)
 
 _defaultlogger = norepeatlogger()
 
@@ -466,19 +484,19 @@ def checkfile(f, logfunc=_defaultlogger.log, maxerr=None, warnings=False,
     try:
         fp = open(f)
     except IOError as e:
-        print "Skipping %s, %s" % (f, str(e).split(':', 1)[0])
+        print("Skipping %s, %s" % (f, str(e).split(':', 1)[0]))
         return result
     pre = post = fp.read()
     fp.close()
 
     for name, match, magic, filters, pats in checks:
         if debug:
-            print name, f
+            print(name, f)
         fc = 0
-        if not (re.match(match, f) or (magic and re.search(magic, f))):
+        if not (re.match(match, f) or (magic and re.search(magic, pre))):
             if debug:
-                print "Skipping %s for %s it doesn't match %s" % (
-                       name, match, f)
+                print("Skipping %s for %s it doesn't match %s" % (
+                       name, match, f))
             continue
         if "no-" "check-code" in pre:
             # If you're looking at this line, it's because a file has:
@@ -487,7 +505,7 @@ def checkfile(f, logfunc=_defaultlogger.log, maxerr=None, warnings=False,
             # tests easier. So, instead of writing it with a normal
             # spelling, we write it with the expected spelling from
             # tests/test-check-code.t
-            print "Skipping %s it has no-che?k-code (glob)" % f
+            print("Skipping %s it has no-che?k-code (glob)" % f)
             return "Skip" # skip checking this file
         for p, r in filters:
             post = re.sub(p, r, post)
@@ -499,7 +517,7 @@ def checkfile(f, logfunc=_defaultlogger.log, maxerr=None, warnings=False,
         # print post # uncomment to show filtered version
 
         if debug:
-            print "Checking %s for %s" % (name, f)
+            print("Checking %s for %s" % (name, f))
 
         prelines = None
         errors = []
@@ -530,8 +548,8 @@ def checkfile(f, logfunc=_defaultlogger.log, maxerr=None, warnings=False,
 
                 if ignore and re.search(ignore, l, re.MULTILINE):
                     if debug:
-                        print "Skipping %s for %s:%s (ignore pattern)" % (
-                            name, f, n)
+                        print("Skipping %s for %s:%s (ignore pattern)" % (
+                            name, f, n))
                     continue
                 bd = ""
                 if blame:
@@ -551,7 +569,7 @@ def checkfile(f, logfunc=_defaultlogger.log, maxerr=None, warnings=False,
             logfunc(*e)
             fc += 1
             if maxerr and fc >= maxerr:
-                print " (too many errors, giving up)"
+                print(" (too many errors, giving up)")
                 break
 
     return result
