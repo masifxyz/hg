@@ -352,7 +352,8 @@ def _debugbundle2(ui, gen, all=None, **opts):
     for part in gen.iterparts():
         if parttypes and part.type not in parttypes:
             continue
-        ui.write('%s -- %s\n' % (part.type, _quasirepr(part.params)))
+        msg = '%s -- %s (mandatory: %r)\n'
+        ui.write((msg % (part.type, _quasirepr(part.params), part.mandatory)))
         if part.type == 'changegroup':
             version = part.params.get('version', '01')
             cg = changegroup.getunbundler(version, part, 'UN')
@@ -462,6 +463,8 @@ def _debugdisplaycolor(ui):
 
 def _debugdisplaystyle(ui):
     ui.write(_('available style:\n'))
+    if not ui._styles:
+        return
     width = max(len(s) for s in ui._styles)
     for label, effects in sorted(ui._styles.items()):
         ui.write('%s' % label, label=label)
