@@ -1,0 +1,18 @@
+[package]
+name = "hg-core"
+version = "0.1.0"
+authors = ["Georges Racinet <gracinet@anybox.fr>"]
+description = "Mercurial pure Rust core library, with no assumption on Python bindings (FFI)"
+edition = "2018"
+
+[lib]
+name = "hg"
+
+[dependencies]
+byteorder = "1.3.1"
+lazy_static = "1.3.0"
+memchr = "2.2.0"
+rand = "0.6.5"
+rand_pcg = "0.1.1"
+regex = "1.1.0"
+rayon = "1.2.0"
