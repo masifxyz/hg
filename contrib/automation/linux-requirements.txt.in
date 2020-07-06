@@ -1,0 +1,14 @@
+# black pulls in typed-ast, which doesn't install on PyPy.
+black ; python_version >= '3.6' and platform_python_implementation != 'PyPy'
+# Bazaar doesn't work with Python 3 nor PyPy.
+bzr ; python_version <= '2.7' and platform_python_implementation == 'CPython'
+docutils
+fuzzywuzzy
+pyflakes
+pygments
+pylint
+# Needed to avoid warnings from fuzzywuzzy.
+python-Levenshtein
+# typed-ast dependency doesn't install on PyPy.
+typed-ast ; python_version >= '3.0' and platform_python_implementation != 'PyPy'
+vcrpy

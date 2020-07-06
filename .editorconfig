@@ -1,0 +1,18 @@
+# See http://EditorConfig.org for the specification
+
+root = true
+
+[*.py]
+indent_size = 4
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.{c,h}]
+indent_size = 8
+indent_style = tab
+trim_trailing_whitespace = true
+
+[*.t]
+indent_size = 2
+indent_style = space
+trim_trailing_whitespace = false
