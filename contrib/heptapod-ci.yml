@@ -1,0 +1,104 @@
+image: octobus/ci-mercurial-core
+
+# The runner made a clone as root.
+# We make a new clone owned by user used to run the step.
+before_script:
+    - hg clone . /tmp/mercurial-ci/ --noupdate
+    - hg -R /tmp/mercurial-ci/ update `hg log --rev '.' --template '{node}'`
+    - cd /tmp/mercurial-ci/rust/rhg
+    - cargo build
+    - cd /tmp/mercurial-ci/
+    - ls -1 tests/test-check-*.* > /tmp/check-tests.txt
+
+variables:
+    PYTHON: python
+    TEST_HGMODULEPOLICY: "allow"
+
+.runtests_template: &runtests
+    script:
+        - echo "python used, $PYTHON"
+        - echo "$RUNTEST_ARGS"
+        - HGMODULEPOLICY="$TEST_HGMODULEPOLICY" "$PYTHON" tests/run-tests.py --color=always $RUNTEST_ARGS
+
+checks-py2:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: "--time --test-list /tmp/check-tests.txt"
+
+checks-py3:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: "--time --test-list /tmp/check-tests.txt"
+        PYTHON: python3
+
+rust-cargo-test-py2: &rust_cargo_test
+    script:
+        - echo "python used, $PYTHON"
+        - make rust-tests
+
+rust-cargo-test-py3:
+    <<: *rust_cargo_test
+    variables:
+        PYTHON: python3
+
+rust-cargo-test-py3-dirstate-tree:
+    <<: *rust_cargo_test
+    variables:
+        PYTHON: python3
+        HG_RUST_FEATURES: dirstate-tree
+
+test-py2:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: " --no-rust --blacklist /tmp/check-tests.txt"
+        TEST_HGMODULEPOLICY: "c"
+
+test-py3:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: " --no-rust --blacklist /tmp/check-tests.txt"
+        PYTHON: python3
+        TEST_HGMODULEPOLICY: "c"
+
+test-py2-pure:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: "--pure --blacklist /tmp/check-tests.txt"
+        TEST_HGMODULEPOLICY: "py"
+
+test-py3-pure:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: "--pure --blacklist /tmp/check-tests.txt"
+        PYTHON: python3
+        TEST_HGMODULEPOLICY: "py"
+
+test-py2-rust:
+    <<: *runtests
+    variables:
+        HGWITHRUSTEXT: cpython
+        RUNTEST_ARGS: "--rust --blacklist /tmp/check-tests.txt"
+        TEST_HGMODULEPOLICY: "rust+c"
+
+test-py3-rust:
+    <<: *runtests
+    variables:
+        HGWITHRUSTEXT: cpython
+        RUNTEST_ARGS: "--rust --blacklist /tmp/check-tests.txt"
+        PYTHON: python3
+        TEST_HGMODULEPOLICY: "rust+c"
+
+test-py3-rust-dirstate-tree:
+    <<: *runtests
+    variables:
+        HGWITHRUSTEXT: cpython
+        RUNTEST_ARGS: "--rust --blacklist /tmp/check-tests.txt"
+        PYTHON: python3
+        TEST_HGMODULEPOLICY: "rust+c"
+        HG_RUST_FEATURES: "dirstate-tree"
+
+test-py2-chg:
+    <<: *runtests
+    variables:
+        RUNTEST_ARGS: "--blacklist /tmp/check-tests.txt --chg"
+        TEST_HGMODULEPOLICY: "c"

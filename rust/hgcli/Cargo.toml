@@ -1,0 +1,28 @@
+[package]
+name = "hgcli"
+version = "0.1.0"
+build = "build.rs"
+authors = ["Gregory Szorc <gregory.szorc@gmail.com>"]
+edition = "2018"
+license = "GPL-2.0"
+readme = "README.md"
+
+[[bin]]
+name = "hg"
+path = "src/main.rs"
+
+[dependencies]
+jemallocator-global = { version = "0.3", optional = true }
+
+[dependencies.pyembed]
+git = "https://github.com/indygreg/PyOxidizer.git"
+rev = "4697fb25918dfad6dc73288daeea501063963a08"
+default-features = false
+
+[features]
+default = ["build-mode-pyoxidizer-exe"]
+jemalloc = ["jemallocator-global", "pyembed/jemalloc"]
+build-mode-pyoxidizer-exe = ["pyembed/build-mode-pyoxidizer-exe"]
+build-mode-prebuilt-artifacts = ["pyembed/build-mode-prebuilt-artifacts"]
+cpython-link-unresolved-static = ["pyembed/cpython-link-unresolved-static"]
+cpython-link-default = ["pyembed/cpython-link-default"]

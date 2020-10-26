@@ -1,0 +1,22 @@
+[package]
+name = "chg"
+version = "0.1.0"
+authors = ["Yuya Nishihara <yuya@tcha.org>"]
+description = "Client for Mercurial command server with cHg extension"
+license = "GPL-2.0+"
+edition = "2018"
+
+[dependencies]
+async-trait = "0.1"
+bytes = "0.5"
+futures = "0.3"
+libc = "0.2"
+log = { version = "0.4", features = ["std"] }
+tokio-hglib = "0.3"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["rt-core", "io-util", "time", "process", "macros"]
+
+[build-dependencies]
+cc = "1.0"
