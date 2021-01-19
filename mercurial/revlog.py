@@ -161,6 +161,16 @@ def _verify_revision(rl, skipflags, state, node):
         rl.revision(node)
 
 
+# True if a fast implementation for persistent-nodemap is available
+#
+# We also consider we have a "fast" implementation in "pure" python because
+# people using pure don't really have performance consideration (and a
+# wheelbarrow of other slowness source)
+HAS_FAST_PERSISTENT_NODEMAP = rustrevlog is not None or util.safehasattr(
+    parsers, 'BaseIndexObject'
+)
+
+
 @attr.s(slots=True, frozen=True)
 class _revisioninfo(object):
     """Information about a revision that allows building its fulltext
@@ -668,7 +678,7 @@ class revlog(object):
         if not self._chunkcache:
             self._chunkclear()
         # revnum -> (chain-length, sum-delta-length)
-        self._chaininfocache = {}
+        self._chaininfocache = util.lrucachedict(500)
         # revlog header -> revlog compressor
         self._decompressors = {}
 
@@ -1491,8 +1501,8 @@ class revlog(object):
 
     def lookup(self, id):
         """locate a node based on:
-            - revision number or str(revision number)
-            - nodeid or subset of hex nodeid
+        - revision number or str(revision number)
+        - nodeid or subset of hex nodeid
         """
         n = self._match(id)
         if n is not None:
@@ -1771,8 +1781,7 @@ class revlog(object):
             return rev - 1
 
     def issnapshot(self, rev):
-        """tells whether rev is a snapshot
-        """
+        """tells whether rev is a snapshot"""
         if not self._sparserevlog:
             return self.deltaparent(rev) == nullrev
         elif util.safehasattr(self.index, b'issnapshot'):
@@ -1819,7 +1828,7 @@ class revlog(object):
         elif operation == b'read':
             return flagutil.processflagsread(self, text, flags)
         else:  # write operation
-            return flagutil.processflagswrite(self, text, flags)
+            return flagutil.processflagswrite(self, text, flags, None)
 
     def revision(self, nodeorrev, _df=None, raw=False):
         """return an uncompressed revision of a given node or revision
@@ -2000,21 +2009,13 @@ class revlog(object):
         ):
             return
 
-        trinfo = tr.find(self.indexfile)
-        if trinfo is None:
+        troffset = tr.findoffset(self.indexfile)
+        if troffset is None:
             raise error.RevlogError(
                 _(b"%s not found in the transaction") % self.indexfile
             )
-
-        trindex = trinfo[2]
-        if trindex is not None:
-            dataoff = self.start(trindex)
-        else:
-            # revlog was stripped at start of transaction, use all leftover data
-            trindex = len(self) - 1
-            dataoff = self.end(tiprev)
-
-        tr.add(self.datafile, dataoff)
+        trindex = 0
+        tr.add(self.datafile, 0)
 
         if fp:
             fp.flush()
@@ -2026,6 +2027,8 @@ class revlog(object):
         with self._indexfp(b'r') as ifh, self._datafp(b'w') as dfh:
             for r in self:
                 dfh.write(self._getsegmentforrevs(r, r, df=ifh)[1])
+                if troffset <= self.start(r):
+                    trindex = r
 
         with self._indexfp(b'w') as fp:
             self.version &= ~FLAG_INLINE_DATA
@@ -2043,8 +2046,7 @@ class revlog(object):
         self._chunkclear()
 
     def _nodeduplicatecallback(self, transaction, node):
-        """called when trying to add a node already stored.
-        """
+        """called when trying to add a node already stored."""
 
     def addrevision(
         self,
@@ -2361,14 +2363,21 @@ class revlog(object):
             ifh.write(entry)
         else:
             offset += curr * self._io.size
-            transaction.add(self.indexfile, offset, curr)
+            transaction.add(self.indexfile, offset)
             ifh.write(entry)
             ifh.write(data[0])
             ifh.write(data[1])
             self._enforceinlinesize(transaction, ifh)
         nodemaputil.setup_persistent_nodemap(transaction, self)
 
-    def addgroup(self, deltas, linkmapper, transaction, addrevisioncb=None):
+    def addgroup(
+        self,
+        deltas,
+        linkmapper,
+        transaction,
+        addrevisioncb=None,
+        duplicaterevisioncb=None,
+    ):
         """
         add a delta group
 
@@ -2383,8 +2392,6 @@ class revlog(object):
         if self._writinghandles:
             raise error.ProgrammingError(b'cannot nest addgroup() calls')
 
-        nodes = []
-
         r = len(self)
         end = 0
         if r:
@@ -2392,10 +2399,10 @@ class revlog(object):
         ifh = self._indexfp(b"a+")
         isize = r * self._io.size
         if self._inline:
-            transaction.add(self.indexfile, end + isize, r)
+            transaction.add(self.indexfile, end + isize)
             dfh = None
         else:
-            transaction.add(self.indexfile, isize, r)
+            transaction.add(self.indexfile, isize)
             transaction.add(self.datafile, end)
             dfh = self._datafp(b"a+")
 
@@ -2405,6 +2412,7 @@ class revlog(object):
             ifh.flush()
 
         self._writinghandles = (ifh, dfh)
+        empty = True
 
         try:
             deltacomputer = deltautil.deltacomputer(self)
@@ -2414,11 +2422,12 @@ class revlog(object):
                 link = linkmapper(linknode)
                 flags = flags or REVIDX_DEFAULT_FLAGS
 
-                nodes.append(node)
-
                 if self.index.has_node(node):
-                    self._nodeduplicatecallback(transaction, node)
                     # this can happen if two branches make the same change
+                    self._nodeduplicatecallback(transaction, node)
+                    if duplicaterevisioncb:
+                        duplicaterevisioncb(self, node)
+                    empty = False
                     continue
 
                 for p in (p1, p2):
@@ -2472,6 +2481,7 @@ class revlog(object):
 
                 if addrevisioncb:
                     addrevisioncb(self, node)
+                empty = False
 
                 if not dfh and not self._inline:
                     # addrevision switched from inline to conventional
@@ -2486,8 +2496,7 @@ class revlog(object):
             if dfh:
                 dfh.close()
             ifh.close()
-
-        return nodes
+        return not empty
 
     def iscensored(self, rev):
         """Check if a file revision is censored."""
@@ -2550,7 +2559,7 @@ class revlog(object):
 
         # then reset internal state in memory to forget those revisions
         self._revisioncache = None
-        self._chaininfocache = {}
+        self._chaininfocache = util.lrucachedict(500)
         self._chunkclear()
 
         del self.index[rev:-1]

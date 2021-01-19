@@ -11,25 +11,25 @@ commit date test
   $ HGEDITOR="sh $TESTTMP/checkeditform.sh" hg commit -m ""
   HGEDITFORM=commit.normal.normal
   abort: empty commit message
-  [255]
+  [10]
   $ hg commit -d '0 0' -m commit-1
   $ echo foo >> foo
   $ hg commit -d '1 4444444' -m commit-3
   hg: parse error: impossible time zone offset: 4444444
-  [255]
+  [10]
   $ hg commit -d '1	15.1' -m commit-4
   hg: parse error: invalid date: '1\t15.1'
-  [255]
+  [10]
   $ hg commit -d 'foo bar' -m commit-5
   hg: parse error: invalid date: 'foo bar'
-  [255]
+  [10]
   $ hg commit -d ' 1 4444' -m commit-6
   $ hg commit -d '111111111111 0' -m commit-7
   hg: parse error: date exceeds 32 bits: 111111111111
-  [255]
+  [10]
   $ hg commit -d '-111111111111 0' -m commit-7
   hg: parse error: date exceeds 32 bits: -111111111111
-  [255]
+  [10]
   $ echo foo >> foo
   $ hg commit -d '1901-12-13 20:45:52 +0000' -m commit-7-2
   $ echo foo >> foo
@@ -39,10 +39,10 @@ commit date test
   2 1901-12-13 20:45:52 +0000
   $ hg commit -d '1901-12-13 20:45:51 +0000' -m commit-7
   hg: parse error: date exceeds 32 bits: -2147483649
-  [255]
+  [10]
   $ hg commit -d '-2147483649 0' -m commit-7
   hg: parse error: date exceeds 32 bits: -2147483649
-  [255]
+  [10]
 
 commit added file that has been deleted
 
@@ -54,7 +54,7 @@ commit added file that has been deleted
   [1]
   $ hg commit -m commit-8-2 bar
   abort: bar: file not found!
-  [255]
+  [10]
 
   $ hg -q revert -a --no-backup
 
@@ -74,7 +74,7 @@ commit added file that has been deleted
   adding dir.file
   $ hg commit -m commit-10 dir dir.file
   abort: dir: no match under directory!
-  [255]
+  [10]
 
   $ echo >> dir/file
   $ mkdir bleh
@@ -82,10 +82,10 @@ commit added file that has been deleted
   $ cd bleh
   $ hg commit -m commit-11 .
   abort: bleh: no match under directory!
-  [255]
+  [10]
   $ hg commit -m commit-12 ../dir ../dir2
   abort: dir2: no match under directory!
-  [255]
+  [10]
   $ hg -v commit -m commit-13 ../dir
   committing files:
   dir/file
@@ -96,20 +96,20 @@ commit added file that has been deleted
 
   $ hg commit -m commit-14 does-not-exist
   abort: does-not-exist: * (glob)
-  [255]
+  [10]
 
 #if symlink
   $ ln -s foo baz
   $ hg commit -m commit-15 baz
   abort: baz: file not tracked!
-  [255]
+  [10]
   $ rm baz
 #endif
 
   $ touch quux
   $ hg commit -m commit-16 quux
   abort: quux: file not tracked!
-  [255]
+  [10]
   $ echo >> dir/file
   $ hg -v commit -m commit-17 dir/file
   committing files:
@@ -155,7 +155,7 @@ Failed commit with --addremove should not update dirstate
   $ HGEDITOR=false hg ci --addremove
   adding newfile
   abort: edit failed: false exited with status 1
-  [255]
+  [250]
   $ hg status
   ? newfile
 
@@ -164,7 +164,7 @@ Make sure we do not obscure unknown requires file entries (issue2649)
   $ echo foo >> foo
   $ echo fake >> .hg/requires
   $ hg commit -m bla
-  abort: repository requires features unknown to this Mercurial: fake!
+  abort: repository requires features unknown to this Mercurial: fake
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 
@@ -370,7 +370,7 @@ test commit message content
   HG: changed changed
   HG: removed removed
   abort: empty commit message
-  [255]
+  [10]
 
 test saving last-message.txt
 
@@ -456,7 +456,7 @@ specific template keywords work well
   HG: subrepo 'sub' is changed
   HG: subrepo 'sub2' is changed
   abort: empty commit message
-  [255]
+  [10]
 
   $ cat >> .hg/hgrc <<EOF
   > [committemplate]
@@ -471,7 +471,7 @@ specific template keywords work well
   HG: Leave message empty to abort commit.
   HG: no bookmark is activated
   abort: empty commit message
-  [255]
+  [10]
 
   $ cat >> .hg/hgrc <<EOF
   > [committemplate]
@@ -484,7 +484,7 @@ specific template keywords work well
   HG: Leave message empty to abort commit.
   HG: no bookmark is activated
   abort: empty commit message
-  [255]
+  [10]
 
   $ cat >> .hg/hgrc <<EOF
   > [committemplate]
@@ -734,7 +734,7 @@ verify pathauditor blocks evil filepaths
   $ hg add foo2
   $ HGEDITOR="sh $TESTTMP/notouching.sh" hg commit
   abort: commit message unchanged
-  [255]
+  [10]
 
   $ cd ..
 
@@ -762,7 +762,7 @@ test that text below the --- >8 --- special string is ignored
   $ hg add foo2
   $ HGEDITOR="sh $TESTTMP/notouching.sh" hg ci
   abort: commit message unchanged
-  [255]
+  [10]
   $ HGEDITOR="sh $TESTTMP/lowercaseline.sh" hg ci
   first line
   HG: this is customized commit template

@@ -174,9 +174,10 @@ quux
 # parse error
 # different user, different group
 not trusting file .hg/hgrc from untrusted user abc, group def
-ignored: ('foo', '.hg/hgrc:1')
+ignored .hg/hgrc:1: foo
 # same user, same group
-ParseError('foo', '.hg/hgrc:1')
+config error at .hg/hgrc:1: foo
+
 
 # access typed information
 # different user, different group

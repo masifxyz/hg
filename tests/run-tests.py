@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # run-tests.py - Run a set of tests on Mercurial
 #
@@ -47,6 +47,7 @@ from __future__ import absolute_import, print_function
 
 import argparse
 import collections
+import contextlib
 import difflib
 import distutils.version as version
 import errno
@@ -255,12 +256,13 @@ def checkportisavailable(port):
     else:
         family = socket.AF_INET
     try:
-        s = socket.socket(family, socket.SOCK_STREAM)
-        s.bind(('localhost', port))
-        s.close()
+        with contextlib.closing(socket.socket(family, socket.SOCK_STREAM)) as s:
+            s.bind(('localhost', port))
         return True
     except socket.error as exc:
-        if exc.errno not in (
+        if os.name == 'nt' and exc.errno == errno.WSAEACCES:
+            return False
+        elif exc.errno not in (
             errno.EADDRINUSE,
             errno.EADDRNOTAVAIL,
             errno.EPROTONOSUPPORT,
@@ -534,7 +536,9 @@ def getparser():
         help="install and use chg wrapper in place of hg",
     )
     hgconf.add_argument(
-        "--chg-debug", action="store_true", help="show chg debug logs",
+        "--chg-debug",
+        action="store_true",
+        help="show chg debug logs",
     )
     hgconf.add_argument("--compiler", help="compiler to build with")
     hgconf.add_argument(
@@ -1193,7 +1197,10 @@ class Test(unittest.TestCase):
         if self._keeptmpdir:
             log(
                 '\nKeeping testtmp dir: %s\nKeeping threadtmp dir: %s'
-                % (_bytes2sys(self._testtmp), _bytes2sys(self._threadtmp),)
+                % (
+                    _bytes2sys(self._testtmp),
+                    _bytes2sys(self._threadtmp),
+                )
             )
         else:
             try:
@@ -1330,6 +1337,9 @@ class Test(unittest.TestCase):
         env['TESTTMP'] = _bytes2sys(self._testtmp)
         env['TESTNAME'] = self.name
         env['HOME'] = _bytes2sys(self._testtmp)
+        if os.name == 'nt':
+            # py3.8+ ignores HOME: https://bugs.python.org/issue36264
+            env['USERPROFILE'] = env['HOME']
         formated_timeout = _bytes2sys(b"%d" % default_defaults['timeout'][1])
         env['HGTEST_TIMEOUT_DEFAULT'] = formated_timeout
         env['HGTEST_TIMEOUT'] = _bytes2sys(b"%d" % self._timeout)
@@ -1359,14 +1369,14 @@ class Test(unittest.TestCase):
 
         extraextensions = []
         for opt in self._extraconfigopts:
-            section, key = _sys2bytes(opt).split(b'.', 1)
+            section, key = opt.split('.', 1)
             if section != 'extensions':
                 continue
-            name = key.split(b'=', 1)[0]
+            name = key.split('=', 1)[0]
             extraextensions.append(name)
 
         if extraextensions:
-            env['HGTESTEXTRAEXTENSIONS'] = b' '.join(extraextensions)
+            env['HGTESTEXTRAEXTENSIONS'] = ' '.join(extraextensions)
 
         # LOCALIP could be ::1 or 127.0.0.1. Useful for tests that require raw
         # IP addresses.
@@ -1439,9 +1449,11 @@ class Test(unittest.TestCase):
             hgrc.write(b'[ui]\n')
             hgrc.write(b'slash = True\n')
             hgrc.write(b'interactive = False\n')
+            hgrc.write(b'detailed-exit-code = True\n')
             hgrc.write(b'merge = internal:merge\n')
             hgrc.write(b'mergemarkers = detailed\n')
             hgrc.write(b'promptecho = True\n')
+            hgrc.write(b'timeout.warn=15\n')
             hgrc.write(b'[defaults]\n')
             hgrc.write(b'[devel]\n')
             hgrc.write(b'all-warnings = true\n')
@@ -2090,11 +2102,11 @@ class TTest(Test):
 
     @staticmethod
     def parsehghaveoutput(lines):
-        '''Parse hghave log lines.
+        """Parse hghave log lines.
 
         Return tuple of lists (missing, failed):
           * the missing/unknown features
-          * the features for which existence check failed'''
+          * the features for which existence check failed"""
         missing = []
         failed = []
         for line in lines:
@@ -2154,12 +2166,10 @@ class TestResult(unittest._TextTestResult):
             self.color = pygmentspresent
 
     def onStart(self, test):
-        """ Can be overriden by custom TestResult
-        """
+        """Can be overriden by custom TestResult"""
 
     def onEnd(self):
-        """ Can be overriden by custom TestResult
-        """
+        """Can be overriden by custom TestResult"""
 
     def addFailure(self, test, reason):
         self.failures.append((test, reason))
@@ -2943,7 +2953,7 @@ class TestRunner(object):
         self._hgtmp = None
         self._installdir = None
         self._bindir = None
-        self._tmpbinddir = None
+        self._tmpbindir = None
         self._pythondir = None
         self._coveragefile = None
         self._createdfiles = []
@@ -3167,7 +3177,9 @@ class TestRunner(object):
         vlog("# Using HGTMP", _bytes2sys(self._hgtmp))
         vlog("# Using PATH", os.environ["PATH"])
         vlog(
-            "# Using", _bytes2sys(IMPL_PATH), _bytes2sys(osenvironb[IMPL_PATH]),
+            "# Using",
+            _bytes2sys(IMPL_PATH),
+            _bytes2sys(osenvironb[IMPL_PATH]),
         )
         vlog("# Writing to directory", _bytes2sys(self._outputdir))
 
@@ -3433,7 +3445,7 @@ class TestRunner(object):
     def _usecorrectpython(self):
         """Configure the environment to use the appropriate Python in tests."""
         # Tests must use the same interpreter as us or bad things will happen.
-        pyexename = sys.platform == 'win32' and b'python.exe' or b'python'
+        pyexename = sys.platform == 'win32' and b'python.exe' or b'python3'
 
         # os.symlink() is a thing with py3 on Windows, but it requires
         # Administrator rights.
@@ -3459,6 +3471,15 @@ class TestRunner(object):
                     if err.errno != errno.EEXIST:
                         raise
         else:
+            # Windows doesn't have `python3.exe`, and MSYS cannot understand the
+            # reparse point with that name provided by Microsoft.  Create a
+            # simple script on PATH with that name that delegates to the py3
+            # launcher so the shebang lines work.
+            if os.getenv('MSYSTEM'):
+                with open(osenvironb[b'RUNTESTDIR'] + b'/python3', 'wb') as f:
+                    f.write(b'#!/bin/sh\n')
+                    f.write(b'py -3 "$@"\n')
+
             exedir, exename = os.path.split(sysexecutable)
             vlog(
                 "# Modifying search path to find %s as %s in '%s'"
@@ -3467,7 +3488,29 @@ class TestRunner(object):
             path = os.environ['PATH'].split(os.pathsep)
             while exedir in path:
                 path.remove(exedir)
-            os.environ['PATH'] = os.pathsep.join([exedir] + path)
+
+            # Binaries installed by pip into the user area like pylint.exe may
+            # not be in PATH by default.
+            extra_paths = [exedir]
+            vi = sys.version_info
+            if 'APPDATA' in os.environ:
+                scripts_dir = os.path.join(
+                    os.environ['APPDATA'],
+                    'Python',
+                    'Python%d%d' % (vi[0], vi[1]),
+                    'Scripts',
+                )
+
+                if vi.major == 2:
+                    scripts_dir = os.path.join(
+                        os.environ['APPDATA'],
+                        'Python',
+                        'Scripts',
+                    )
+
+                extra_paths.append(scripts_dir)
+
+            os.environ['PATH'] = os.pathsep.join(extra_paths + path)
             if not self._findprogram(pyexename):
                 print("WARNING: Cannot find %s in search path" % pyexename)
 

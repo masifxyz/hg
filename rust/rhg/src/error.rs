@@ -1,6 +1,8 @@
 use crate::exitcode;
 use crate::ui::UiError;
+use format_bytes::format_bytes;
 use hg::operations::{FindRootError, FindRootErrorKind};
+use hg::requirements::RequirementsError;
 use hg::utils::files::get_bytes_from_path;
 use std::convert::From;
 use std::path::PathBuf;
@@ -12,6 +14,8 @@ pub enum CommandErrorKind {
     RootNotFound(PathBuf),
     /// The current directory cannot be found
     CurrentDirNotFound(std::io::Error),
+    /// `.hg/requires`
+    RequirementsError(RequirementsError),
     /// The standard output stream cannot be written to
     StdoutError,
     /// The standard error stream cannot be written to
@@ -27,6 +31,10 @@ impl CommandErrorKind {
         match self {
             CommandErrorKind::RootNotFound(_) => exitcode::ABORT,
             CommandErrorKind::CurrentDirNotFound(_) => exitcode::ABORT,
+            CommandErrorKind::RequirementsError(
+                RequirementsError::Unsupported { .. },
+            ) => exitcode::UNIMPLEMENTED_COMMAND,
+            CommandErrorKind::RequirementsError(_) => exitcode::ABORT,
             CommandErrorKind::StdoutError => exitcode::ABORT,
             CommandErrorKind::StderrError => exitcode::ABORT,
             CommandErrorKind::Abort(_) => exitcode::ABORT,
@@ -37,26 +45,21 @@ impl CommandErrorKind {
     /// Return the message corresponding to the error kind if any
     pub fn get_error_message_bytes(&self) -> Option<Vec<u8>> {
         match self {
-            // TODO use formating macro
             CommandErrorKind::RootNotFound(path) => {
                 let bytes = get_bytes_from_path(path);
-                Some(
-                    [
-                        b"abort: no repository found in '",
-                        bytes.as_slice(),
-                        b"' (.hg not found)!\n",
-                    ]
-                    .concat(),
-                )
+                Some(format_bytes!(
+                    b"abort: no repository found in '{}' (.hg not found)!\n",
+                    bytes.as_slice()
+                ))
             }
-            // TODO use formating macro
-            CommandErrorKind::CurrentDirNotFound(e) => Some(
-                [
-                    b"abort: error getting current working directory: ",
-                    e.to_string().as_bytes(),
-                    b"\n",
-                ]
-                .concat(),
+            CommandErrorKind::CurrentDirNotFound(e) => Some(format_bytes!(
+                b"abort: error getting current working directory: {}\n",
+                e.to_string().as_bytes(),
+            )),
+            CommandErrorKind::RequirementsError(
+                RequirementsError::Corrupted,
+            ) => Some(
+                "abort: .hg/requires is corrupted\n".as_bytes().to_owned(),
             ),
             CommandErrorKind::Abort(message) => message.to_owned(),
             _ => None,
@@ -108,6 +111,14 @@ impl From<FindRootError> for CommandError {
             FindRootErrorKind::GetCurrentDirError(e) => CommandError {
                 kind: CommandErrorKind::CurrentDirNotFound(e),
             },
+        }
+    }
+}
+
+impl From<RequirementsError> for CommandError {
+    fn from(err: RequirementsError) -> Self {
+        CommandError {
+            kind: CommandErrorKind::RequirementsError(err),
         }
     }
 }

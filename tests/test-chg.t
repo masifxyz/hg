@@ -29,8 +29,8 @@ ill-formed config
   $ chg status
   $ echo '=brokenconfig' >> $HGRCPATH
   $ chg status
-  hg: parse error at * (glob)
-  [255]
+  config error at * =brokenconfig (glob)
+  [30]
 
   $ cp $HGRCPATH.orig $HGRCPATH
 

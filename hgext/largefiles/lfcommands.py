@@ -14,6 +14,11 @@ import os
 import shutil
 
 from mercurial.i18n import _
+from mercurial.node import (
+    bin,
+    hex,
+    nullid,
+)
 
 from mercurial import (
     cmdutil,
@@ -23,7 +28,6 @@ from mercurial import (
     hg,
     lock,
     match as matchmod,
-    node,
     pycompat,
     scmutil,
     util,
@@ -66,7 +70,7 @@ eh = exthelper.exthelper()
     inferrepo=True,
 )
 def lfconvert(ui, src, dest, *pats, **opts):
-    '''convert a normal repository to a largefiles repository
+    """convert a normal repository to a largefiles repository
 
     Convert repository SOURCE to a new repository DEST, identical to
     SOURCE except that certain files will be converted as largefiles:
@@ -82,7 +86,7 @@ def lfconvert(ui, src, dest, *pats, **opts):
     repository.
 
     Use --to-normal to convert largefiles back to normal files; after
-    this, the DEST repository can be used without largefiles at all.'''
+    this, the DEST repository can be used without largefiles at all."""
 
     opts = pycompat.byteskwargs(opts)
     if opts[b'to_normal']:
@@ -111,7 +115,7 @@ def lfconvert(ui, src, dest, *pats, **opts):
             rsrc[ctx]
             for ctx in rsrc.changelog.nodesbetween(None, rsrc.heads())[0]
         )
-        revmap = {node.nullid: node.nullid}
+        revmap = {nullid: nullid}
         if tolfile:
             # Lock destination to prevent modification while it is converted to.
             # Don't need to lock src because we are just reading from its
@@ -275,7 +279,7 @@ def _lfconvert_addchangeset(
                 # largefile was modified, update standins
                 m = hashutil.sha1(b'')
                 m.update(ctx[f].data())
-                hash = node.hex(m.digest())
+                hash = hex(m.digest())
                 if f not in lfiletohash or lfiletohash[f] != hash:
                     rdst.wwrite(f, ctx[f].data(), ctx[f].flags())
                     executable = b'x' in ctx[f].flags()
@@ -336,7 +340,7 @@ def _commitcontext(rdst, parents, ctx, dstfiles, getfilectx, revmap):
 # Generate list of changed files
 def _getchangedfiles(ctx, parents):
     files = set(ctx.files())
-    if node.nullid not in parents:
+    if nullid not in parents:
         mc = ctx.manifest()
         for pctx in ctx.parents():
             for fn in pctx.manifest().diff(mc):
@@ -350,7 +354,7 @@ def _convertparents(ctx, revmap):
     for p in ctx.parents():
         parents.append(revmap[p.node()])
     while len(parents) < 2:
-        parents.append(node.nullid)
+        parents.append(nullid)
     return parents
 
 
@@ -380,12 +384,12 @@ def _converttags(ui, revmap, data):
             ui.warn(_(b'skipping incorrectly formatted tag %s\n') % line)
             continue
         try:
-            newid = node.bin(id)
+            newid = bin(id)
         except TypeError:
             ui.warn(_(b'skipping incorrectly formatted id %s\n') % id)
             continue
         try:
-            newdata.append(b'%s %s\n' % (node.hex(revmap[newid]), name))
+            newdata.append(b'%s %s\n' % (hex(revmap[newid]), name))
         except KeyError:
             ui.warn(_(b'no mapping for id %s\n') % id)
             continue
@@ -393,8 +397,8 @@ def _converttags(ui, revmap, data):
 
 
 def _islfile(file, ctx, matcher, size):
-    '''Return true if file should be considered a largefile, i.e.
-    matcher matches it or it is larger than size.'''
+    """Return true if file should be considered a largefile, i.e.
+    matcher matches it or it is larger than size."""
     # never store special .hg* files as largefiles
     if file == b'.hgtags' or file == b'.hgignore' or file == b'.hgsigs':
         return False
@@ -440,11 +444,11 @@ def uploadlfiles(ui, rsrc, rdst, files):
 
 
 def verifylfiles(ui, repo, all=False, contents=False):
-    '''Verify that every largefile revision in the current changeset
+    """Verify that every largefile revision in the current changeset
     exists in the central store.  With --contents, also verify that
     the contents of each local largefile file revision are correct (SHA-1 hash
     matches the revision ID).  With --all, check every changeset in
-    this repository.'''
+    this repository."""
     if all:
         revs = repo.revs(b'all()')
     else:
@@ -455,12 +459,12 @@ def verifylfiles(ui, repo, all=False, contents=False):
 
 
 def cachelfiles(ui, repo, node, filelist=None):
-    '''cachelfiles ensures that all largefiles needed by the specified revision
+    """cachelfiles ensures that all largefiles needed by the specified revision
     are present in the repository's largefile cache.
 
     returns a tuple (cached, missing).  cached is the list of files downloaded
     by this operation; missing is the list of files that were needed but could
-    not be found.'''
+    not be found."""
     lfiles = lfutil.listlfiles(repo, node)
     if filelist:
         lfiles = set(lfiles) & set(filelist)
@@ -502,11 +506,11 @@ def downloadlfiles(ui, repo):
 def updatelfiles(
     ui, repo, filelist=None, printmessage=None, normallookup=False
 ):
-    '''Update largefiles according to standins in the working directory
+    """Update largefiles according to standins in the working directory
 
     If ``printmessage`` is other than ``None``, it means "print (or
     ignore, for false) message forcibly".
-    '''
+    """
     statuswriter = lfutil.getstatuswriter(ui, repo, printmessage)
     with repo.wlock():
         lfdirstate = lfutil.openlfdirstate(ui, repo)

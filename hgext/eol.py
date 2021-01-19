@@ -118,13 +118,19 @@ configtable = {}
 configitem = registrar.configitem(configtable)
 
 configitem(
-    b'eol', b'fix-trailing-newline', default=False,
+    b'eol',
+    b'fix-trailing-newline',
+    default=False,
 )
 configitem(
-    b'eol', b'native', default=pycompat.oslinesep,
+    b'eol',
+    b'native',
+    default=pycompat.oslinesep,
 )
 configitem(
-    b'eol', b'only-consistent', default=True,
+    b'eol',
+    b'only-consistent',
+    default=True,
 )
 
 # Matches a lone LF, i.e., one that is not part of CRLF.
@@ -274,13 +280,13 @@ def parseeol(ui, repo, nodes):
                 return eolfile(ui, repo.root, data)
             except (IOError, LookupError):
                 pass
-    except errormod.ParseError as inst:
+    except errormod.ConfigError as inst:
         ui.warn(
             _(
                 b"warning: ignoring .hgeol file due to parse error "
                 b"at %s: %s\n"
             )
-            % (inst.args[1], inst.args[0])
+            % (inst.location, inst.message)
         )
     return None
 

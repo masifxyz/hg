@@ -372,7 +372,7 @@ def cleanup(repo, replacements, wdirwritten):
 
 
 def getworkqueue(ui, repo, pats, opts, revstofix, basectxs):
-    """"Constructs the list of files to be fixed at specific revisions
+    """Constructs the list of files to be fixed at specific revisions
 
     It is up to the caller how to consume the work items, and the only
     dependence between them is that replacement revisions must be committed in
@@ -417,7 +417,7 @@ def getrevstofix(ui, repo, opts):
         revs = repo.revs(b'(not public() and not obsolete()) or wdir()')
     elif opts[b'source']:
         source_revs = scmutil.revrange(repo, opts[b'source'])
-        revs = set(repo.revs(b'%ld::', source_revs))
+        revs = set(repo.revs(b'(%ld::) - obsolete()', source_revs))
         if wdirrev in source_revs:
             # `wdir()::` is currently empty, so manually add wdir
             revs.add(wdirrev)
@@ -427,8 +427,8 @@ def getrevstofix(ui, repo, opts):
         revs = set(scmutil.revrange(repo, opts[b'rev']))
         if opts.get(b'working_dir'):
             revs.add(wdirrev)
-    for rev in revs:
-        checkfixablectx(ui, repo, repo[rev])
+        for rev in revs:
+            checkfixablectx(ui, repo, repo[rev])
     # Allow fixing only wdir() even if there's an unfinished operation
     if not (len(revs) == 1 and wdirrev in revs):
         cmdutil.checkunfinished(repo)
@@ -439,7 +439,7 @@ def getrevstofix(ui, repo, opts):
         raise error.Abort(b'unresolved conflicts', hint=b"use 'hg resolve'")
     if not revs:
         raise error.Abort(
-            b'no changesets specified', hint=b'use --rev or --working-dir'
+            b'no changesets specified', hint=b'use --source or --working-dir'
         )
     return revs
 

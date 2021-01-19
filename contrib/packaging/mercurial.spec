@@ -3,6 +3,7 @@
 %define withpython %{nil}
 
 %global pythonexe python3
+%global pythondocutils python3-docutils
 
 %if "%{?withpython}"
 
@@ -39,7 +40,7 @@ BuildRequires: make, gcc, gettext
 %if "%{?withpython}"
 BuildRequires: readline-devel, openssl-devel, ncurses-devel, zlib-devel, bzip2-devel
 %else
-BuildRequires: %{pythonexe} >= %{pythonver}, %{pythonexe}-devel, %{pythonexe}-docutils >= 0.5
+BuildRequires: %{pythonexe} >= %{pythonver}, %{pythonexe}-devel, %{pythondocutils}
 Requires: %{pythonexe} >= %{pythonver}
 %endif
 # The hgk extension uses the wish tcl interpreter, but we don't enforce it
@@ -109,14 +110,14 @@ cd %{docutilsname}
 LD_LIBRARY_PATH=$PYPATH $PYPATH/python setup.py install --root="$RPM_BUILD_ROOT"
 cd -
 
-PATH=$PYPATH:$PATH LD_LIBRARY_PATH=$PYPATH make install PYTHON=%{pythonexe} DESTDIR=$RPM_BUILD_ROOT PREFIX=%{hgpyprefix} MANDIR=%{_mandir}
+PATH=$PYPATH:$PATH LD_LIBRARY_PATH=$PYPATH make install PYTHON=%{pythonexe} DESTDIR=$RPM_BUILD_ROOT PREFIX=%{hgpyprefix} MANDIR=%{_mandir} PURE="--rust"
 mkdir -p $RPM_BUILD_ROOT%{_bindir}
 ( cd $RPM_BUILD_ROOT%{_bindir}/ && ln -s ../..%{hgpyprefix}/bin/hg . )
 ( cd $RPM_BUILD_ROOT%{_bindir}/ && ln -s ../..%{hgpyprefix}/bin/python2.? %{pythonhg} )
 
 %else
 
-make install PYTHON=%{pythonexe} DESTDIR=$RPM_BUILD_ROOT PREFIX=%{_prefix} MANDIR=%{_mandir}
+make install PYTHON=%{pythonexe} DESTDIR=$RPM_BUILD_ROOT PREFIX=%{_prefix} MANDIR=%{_mandir} PURE="--rust"
 
 %endif
 

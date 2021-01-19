@@ -91,8 +91,8 @@ editing a changeset without any actual change would corrupt the repository
   | edit e860deea161a 4 e
   | pick 652413bf663e 5 f
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
-  Editing (e860deea161a), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  Editing (e860deea161a), commit as needed now to split the change
+  (to edit e860deea161a, `hg histedit --continue` after making changes)
   $ continueediting true "(leaving commit message unaltered)"
   % finalize changeset editing (leaving commit message unaltered)
 
@@ -142,12 +142,12 @@ check state of working copy
   | edit e860deea161a 4 e
   | pick 652413bf663e 5 f
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
-  Editing (055a42cdd887), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  Editing (055a42cdd887), commit as needed now to split the change
+  (to edit 055a42cdd887, `hg histedit --continue` after making changes)
   $ continueediting true "(leaving commit message unaltered)"
   % finalize changeset editing (leaving commit message unaltered)
-  Editing (e860deea161a), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  Editing (e860deea161a), commit as needed now to split the change
+  (to edit e860deea161a, `hg histedit --continue` after making changes)
   $ graphlog "log after first edit"
   % log after first edit
   @  6 e5ae3ca2f1ffdbd89ec41ebc273a231f7c3022f2 "d"
@@ -169,7 +169,7 @@ abort editing session, after first forcibly updating away
   $ hg up 0
   abort: histedit in progress
   (use 'hg histedit --continue' or 'hg histedit --abort')
-  [255]
+  [20]
   $ mv .hg/histedit-state .hg/histedit-state-ignore
   $ hg up 0
   0 files updated, 0 files merged, 3 files removed, 0 files unresolved
@@ -211,8 +211,8 @@ aborting and not changing files can skip mentioning updating (no) files
   $ startediting 1 1 "(not changing anything)" # edit the 3rd of 3 changesets
   % start editing the history (not changing anything)
   | edit 292aec348d9e 6 closebranch
-  Editing (292aec348d9e), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  Editing (292aec348d9e), commit as needed now to split the change
+  (to edit 292aec348d9e, `hg histedit --continue` after making changes)
   $ hg histedit --abort
 
   $ cd ..

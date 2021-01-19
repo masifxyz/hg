@@ -279,7 +279,7 @@ def check_at_most_one_arg(opts, *args):
     for x in args:
         if opts.get(x):
             if previous:
-                raise error.Abort(
+                raise error.InputError(
                     _(b'cannot specify both --%s and --%s')
                     % (to_display(previous), to_display(x))
                 )
@@ -332,9 +332,9 @@ def checknotesize(ui, opts):
         return
 
     if len(note) > 255:
-        raise error.Abort(_(b"cannot store a note of more than 255 bytes"))
+        raise error.InputError(_(b"cannot store a note of more than 255 bytes"))
     if b'\n' in note:
-        raise error.Abort(_(b"note cannot contain a newline"))
+        raise error.InputError(_(b"note cannot contain a newline"))
 
 
 def ishunk(x):
@@ -359,7 +359,17 @@ def newandmodified(chunks, originalchunks):
 
 
 def parsealiases(cmd):
-    return cmd.split(b"|")
+    base_aliases = cmd.split(b"|")
+    all_aliases = set(base_aliases)
+    extra_aliases = []
+    for alias in base_aliases:
+        if b'-' in alias:
+            folded_alias = alias.replace(b'-', b'')
+            if folded_alias not in all_aliases:
+                all_aliases.add(folded_alias)
+                extra_aliases.append(folded_alias)
+    base_aliases.extend(extra_aliases)
+    return base_aliases
 
 
 def setupwrapcolorwrite(ui):
@@ -399,7 +409,7 @@ def filterchunks(ui, originalhunks, usecurses, testfile, match, operation=None):
 
 
 def recordfilter(ui, originalhunks, match, operation=None):
-    """ Prompts the user to filter the originalhunks and return a list of
+    """Prompts the user to filter the originalhunks and return a list of
     selected hunks.
     *operation* is used for to build ui messages to indicate the user what
     kind of filtering they are doing: reverting, committing, shelving, etc.
@@ -426,7 +436,7 @@ def dorecord(
             msg = _(b'running non-interactively, use %s instead') % cmdsuggest
         else:
             msg = _(b'running non-interactively')
-        raise error.Abort(msg)
+        raise error.InputError(msg)
 
     # make sure username is set before going interactive
     if not opts.get(b'user'):
@@ -451,7 +461,7 @@ def dorecord(
         wctx = repo[None]
         merge = len(wctx.parents()) > 1
         if merge:
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b'cannot partially commit a merge '
                     b'(use "hg commit" instead)'
@@ -459,7 +469,7 @@ def dorecord(
             )
 
         def fail(f, msg):
-            raise error.Abort(b'%s: %s' % (f, msg))
+            raise error.InputError(b'%s: %s' % (f, msg))
 
         force = opts.get(b'force')
         if not force:
@@ -510,7 +520,7 @@ def dorecord(
         try:
             chunks, newopts = filterfn(ui, originalchunks, match)
         except error.PatchError as err:
-            raise error.Abort(_(b'error parsing patch: %s') % err)
+            raise error.InputError(_(b'error parsing patch: %s') % err)
         opts.update(newopts)
 
         # We need to keep a backup of files that have been newly added and
@@ -600,7 +610,7 @@ def dorecord(
                     ui.debug(fp.getvalue())
                     patch.internalpatch(ui, repo, fp, 1, eolmode=None)
                 except error.PatchError as err:
-                    raise error.Abort(pycompat.bytestr(err))
+                    raise error.InputError(pycompat.bytestr(err))
             del fp
 
             # 4. We prepared working directory according to filtered
@@ -762,7 +772,7 @@ def tersedir(statuslist, terseargs):
     # checking the argument validity
     for s in pycompat.bytestr(terseargs):
         if s not in allst:
-            raise error.Abort(_(b"'%s' not recognized") % s)
+            raise error.InputError(_(b"'%s' not recognized") % s)
 
     # creating a dirnode object for the root of the repo
     rootobj = dirnode(b'')
@@ -968,10 +978,10 @@ def changebranch(ui, repo, revs, label, opts):
         bailifchanged(repo)
         revs = scmutil.revrange(repo, revs)
         if not revs:
-            raise error.Abort(b"empty revision set")
+            raise error.InputError(b"empty revision set")
         roots = repo.revs(b'roots(%ld)', revs)
         if len(roots) > 1:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"cannot change branch of non-linear revisions")
             )
         rewriteutil.precheck(repo, revs, b'change branch of')
@@ -983,16 +993,20 @@ def changebranch(ui, repo, revs, label, opts):
             and label not in rpb
             and label in repo.branchmap()
         ):
-            raise error.Abort(_(b"a branch of the same name already exists"))
+            raise error.InputError(
+                _(b"a branch of the same name already exists")
+            )
 
         if repo.revs(b'obsolete() and %ld', revs):
-            raise error.Abort(
+            raise error.InputError(
                 _(b"cannot change branch of a obsolete changeset")
             )
 
         # make sure only topological heads
         if repo.revs(b'heads(%ld) - head()', revs):
-            raise error.Abort(_(b"cannot change branch in middle of a stack"))
+            raise error.InputError(
+                _(b"cannot change branch in middle of a stack")
+            )
 
         replacements = {}
         # avoid import cycle mercurial.cmdutil -> mercurial.context ->
@@ -1074,7 +1088,7 @@ def findrepo(p):
 
 
 def bailifchanged(repo, merge=True, hint=None):
-    """ enforce the precondition that working directory must be clean.
+    """enforce the precondition that working directory must be clean.
 
     'merge' can be set to false if a pending uncommitted merge should be
     ignored (such as when 'update --check' runs).
@@ -1083,10 +1097,10 @@ def bailifchanged(repo, merge=True, hint=None):
     """
 
     if merge and repo.dirstate.p2() != nullid:
-        raise error.Abort(_(b'outstanding uncommitted merge'), hint=hint)
+        raise error.StateError(_(b'outstanding uncommitted merge'), hint=hint)
     st = repo.status()
     if st.modified or st.added or st.removed or st.deleted:
-        raise error.Abort(_(b'uncommitted changes'), hint=hint)
+        raise error.StateError(_(b'uncommitted changes'), hint=hint)
     ctx = repo[None]
     for s in sorted(ctx.substate):
         ctx.sub(s).bailifchanged(hint=hint)
@@ -1208,6 +1222,30 @@ def rendertemplate(ctx, tmpl, props=None):
     if props:
         mapping.update(props)
     return t.renderdefault(mapping)
+
+
+def format_changeset_summary(ui, ctx, command=None, default_spec=None):
+    """Format a changeset summary (one line)."""
+    spec = None
+    if command:
+        spec = ui.config(
+            b'command-templates', b'oneline-summary.%s' % command, None
+        )
+    if not spec:
+        spec = ui.config(b'command-templates', b'oneline-summary')
+    if not spec:
+        spec = default_spec
+    if not spec:
+        spec = (
+            b'{separate(" ", '
+            b'label("oneline-summary.changeset", "{rev}:{node|short}")'
+            b', '
+            b'join(filter(namespaces % "{ifeq(namespace, "branches", "", join(names % "{label("oneline-summary.{namespace}", name)}", " "))}"), " ")'
+            b')} '
+            b'"{label("oneline-summary.desc", desc|firstline)}"'
+        )
+    text = rendertemplate(ctx, spec)
+    return text.split(b'\n')[0]
 
 
 def _buildfntemplate(pat, total=None, seqno=None, revwidth=None, pathname=None):
@@ -1349,7 +1387,7 @@ def openstorage(repo, cmd, file_, opts, returnrevlog=False):
                 b'without a repository'
             )
     if msg:
-        raise error.Abort(msg)
+        raise error.InputError(msg)
 
     r = None
     if repo:
@@ -1357,7 +1395,7 @@ def openstorage(repo, cmd, file_, opts, returnrevlog=False):
             r = repo.unfiltered().changelog
         elif dir:
             if not scmutil.istreemanifest(repo):
-                raise error.Abort(
+                raise error.InputError(
                     _(
                         b"--dir can only be used on repos with "
                         b"treemanifest enabled"
@@ -1383,16 +1421,18 @@ def openstorage(repo, cmd, file_, opts, returnrevlog=False):
             elif util.safehasattr(r, b'_revlog'):
                 r = r._revlog  # pytype: disable=attribute-error
             elif r is not None:
-                raise error.Abort(_(b'%r does not appear to be a revlog') % r)
+                raise error.InputError(
+                    _(b'%r does not appear to be a revlog') % r
+                )
 
     if not r:
         if not returnrevlog:
-            raise error.Abort(_(b'cannot give path to non-revlog'))
+            raise error.InputError(_(b'cannot give path to non-revlog'))
 
         if not file_:
             raise error.CommandError(cmd, _(b'invalid arguments'))
         if not os.path.isfile(file_):
-            raise error.Abort(_(b"revlog '%s' not found") % file_)
+            raise error.InputError(_(b"revlog '%s' not found") % file_)
         r = revlog.revlog(
             vfsmod.vfs(encoding.getcwd(), audit=False), file_[:-2] + b".i"
         )
@@ -1429,10 +1469,12 @@ def copy(ui, repo, pats, opts, rename=False):
         if not forget and not after:
             # TODO: Remove this restriction and make it also create the copy
             #       targets (and remove the rename source if rename==True).
-            raise error.Abort(_(b'--at-rev requires --after'))
+            raise error.InputError(_(b'--at-rev requires --after'))
         ctx = scmutil.revsingle(repo, rev)
         if len(ctx.parents()) > 1:
-            raise error.Abort(_(b'cannot mark/unmark copy in merge commit'))
+            raise error.InputError(
+                _(b'cannot mark/unmark copy in merge commit')
+            )
     else:
         ctx = repo[None]
 
@@ -1445,7 +1487,7 @@ def copy(ui, repo, pats, opts, rename=False):
             new_ctx = ctx
         else:
             if len(ctx.parents()) > 1:
-                raise error.Abort(_(b'cannot unmark copy in merge commit'))
+                raise error.InputError(_(b'cannot unmark copy in merge commit'))
             # avoid cycle context -> subrepo -> cmdutil
             from . import context
 
@@ -1488,9 +1530,9 @@ def copy(ui, repo, pats, opts, rename=False):
 
     pats = scmutil.expandpats(pats)
     if not pats:
-        raise error.Abort(_(b'no source or destination specified'))
+        raise error.InputError(_(b'no source or destination specified'))
     if len(pats) == 1:
-        raise error.Abort(_(b'no destination specified'))
+        raise error.InputError(_(b'no destination specified'))
     dest = pats.pop()
 
     def walkpat(pat):
@@ -1530,12 +1572,12 @@ def copy(ui, repo, pats, opts, rename=False):
         rewriteutil.precheck(repo, [ctx.rev()], b'uncopy')
         absdest = pathutil.canonpath(repo.root, cwd, dest)
         if ctx.hasdir(absdest):
-            raise error.Abort(
+            raise error.InputError(
                 _(b'%s: --at-rev does not support a directory as destination')
                 % uipathfn(absdest)
             )
         if absdest not in ctx:
-            raise error.Abort(
+            raise error.InputError(
                 _(b'%s: copy destination does not exist in %s')
                 % (uipathfn(absdest), ctx)
             )
@@ -1552,12 +1594,12 @@ def copy(ui, repo, pats, opts, rename=False):
                 copylist.append(abs)
 
         if not copylist:
-            raise error.Abort(_(b'no files to copy'))
+            raise error.InputError(_(b'no files to copy'))
         # TODO: Add support for `hg cp --at-rev . foo bar dir` and
         # `hg cp --at-rev . dir1 dir2`, preferably unifying the code with the
         # existing functions below.
         if len(copylist) != 1:
-            raise error.Abort(_(b'--at-rev requires a single source'))
+            raise error.InputError(_(b'--at-rev requires a single source'))
 
         new_ctx = context.overlayworkingctx(repo)
         new_ctx.setbase(ctx.p1())
@@ -1785,14 +1827,16 @@ def copy(ui, repo, pats, opts, rename=False):
     destdirexists = os.path.isdir(dest) and not os.path.islink(dest)
     if not destdirexists:
         if len(pats) > 1 or matchmod.patkind(pats[0]):
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b'with multiple sources, destination must be an '
                     b'existing directory'
                 )
             )
         if util.endswithsep(dest):
-            raise error.Abort(_(b'destination %s is not a directory') % dest)
+            raise error.InputError(
+                _(b'destination %s is not a directory') % dest
+            )
 
     tfn = targetpathfn
     if after:
@@ -1804,7 +1848,7 @@ def copy(ui, repo, pats, opts, rename=False):
             continue
         copylist.append((tfn(pat, dest, srcs), srcs))
     if not copylist:
-        raise error.Abort(_(b'no files to copy'))
+        raise error.InputError(_(b'no files to copy'))
 
     errors = 0
     for targetpath, srcs in copylist:
@@ -1895,7 +1939,7 @@ def tryimportone(ui, repo, patchdata, parents, opts, msgs, updatefunc):
         parents.append(repo[nullid])
     if opts.get(b'exact'):
         if not nodeid or not p1:
-            raise error.Abort(_(b'not a Mercurial patch'))
+            raise error.InputError(_(b'not a Mercurial patch'))
         p1 = repo[p1]
         p2 = repo[p2 or nullid]
     elif p2:
@@ -2150,7 +2194,7 @@ def export(
     opts=None,
     match=None,
 ):
-    '''export changesets as hg patches
+    """export changesets as hg patches
 
     Args:
       repo: The repository from which we're exporting revisions.
@@ -2171,7 +2215,7 @@ def export(
         fntemplate specified: Each rev is written to a unique file named using
                             the given template.
         Otherwise: All revs will be written to basefm.
-    '''
+    """
     _prefetchchangedfiles(repo, revs, match)
 
     if not fntemplate:
@@ -2231,7 +2275,7 @@ def finddate(ui, repo, date):
     try:
         rev = mrevs.max()
     except ValueError:
-        raise error.Abort(_(b"revision matching date not found"))
+        raise error.InputError(_(b"revision matching date not found"))
 
     ui.status(
         _(b"found revision %d from %s\n")
@@ -2314,7 +2358,9 @@ def forget(
     ui, repo, match, prefix, uipathfn, explicitonly, dryrun, interactive
 ):
     if dryrun and interactive:
-        raise error.Abort(_(b"cannot specify both --dry-run and --interactive"))
+        raise error.InputError(
+            _(b"cannot specify both --dry-run and --interactive")
+        )
     bad = []
     badfn = lambda x, y: bad.append(x) or match.bad(x, y)
     wctx = repo[None]
@@ -3026,9 +3072,9 @@ def commitforceeditor(
     if finishdesc:
         text = finishdesc(text)
     if not text.strip():
-        raise error.Abort(_(b"empty commit message"))
+        raise error.InputError(_(b"empty commit message"))
     if unchangedmessagedetection and editortext == templatetext:
-        raise error.Abort(_(b"commit message unchanged"))
+        raise error.InputError(_(b"commit message unchanged"))
 
     return text
 
@@ -3089,13 +3135,18 @@ def buildcommittext(repo, ctx, subs, extramsg):
     return b"\n".join(edittext)
 
 
-def commitstatus(repo, node, branch, bheads=None, opts=None):
+def commitstatus(repo, node, branch, bheads=None, tip=None, opts=None):
     if opts is None:
         opts = {}
     ctx = repo[node]
     parents = ctx.parents()
 
-    if (
+    if tip is not None and repo.changelog.tip() == tip:
+        # avoid reporting something like "committed new head" when
+        # recommitting old changesets, and issue a helpful warning
+        # for most instances
+        repo.ui.warn(_("warning: commit already existed in the repository!\n"))
+    elif (
         not opts.get(b'amend')
         and bheads
         and node not in bheads
@@ -3435,7 +3486,8 @@ def revert(ui, repo, ctx, *pats, **opts):
                 repo, [f for sublist in oplist for f in sublist]
             )
             prefetch(
-                repo, [(ctx.rev(), matchfiles)],
+                repo,
+                [(ctx.rev(), matchfiles)],
             )
             match = scmutil.match(repo[None], pats)
             _performrevert(
@@ -3683,10 +3735,10 @@ summaryremotehooks = util.hooks()
 
 
 def checkunfinished(repo, commit=False, skipmerge=False):
-    '''Look for an unfinished multistep operation, like graft, and abort
+    """Look for an unfinished multistep operation, like graft, and abort
     if found. It's probably good to check this right before
     bailifchanged().
-    '''
+    """
     # Check for non-clearable states first, so things like rebase will take
     # precedence over update.
     for state in statemod._unfinishedstates:
@@ -3697,7 +3749,7 @@ def checkunfinished(repo, commit=False, skipmerge=False):
         ):
             continue
         if state.isunfinished(repo):
-            raise error.Abort(state.msg(), hint=state.hint())
+            raise error.StateError(state.msg(), hint=state.hint())
 
     for s in statemod._unfinishedstates:
         if (
@@ -3708,18 +3760,18 @@ def checkunfinished(repo, commit=False, skipmerge=False):
         ):
             continue
         if s.isunfinished(repo):
-            raise error.Abort(s.msg(), hint=s.hint())
+            raise error.StateError(s.msg(), hint=s.hint())
 
 
 def clearunfinished(repo):
-    '''Check for unfinished operations (as above), and clear the ones
+    """Check for unfinished operations (as above), and clear the ones
     that are clearable.
-    '''
+    """
     for state in statemod._unfinishedstates:
         if state._reportonly:
             continue
         if not state._clearable and state.isunfinished(repo):
-            raise error.Abort(state.msg(), hint=state.hint())
+            raise error.StateError(state.msg(), hint=state.hint())
 
     for s in statemod._unfinishedstates:
         if s._opname == b'merge' or state._reportonly:
@@ -3729,8 +3781,8 @@ def clearunfinished(repo):
 
 
 def getunfinishedstate(repo):
-    ''' Checks for unfinished operations and returns statecheck object
-        for it'''
+    """Checks for unfinished operations and returns statecheck object
+    for it"""
     for state in statemod._unfinishedstates:
         if state.isunfinished(repo):
             return state
@@ -3738,7 +3790,7 @@ def getunfinishedstate(repo):
 
 
 def howtocontinue(repo):
-    '''Check for an unfinished operation and return the command to finish
+    """Check for an unfinished operation and return the command to finish
     it.
 
     statemod._unfinishedstates list is checked for an unfinished operation
@@ -3747,7 +3799,7 @@ def howtocontinue(repo):
 
     Returns a (msg, warning) tuple. 'msg' is a string and 'warning' is
     a boolean.
-    '''
+    """
     contmsg = _(b"continue: %s")
     for state in statemod._unfinishedstates:
         if not state._continueflag:
@@ -3760,13 +3812,13 @@ def howtocontinue(repo):
 
 
 def checkafterresolved(repo):
-    '''Inform the user about the next action after completing hg resolve
+    """Inform the user about the next action after completing hg resolve
 
     If there's a an unfinished operation that supports continue flag,
     howtocontinue will yield repo.ui.warn as the reporter.
 
     Otherwise, it will yield repo.ui.note.
-    '''
+    """
     msg, warning = howtocontinue(repo)
     if msg is not None:
         if warning:
@@ -3776,26 +3828,26 @@ def checkafterresolved(repo):
 
 
 def wrongtooltocontinue(repo, task):
-    '''Raise an abort suggesting how to properly continue if there is an
+    """Raise an abort suggesting how to properly continue if there is an
     active task.
 
     Uses howtocontinue() to find the active task.
 
     If there's no task (repo.ui.note for 'hg commit'), it does not offer
     a hint.
-    '''
+    """
     after = howtocontinue(repo)
     hint = None
     if after[1]:
         hint = after[0]
-    raise error.Abort(_(b'no %s in progress') % task, hint=hint)
+    raise error.StateError(_(b'no %s in progress') % task, hint=hint)
 
 
 def abortgraft(ui, repo, graftstate):
     """abort the interrupted graft and rollbacks to the state before interrupted
     graft"""
     if not graftstate.exists():
-        raise error.Abort(_(b"no interrupted graft to abort"))
+        raise error.StateError(_(b"no interrupted graft to abort"))
     statedata = readgraftstate(repo, graftstate)
     newnodes = statedata.get(b'newnodes')
     if newnodes is None:

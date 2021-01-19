@@ -4,13 +4,13 @@ Log on empty repository: checking consistency
   $ cd empty
   $ hg log
   $ hg log -r 1
-  abort: unknown revision '1'!
+  abort: unknown revision '1'
   [255]
   $ hg log -r -1:0
-  abort: unknown revision '-1'!
+  abort: unknown revision '-1'
   [255]
   $ hg log -r 'branch(name)'
-  abort: unknown revision 'name'!
+  abort: unknown revision 'name'
   [255]
   $ hg log -r null -q
   -1:000000000000
@@ -450,6 +450,16 @@ log -vf dir/b
   a
   
   
+Respects ui.logtemplate and command-templates.log configs (the latter takes
+precedence)
+
+  $ hg log -r 0 --config ui.logtemplate="foo {rev}\n"
+  foo 0
+  $ hg log -r 0 --config command-templates.log="bar {rev}\n"
+  bar 0
+  $ hg log -r 0 --config ui.logtemplate="foo {rev}\n" \
+  > --config command-templates.log="bar {rev}\n"
+  bar 0
 
 
 -f and multiple filelog heads
@@ -1053,12 +1063,12 @@ log -r ""
 
   $ hg log -r ''
   hg: parse error: empty query
-  [255]
+  [10]
 
 log -r <some unknown node id>
 
   $ hg log -r 1000000000000000000000000000000000000000
-  abort: unknown revision '1000000000000000000000000000000000000000'!
+  abort: unknown revision '1000000000000000000000000000000000000000'
   [255]
 
 log -k r1
@@ -1122,8 +1132,8 @@ log --follow --patch FILE in repository where linkrev isn't trustworthy
   $ hg init follow-dup
   $ cd follow-dup
   $ cat <<EOF >> .hg/hgrc
-  > [ui]
-  > logtemplate = '=== {rev}: {desc}\n'
+  > [command-templates]
+  > log = '=== {rev}: {desc}\n'
   > [diff]
   > nodates = True
   > EOF
@@ -1368,6 +1378,14 @@ are specified (issue5100):
   1 k1
   0 k0
 
+ log -b/-u/-k shouldn't accept string-matcher syntax:
+
+  $ hg log -b 're:.*'
+  abort: unknown revision 're:.*'
+  [255]
+  $ hg log -k 're:.*'
+  $ hg log -u 're:.*'
+
  log FILE in ascending order, against dagrange:
 
   $ hg log -r1:: -T '{rev} {files}\n' f1 f2
@@ -1490,7 +1508,7 @@ log -b test
 log -b dummy
 
   $ hg log -b dummy
-  abort: unknown revision 'dummy'!
+  abort: unknown revision 'dummy'
   [255]
 
 
@@ -1986,7 +2004,7 @@ enable obsolete to test hidden feature
   1:a765632148dc55d38c35c4f247c618701886cb2f
   0:9f758d63dcde62d547ebfb08e1e7ee96535f2b05
   $ hg log -r a
-  abort: hidden revision 'a' is pruned!
+  abort: hidden revision 'a' is pruned
   (use --hidden to access hidden revisions)
   [255]
 
@@ -2050,7 +2068,7 @@ test hidden revision 0 (issue5385)
   2:94375ec45bddd2a824535fc04855bd058c926ec0
   3:d7d28b288a6b83d5d2cf49f10c5974deed3a1d2e
   $ hg log -T'{rev}:{node}\n' -r:0
-  abort: hidden revision '0' is pruned!
+  abort: hidden revision '0' is pruned
   (use --hidden to access hidden revisions)
   [255]
   $ hg log -T'{rev}:{node}\n' -f
@@ -2425,7 +2443,7 @@ simple error
   hg: parse error at 14: unexpected token: end
   ({shortest(node}
                  ^ here)
-  [255]
+  [10]
 
 multi-line template with error
   $ hg log -r . -T 'line 1
@@ -2435,7 +2453,7 @@ multi-line template with error
   hg: parse error at 27: unexpected token: end
   (line 1\nline2\n{shortest(node}\nline4\nline5
                                 ^ here)
-  [255]
+  [10]
 
   $ cd ..
 

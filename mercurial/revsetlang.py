@@ -11,9 +11,9 @@ import string
 
 from .i18n import _
 from .pycompat import getattr
+from .node import hex
 from . import (
     error,
-    node,
     parser,
     pycompat,
     smartset,
@@ -83,7 +83,7 @@ _symletters = _syminitletters | set(pycompat.iterbytestr(b'-/'))
 
 
 def tokenize(program, lookup=None, syminitletters=None, symletters=None):
-    '''
+    """
     Parse a revset statement into a stream of tokens
 
     ``syminitletters`` is the set of valid characters for the initial
@@ -102,7 +102,7 @@ def tokenize(program, lookup=None, syminitletters=None, symletters=None):
     >>> list(tokenize(b"@::"))
     [('symbol', '@', 0), ('::', None, 1), ('end', None, 3)]
 
-    '''
+    """
     if not isinstance(program, bytes):
         raise error.ProgrammingError(
             b'revset statement must be bytes, got %r' % program
@@ -558,14 +558,22 @@ def _parsewith(spec, lookup=None, syminitletters=None):
 
     >>> _parsewith(b'foo($1)', syminitletters=_aliassyminitletters)
     ('func', ('symbol', 'foo'), ('symbol', '$1'))
-    >>> _parsewith(b'$1')
-    Traceback (most recent call last):
-      ...
-    ParseError: ("syntax error in revset '$1'", 0)
-    >>> _parsewith(b'foo bar')
-    Traceback (most recent call last):
-      ...
-    ParseError: ('invalid token', 4)
+    >>> from . import error
+    >>> from . import pycompat
+    >>> try:
+    ...   _parsewith(b'$1')
+    ... except error.ParseError as e:
+    ...   pycompat.sysstr(e.message)
+    ...   e.location
+    "syntax error in revset '$1'"
+    0
+    >>> try:
+    ...   _parsewith(b'foo bar')
+    ... except error.ParseError as e:
+    ...   pycompat.sysstr(e.message)
+    ...   e.location
+    'invalid token'
+    4
     """
     if lookup and spec.startswith(b'revset(') and spec.endswith(b')'):
         lookup = None
@@ -613,8 +621,7 @@ def expandaliases(tree, aliases, warn=None):
 
 
 def foldconcat(tree):
-    """Fold elements to be concatenated by `##`
-    """
+    """Fold elements to be concatenated by `##`"""
     if not isinstance(tree, tuple) or tree[0] in (
         b'string',
         b'symbol',
@@ -642,8 +649,8 @@ def parse(spec, lookup=None):
     try:
         return _parsewith(spec, lookup=lookup)
     except error.ParseError as inst:
-        if len(inst.args) > 1:  # has location
-            loc = inst.args[1]
+        if inst.location is not None:
+            loc = inst.location
             # Remove newlines -- spaces are equivalent whitespace.
             spec = spec.replace(b'\n', b' ')
             # We want the caret to point to the place in the template that
@@ -680,7 +687,7 @@ def _formatargtype(c, arg):
         parse(arg)  # make sure syntax errors are confined
         return b'(%s)' % arg
     elif c == b'n':
-        return _quote(node.hex(arg))
+        return _quote(hex(arg))
     elif c == b'b':
         try:
             return _quote(arg.branch())
@@ -700,7 +707,7 @@ def _formatlistexp(s, t):
     elif t == b's':
         return b"_list(%s)" % _quote(b"\0".join(s))
     elif t == b'n':
-        return b"_hexlist('%s')" % b"\0".join(node.hex(a) for a in s)
+        return b"_hexlist('%s')" % b"\0".join(hex(a) for a in s)
     elif t == b'b':
         try:
             return b"_list('%s')" % b"\0".join(a.branch() for a in s)
@@ -734,7 +741,7 @@ _formatlistfuncs = {
 
 
 def formatspec(expr, *args):
-    '''
+    """
     This is a convenience function for using revsets internally, and
     escapes arguments appropriately. Aliases are intentionally ignored
     so that intended expression behavior isn't accidentally subverted.
@@ -769,7 +776,7 @@ def formatspec(expr, *args):
     "sort((:), 'desc', 'user')"
     >>> formatspec(b'%ls', [b'a', b"'"])
     "_list('a\\\\x00\\\\'')"
-    '''
+    """
     parsed = _parseargs(expr, args)
     ret = []
     for t, arg in parsed:

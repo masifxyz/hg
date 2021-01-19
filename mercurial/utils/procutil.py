@@ -50,6 +50,16 @@ def isatty(fp):
         return False
 
 
+class BadFile(io.RawIOBase):
+    """Dummy file object to simulate closed stdio behavior"""
+
+    def readinto(self, b):
+        raise IOError(errno.EBADF, 'Bad file descriptor')
+
+    def write(self, b):
+        raise IOError(errno.EBADF, 'Bad file descriptor')
+
+
 class LineBufferedWrapper(object):
     def __init__(self, orig):
         self.orig = orig
@@ -78,6 +88,13 @@ def make_line_buffered(stream):
     if isinstance(stream, LineBufferedWrapper):
         return stream
     return LineBufferedWrapper(stream)
+
+
+def unwrap_line_buffered(stream):
+    if isinstance(stream, LineBufferedWrapper):
+        assert not isinstance(stream.orig, LineBufferedWrapper)
+        return stream.orig
+    return stream
 
 
 class WriteAllWrapper(object):
@@ -114,12 +131,25 @@ def _make_write_all(stream):
 
 
 if pycompat.ispy3:
-    # Python 3 implements its own I/O streams.
+    # Python 3 implements its own I/O streams. Unlike stdio of C library,
+    # sys.stdin/stdout/stderr may be None if underlying fd is closed.
+
     # TODO: .buffer might not exist if std streams were replaced; we'll need
     # a silly wrapper to make a bytes stream backed by a unicode one.
-    stdin = sys.stdin.buffer
-    stdout = _make_write_all(sys.stdout.buffer)
-    stderr = _make_write_all(sys.stderr.buffer)
+
+    if sys.stdin is None:
+        stdin = BadFile()
+    else:
+        stdin = sys.stdin.buffer
+    if sys.stdout is None:
+        stdout = BadFile()
+    else:
+        stdout = _make_write_all(sys.stdout.buffer)
+    if sys.stderr is None:
+        stderr = BadFile()
+    else:
+        stderr = _make_write_all(sys.stderr.buffer)
+
     if pycompat.iswindows:
         # Work around Windows bugs.
         stdout = platform.winstdout(stdout)
@@ -285,10 +315,10 @@ def pipefilter(s, cmd):
 
 
 def tempfilter(s, cmd):
-    '''filter string S through a pair of temporary files with CMD.
+    """filter string S through a pair of temporary files with CMD.
     CMD is used as a template to create the real command to be run,
     with the strings INFILE and OUTFILE replaced by the real names of
-    the temporary files generated.'''
+    the temporary files generated."""
     inname, outname = None, None
     try:
         infd, inname = pycompat.mkstemp(prefix=b'hg-filter-in-')
@@ -458,17 +488,16 @@ else:
 
 
 def tonativeenv(env):
-    '''convert the environment from bytes to strings suitable for Popen(), etc.
-    '''
+    """convert the environment from bytes to strings suitable for Popen(), etc."""
     return pycompat.rapply(tonativestr, env)
 
 
 def system(cmd, environ=None, cwd=None, out=None):
-    '''enhanced shell command execution.
+    """enhanced shell command execution.
     run with environment maybe modified, maybe in different dir.
 
     if out is specified, it is assumed to be a file-like object that has a
-    write() method. stdout and stderr will be redirected to out.'''
+    write() method. stdout and stderr will be redirected to out."""
     try:
         stdout.flush()
     except Exception:
@@ -635,21 +664,35 @@ if pycompat.iswindows:
         stderr=None,
         ensurestart=True,
         record_wait=None,
+        stdin_bytes=None,
     ):
         '''Spawn a command without waiting for it to finish.'''
         # we can't use close_fds *and* redirect stdin. I'm not sure that we
         # need to because the detached process has no console connection.
-        p = subprocess.Popen(
-            pycompat.rapply(tonativestr, script),
-            shell=shell,
-            env=tonativeenv(env),
-            close_fds=True,
-            creationflags=_creationflags,
-            stdout=stdout,
-            stderr=stderr,
-        )
-        if record_wait is not None:
-            record_wait(p.wait)
+
+        try:
+            stdin = None
+            if stdin_bytes is not None:
+                stdin = pycompat.unnamedtempfile()
+                stdin.write(stdin_bytes)
+                stdin.flush()
+                stdin.seek(0)
+
+            p = subprocess.Popen(
+                pycompat.rapply(tonativestr, script),
+                shell=shell,
+                env=tonativeenv(env),
+                close_fds=True,
+                creationflags=_creationflags,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            if record_wait is not None:
+                record_wait(p.wait)
+        finally:
+            if stdin is not None:
+                stdin.close()
 
 
 else:
@@ -662,15 +705,16 @@ else:
         stderr=None,
         ensurestart=True,
         record_wait=None,
+        stdin_bytes=None,
     ):
-        '''Spawn a command without waiting for it to finish.
+        """Spawn a command without waiting for it to finish.
 
 
         When `record_wait` is not None, the spawned process will not be fully
         detached and the `record_wait` argument will be called with a the
         `Subprocess.wait` function for the spawned process.  This is mostly
         useful for developers that need to make sure the spawned process
-        finished before a certain point. (eg: writing test)'''
+        finished before a certain point. (eg: writing test)"""
         if pycompat.isdarwin:
             # avoid crash in CoreFoundation in case another thread
             # calls gui() while we're calling fork().
@@ -722,15 +766,21 @@ else:
             if record_wait is None:
                 # Start a new session
                 os.setsid()
+            # connect stdin to devnull to make sure the subprocess can't
+            # muck up that stream for mercurial.
+            if stdin_bytes is None:
+                stdin = open(os.devnull, b'r')
+            else:
+                stdin = pycompat.unnamedtempfile()
+                stdin.write(stdin_bytes)
+                stdin.flush()
+                stdin.seek(0)
 
-            stdin = open(os.devnull, b'r')
             if stdout is None:
                 stdout = open(os.devnull, b'w')
             if stderr is None:
                 stderr = open(os.devnull, b'w')
 
-            # connect stdin to devnull to make sure the subprocess can't
-            # muck up that stream for mercurial.
             p = subprocess.Popen(
                 cmd,
                 shell=shell,
@@ -754,5 +804,6 @@ else:
         finally:
             # mission accomplished, this child needs to exit and not
             # continue the hg process here.
+            stdin.close()
             if record_wait is None:
                 os._exit(returncode)

@@ -25,15 +25,15 @@ Specifying a revset that evaluates to null will abort
   pushing to ../a
   abort: specified revisions evaluate to an empty set
   (use different revision arguments)
-  [255]
+  [10]
 
   $ hg push ../a
   pushing to ../a
   searching for changes
   remote has heads on branch 'default' that are not known locally: 1c9246a22a0a
-  abort: push creates new remote head 1e108cc5548c!
+  abort: push creates new remote head 1e108cc5548c
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg push --debug ../a
   pushing to ../a
@@ -49,9 +49,9 @@ Specifying a revset that evaluates to null will abort
   remote has heads on branch 'default' that are not known locally: 1c9246a22a0a
   new remote heads on branch 'default':
    1e108cc5548c
-  abort: push creates new remote head 1e108cc5548c!
+  abort: push creates new remote head 1e108cc5548c
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg pull ../a
   pulling from ../a
@@ -66,9 +66,9 @@ Specifying a revset that evaluates to null will abort
   $ hg push ../a
   pushing to ../a
   searching for changes
-  abort: push creates new remote head 1e108cc5548c!
+  abort: push creates new remote head 1e108cc5548c
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg merge
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -119,9 +119,9 @@ Specifying a revset that evaluates to null will abort
   $ hg push ../c
   pushing to ../c
   searching for changes
-  abort: push creates new remote head 6346d66eb9f5!
+  abort: push creates new remote head 6346d66eb9f5
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg push -r 2 ../c
   pushing to ../c
@@ -132,9 +132,9 @@ Specifying a revset that evaluates to null will abort
   $ hg push -r 3 ../c
   pushing to ../c
   searching for changes
-  abort: push creates new remote head a5dda829a167!
+  abort: push creates new remote head a5dda829a167
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg push -v -r 3 -r 4 ../c
   pushing to ../c
@@ -142,9 +142,9 @@ Specifying a revset that evaluates to null will abort
   new remote heads on branch 'default':
    a5dda829a167
    ee8fbc7a0295
-  abort: push creates new remote head a5dda829a167!
+  abort: push creates new remote head a5dda829a167
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg push -v -f -r 3 -r 4 ../c
   pushing to ../c
@@ -232,16 +232,16 @@ Push on existing branch and new branch:
   $ hg push ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote branches: c!
+  abort: push creates new remote branches: c
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
   $ hg push -r 4 -r 5 ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote branches: c!
+  abort: push creates new remote branches: c
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
 
 Multiple new branches:
@@ -253,16 +253,16 @@ Multiple new branches:
   $ hg push ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote branches: c, d!
+  abort: push creates new remote branches: c, d
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
   $ hg push -r 4 -r 6 ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote branches: c, d!
+  abort: push creates new remote branches: c, d
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
   $ cd ../g
 
@@ -276,9 +276,9 @@ Fail on multiple head push:
   $ hg push -r 4 -r 7 ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote head 0b715ef6ff8f on branch 'a'!
+  abort: push creates new remote head 0b715ef6ff8f on branch 'a'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 Push replacement head on existing branches:
 
@@ -353,9 +353,9 @@ Failed push of new named branch:
   $ hg push -r 12 -r 13 ../f
   pushing to ../f
   searching for changes
-  abort: push creates new remote branches: e!
+  abort: push creates new remote branches: e
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
 
 Using --new-branch to push new named branch:
@@ -383,7 +383,7 @@ Pushing multi headed new branch:
   searching for changes
   abort: push creates new branch 'f' with multiple heads
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg push --branch f --new-branch --force ../f
   pushing to ../f
   searching for changes
@@ -425,26 +425,26 @@ multiple new heads but also doesn't report too many heads:
   pushing to h
   searching for changes
   remote has heads on branch 'default' that are not known locally: 534543e22c29 764f8ec07b96 afe7cc7679f5 ce4212fc8847
-  abort: push creates new remote head 97bd0c84d346!
+  abort: push creates new remote head 97bd0c84d346
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg -R h up -q 0; echo x > h/b; hg -R h ci -qAmx
   $ hg -R i push h
   pushing to h
   searching for changes
   remote has heads on branch 'default' that are not known locally: 18ddb72c4590 534543e22c29 764f8ec07b96 afe7cc7679f5 and 1 others
-  abort: push creates new remote head 97bd0c84d346!
+  abort: push creates new remote head 97bd0c84d346
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg -R i push h -v
   pushing to h
   searching for changes
   remote has heads on branch 'default' that are not known locally: 18ddb72c4590 534543e22c29 764f8ec07b96 afe7cc7679f5 ce4212fc8847
   new remote heads on branch 'default':
    97bd0c84d346
-  abort: push creates new remote head 97bd0c84d346!
+  abort: push creates new remote head 97bd0c84d346
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 
 Check prepush logic with merged branches:
@@ -477,9 +477,9 @@ Check prepush logic with merged branches:
   $ hg -R k push -r a j
   pushing to j
   searching for changes
-  abort: push creates new remote branches: b!
+  abort: push creates new remote branches: b
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
 
 Prepush -r should not allow you to sneak in new heads:
@@ -513,9 +513,9 @@ Prepush -r should not allow you to sneak in new heads:
   $ hg push ../l -b b
   pushing to ../l
   searching for changes
-  abort: push creates new remote head 451211cc22b0 on branch 'a'!
+  abort: push creates new remote head 451211cc22b0 on branch 'a'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ cd ..
 
@@ -763,16 +763,16 @@ outgoing:
   $ hg push inner
   pushing to inner
   searching for changes
-  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'!
+  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg push inner -r4 -r5
   pushing to inner
   searching for changes
-  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'!
+  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ hg in inner
   comparing with inner
@@ -786,9 +786,9 @@ Test fail hook
   pushing to inner
   searching for changes
   running fail-push hook
-  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'!
+  abort: push creates new remote head 7d0f4fb6cf04 on branch 'A'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ cd ..
 
@@ -815,9 +815,9 @@ When there is a single closed branch
   $ hg push ../x
   pushing to ../x
   searching for changes
-  abort: push creates new remote branches: foo (1 closed)!
+  abort: push creates new remote branches: foo (1 closed)
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
 When there is more than one closed branches
   $ hg -q branch bar
@@ -828,9 +828,9 @@ When there is more than one closed branches
   $ hg push ../x
   pushing to ../x
   searching for changes
-  abort: push creates new remote branches: bar, foo (2 closed)!
+  abort: push creates new remote branches: bar, foo (2 closed)
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
 When there are more than one new branches and not all are closed
   $ hg -q branch bar1
@@ -840,8 +840,8 @@ When there are more than one new branches and not all are closed
   $ hg push ../x
   pushing to ../x
   searching for changes
-  abort: push creates new remote branches: bar, bar1, foo (2 closed)!
+  abort: push creates new remote branches: bar, bar1, foo (2 closed)
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
 
   $ cd ..

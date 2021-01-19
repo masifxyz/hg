@@ -2,7 +2,7 @@
 
 #if safe
   $ echo "[format]"         >> $HGRCPATH
-  $ echo "exp-share-safe = True" >> $HGRCPATH
+  $ echo "use-share-safe = True" >> $HGRCPATH
 #endif
 
   $ echo "[extensions]"      >> $HGRCPATH
@@ -54,6 +54,25 @@ share shouldn't have a full cache dir, original repo should
   branch2-served
   rbc-names-v1
   rbc-revs-v1
+  tags2-visible
+
+Cloning a shared repo should pick up the full cache dir on the other hand.
+
+  $ hg clone . ../repo2-clone
+  updating to branch default
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ ls -1 ../repo2-clone/.hg/cache
+  branch2-base
+  branch2-immutable
+  branch2-served
+  branch2-served.hidden
+  branch2-visible
+  branch2-visible-hidden
+  hgtagsfnodes1
+  rbc-names-v1
+  rbc-revs-v1
+  tags2
+  tags2-served
   tags2-visible
 
 Some sed versions appends newline, some don't, and some just fails
@@ -211,7 +230,7 @@ renames and changes of PWD
   $TESTTMP/thisdir/rel
   $ mv thisdir thatdir
   $ hg -R thatdir/abs root
-  abort: .hg/sharedpath points to nonexistent directory $TESTTMP/thisdir/orig/.hg!
+  abort: .hg/sharedpath points to nonexistent directory $TESTTMP/thisdir/orig/.hg
   [255]
   $ hg -R thatdir/rel root
   $TESTTMP/thatdir/rel
@@ -247,7 +266,7 @@ See comment in localrepo.py:makelocalrepository() for more.
 We cannot open the repo with the unknown requirement
 
   $ hg -R sharenewrequires status
-  abort: repository requires features unknown to this Mercurial: missing-requirement!
+  abort: repository requires features unknown to this Mercurial: missing-requirement
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 
@@ -262,7 +281,7 @@ Explicitly kill daemons to let the test exit on Windows
 Test sharing a repository which was created with store requirement disable
 
   $ hg init nostore --config format.usestore=false
-  ignoring enabled 'format.exp-share-safe' config because it is incompatible with disabled 'format.usestore' config (safe !)
+  ignoring enabled 'format.use-share-safe' config because it is incompatible with disabled 'format.usestore' config (safe !)
   $ hg share nostore sharednostore
   abort: cannot create shared repository as source was created with 'format.usestore' config disabled
   [255]

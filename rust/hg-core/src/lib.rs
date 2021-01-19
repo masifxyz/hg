@@ -8,6 +8,7 @@ pub mod dagops;
 pub use ancestors::{AncestorsIterator, LazyAncestors, MissingAncestors};
 mod dirstate;
 pub mod discovery;
+pub mod requirements;
 pub mod testing; // unconditionally built, for use from integration tests
 pub use dirstate::{
     dirs_multiset::{DirsMultiset, DirsMultisetIter},
@@ -19,10 +20,13 @@ pub use dirstate::{
     CopyMap, CopyMapIter, DirstateEntry, DirstateParents, EntryState,
     StateMap, StateMapIter,
 };
+pub mod copy_tracing;
 mod filepatterns;
 pub mod matchers;
+pub mod repo;
 pub mod revlog;
 pub use revlog::*;
+pub mod config;
 pub mod operations;
 pub mod utils;
 

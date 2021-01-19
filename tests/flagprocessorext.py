@@ -6,8 +6,8 @@ import base64
 import zlib
 
 from mercurial import (
+    bundlecaches,
     changegroup,
-    exchange,
     extensions,
     revlog,
     util,
@@ -134,15 +134,25 @@ def extsetup(ui):
     revlog.REVIDX_FLAGS_ORDER.extend(flags)
 
     # Teach exchange to use changegroup 3
-    for k in exchange._bundlespeccontentopts.keys():
-        exchange._bundlespeccontentopts[k][b"cg.version"] = b"03"
+    for k in bundlecaches._bundlespeccontentopts.keys():
+        bundlecaches._bundlespeccontentopts[k][b"cg.version"] = b"03"
 
     # Register flag processors for each extension
     flagutil.addflagprocessor(
-        REVIDX_NOOP, (noopdonothingread, noopdonothing, validatehash,)
+        REVIDX_NOOP,
+        (
+            noopdonothingread,
+            noopdonothing,
+            validatehash,
+        ),
     )
     flagutil.addflagprocessor(
-        REVIDX_BASE64, (b64decode, b64encode, bypass,),
+        REVIDX_BASE64,
+        (
+            b64decode,
+            b64encode,
+            bypass,
+        ),
     )
     flagutil.addflagprocessor(
         REVIDX_GZIP, (gzipdecompress, gzipcompress, bypass)

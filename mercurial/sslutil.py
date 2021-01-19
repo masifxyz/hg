@@ -16,10 +16,10 @@ import ssl
 
 from .i18n import _
 from .pycompat import getattr
+from .node import hex
 from . import (
     encoding,
     error,
-    node,
     pycompat,
     util,
 )
@@ -227,8 +227,7 @@ def _hostsettings(ui, hostname):
 
 
 def commonssloptions(minimumprotocol):
-    """Return SSLContext options common to servers and clients.
-    """
+    """Return SSLContext options common to servers and clients."""
     if minimumprotocol not in configprotocols:
         raise ValueError(b'protocol value not supported: %s' % minimumprotocol)
 
@@ -470,7 +469,7 @@ def wrapsocket(sock, keyfile, certfile, ui, serverhostname=None):
     # closed
     # - see http://bugs.python.org/issue13721
     if not sslsocket.cipher():
-        raise error.Abort(_(b'ssl connection failed'))
+        raise error.SecurityError(_(b'ssl connection failed'))
 
     sslsocket._hgstate = {
         b'caloaded': caloaded,
@@ -617,11 +616,11 @@ def _dnsnamematch(dn, hostname, maxwildcards=1):
 
 
 def _verifycert(cert, hostname):
-    '''Verify that cert (in socket.getpeercert() format) matches hostname.
+    """Verify that cert (in socket.getpeercert() format) matches hostname.
     CRLs is not handled.
 
     Returns error message if any problems are found and None on success.
-    '''
+    """
     if not cert:
         return _(b'no certificate received')
 
@@ -736,10 +735,10 @@ def validatesocket(sock):
         peercert = sock.getpeercert(True)
         peercert2 = sock.getpeercert()
     except AttributeError:
-        raise error.Abort(_(b'%s ssl connection error') % host)
+        raise error.SecurityError(_(b'%s ssl connection error') % host)
 
     if not peercert:
-        raise error.Abort(
+        raise error.SecurityError(
             _(b'%s certificate error: no certificate received') % host
         )
 
@@ -763,9 +762,9 @@ def validatesocket(sock):
     # If a certificate fingerprint is pinned, use it and only it to
     # validate the remote cert.
     peerfingerprints = {
-        b'sha1': node.hex(hashutil.sha1(peercert).digest()),
-        b'sha256': node.hex(hashlib.sha256(peercert).digest()),
-        b'sha512': node.hex(hashlib.sha512(peercert).digest()),
+        b'sha1': hex(hashutil.sha1(peercert).digest()),
+        b'sha256': hex(hashlib.sha256(peercert).digest()),
+        b'sha512': hex(hashlib.sha512(peercert).digest()),
     }
 
     def fmtfingerprint(s):
@@ -801,7 +800,7 @@ def validatesocket(sock):
         else:
             section = b'hostsecurity'
             nice = b'%s:%s' % (hash, fmtfingerprint(peerfingerprints[hash]))
-        raise error.Abort(
+        raise error.SecurityError(
             _(b'certificate for %s has unexpected fingerprint %s')
             % (host, nice),
             hint=_(b'check %s configuration') % section,
@@ -810,7 +809,7 @@ def validatesocket(sock):
     # Security is enabled but no CAs are loaded. We can't establish trust
     # for the cert so abort.
     if not sock._hgstate[b'caloaded']:
-        raise error.Abort(
+        raise error.SecurityError(
             _(
                 b'unable to verify security of %s (no loaded CA certificates); '
                 b'refusing to connect'
@@ -826,7 +825,7 @@ def validatesocket(sock):
 
     msg = _verifycert(peercert2, shost)
     if msg:
-        raise error.Abort(
+        raise error.SecurityError(
             _(b'%s certificate error: %s') % (host, msg),
             hint=_(
                 b'set hostsecurity.%s:certfingerprints=%s '

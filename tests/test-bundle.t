@@ -288,7 +288,7 @@ Cannot produce streaming clone bundles with "hg bundle"
   $ hg -R test bundle -t packed1 packed.hg
   abort: packed bundles cannot be produced by "hg bundle"
   (use 'hg debugcreatestreamclonebundle')
-  [255]
+  [10]
 
 packed1 is produced properly
 
@@ -349,7 +349,7 @@ Unpacking packed1 bundles with "hg unbundle" isn't allowed
   $ hg -R packed unbundle packed.hg
   abort: packed bundles cannot be applied with "hg unbundle"
   (use "hg debugapplystreamclonebundle")
-  [255]
+  [10]
 
 packed1 can be consumed from debug command
 
@@ -601,7 +601,7 @@ recurse infinitely (issue2528)
 
   $ hg clone full.hg ''
   abort: empty destination path is not valid
-  [255]
+  [10]
 
 test for https://bz.mercurial-scm.org/216
 
@@ -697,13 +697,13 @@ test bundle with # in the filename (issue2154):
   $ cd orig
   $ hg incoming '../test#bundle.hg'
   comparing with ../test
-  abort: unknown revision 'bundle.hg'!
+  abort: unknown revision 'bundle.hg'
   [255]
 
 note that percent encoding is not handled:
 
   $ hg incoming ../test%23bundle.hg
-  abort: repository ../test%23bundle.hg not found!
+  abort: repository ../test%23bundle.hg not found
   [255]
   $ cd ..
 
@@ -733,8 +733,8 @@ test that verify bundle does not traceback
 partial history bundle, fails w/ unknown parent
 
   $ hg -R bundle.hg verify
-  abort: 00changelog.i@bbd179dfa0a7: unknown parent!
-  [255]
+  abort: 00changelog.i@bbd179dfa0a7: unknown parent
+  [50]
 
 full history bundle, refuses to verify non-local repo
 
@@ -844,7 +844,7 @@ bundle single branch
 
   $ hg bundle -r 'public()' no-output.hg
   abort: no commits to bundle
-  [255]
+  [10]
 
   $ cd ..
 

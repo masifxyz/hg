@@ -209,7 +209,8 @@ def strip(ui, repo, nodelist, backup=True, topic=b'backup'):
                 # transaction and makes assumptions that file storage is
                 # using append-only files. We'll need some kind of storage
                 # API to handle stripping for us.
-                offset = len(tr._entries)
+                oldfiles = set(tr._offsetmap.keys())
+                oldfiles.update(tr._newfiles)
 
                 tr.startgroup()
                 cl.strip(striprev, tr)
@@ -219,8 +220,11 @@ def strip(ui, repo, nodelist, backup=True, topic=b'backup'):
                     repo.file(fn).strip(striprev, tr)
                 tr.endgroup()
 
-                for i in pycompat.xrange(offset, len(tr._entries)):
-                    file, troffset, ignore = tr._entries[i]
+                entries = tr.readjournal()
+
+                for file, troffset in entries:
+                    if file in oldfiles:
+                        continue
                     with repo.svfs(file, b'a', checkambig=True) as fp:
                         fp.truncate(troffset)
                     if troffset == 0:

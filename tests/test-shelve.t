@@ -209,7 +209,7 @@ ensure that our shelved changes exist
 
   $ hg shelve --list --addremove
   abort: options '--list' and '--addremove' may not be used together
-  [255]
+  [10]
 
 delete our older shelved change
 
@@ -278,10 +278,10 @@ is difficult to decide actual order of them from same timestamp)
 
   $ hg unshelve
   abort: no shelved changes to apply!
-  [255]
+  [20]
   $ hg unshelve foo
   abort: shelved change 'foo' not found
-  [255]
+  [10]
 
 named shelves, specific filenames, and "commit messages" should all work
 (this tests also that editor is invoked, if '--edit' is specified)
@@ -366,7 +366,7 @@ force a conflicted merge to occur
   merging a/a
   warning: conflicts while merging a/a! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
-  [1]
+  [240]
   $ hg status -v
   M a/a
   M b.rename/b
@@ -442,7 +442,7 @@ ensure that we have a merge with unresolved conflicts
   $ hg shelve
   abort: unshelve already in progress
   (use 'hg unshelve --continue' or 'hg unshelve --abort')
-  [255]
+  [20]
 
 abort the unshelve and be happy
 
@@ -474,7 +474,7 @@ try to continue with no unshelve underway
 
   $ hg unshelve -c
   abort: no unshelve in progress
-  [255]
+  [20]
   $ hg status
   A foo/foo
   ? a/a.orig
@@ -484,7 +484,7 @@ redo the unshelve to get a conflict
   $ hg unshelve -q
   warning: conflicts while merging a/a! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
-  [1]
+  [240]
 
 attempt to continue
 
@@ -501,12 +501,12 @@ attempt to continue
   $ hg commit -m 'commit while unshelve in progress'
   abort: unshelve already in progress
   (use 'hg unshelve --continue' or 'hg unshelve --abort')
-  [255]
+  [20]
 
   $ hg graft --continue
   abort: no graft in progress
   (continue: hg unshelve --continue)
-  [255]
+  [20]
   $ hg unshelve -c
   unshelve of 'default' complete
 
@@ -648,13 +648,13 @@ test keep and cleanup
 
   $ hg shelve --cleanup --delete
   abort: options '--cleanup' and '--delete' may not be used together
-  [255]
+  [10]
   $ hg shelve --cleanup --patch
   abort: options '--cleanup' and '--patch' may not be used together
-  [255]
+  [10]
   $ hg shelve --cleanup --message MESSAGE
   abort: options '--cleanup' and '--message' may not be used together
-  [255]
+  [10]
 
 test bookmarks
 
@@ -705,7 +705,7 @@ Recreate some conflict again
   merging a/a
   warning: conflicts while merging a/a! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
-  [1]
+  [240]
   $ hg bookmark
      test                      (4|13):33f7f61e6c5e (re)
 
@@ -737,10 +737,10 @@ is a no-op), works (issue4398)
 
   $ hg shelve --delete --stat
   abort: options '--delete' and '--stat' may not be used together
-  [255]
+  [10]
   $ hg shelve --delete --name NAME
   abort: options '--delete' and '--name' may not be used together
-  [255]
+  [10]
 
 Test interactive shelve
   $ cat <<EOF >> $HGRCPATH
@@ -767,7 +767,7 @@ Test interactive shelve
   a
   $ hg shelve --interactive --config ui.interactive=false
   abort: running non-interactively
-  [255]
+  [10]
   $ hg shelve --interactive << EOF
   > y
   > y
@@ -810,6 +810,8 @@ Test interactive shelve
   ? foo/foo
   $ hg bookmark
    \* test                      (4|13):33f7f61e6c5e (re)
+there shouldn't be a merge state
+  $ hg resolve -l
   $ hg unshelve
   unshelving change 'test'
   temporarily committing pending changes (restore with 'hg unshelve --abort')
@@ -954,13 +956,13 @@ Test shelve --keep
   unshelving change 'default'
   $ hg shelve --keep --list
   abort: options '--list' and '--keep' may not be used together
-  [255]
+  [10]
   $ hg shelve --keep --patch
   abort: options '--patch' and '--keep' may not be used together
-  [255]
+  [10]
   $ hg shelve --keep --delete
   abort: options '--delete' and '--keep' may not be used together
-  [255]
+  [10]
   $ hg shelve --keep
   shelved as default
   $ hg diff
@@ -977,7 +979,7 @@ Test shelve --delete
   default         (*s ago)    changes to: create conflict (glob)
   $ hg shelve --delete doesnotexist
   abort: shelved change 'doesnotexist' not found
-  [255]
+  [10]
   $ hg shelve --delete default
 
   $ cd ..
@@ -1184,7 +1186,7 @@ Abort unshelve while merging (issue5123)
   $ hg unshelve
   abort: outstanding uncommitted merge
   (use 'hg commit' or 'hg merge --abort')
-  [255]
+  [20]
 
   $ cd ..
 
@@ -1387,7 +1389,7 @@ Abort unshelve while merging (issue5123)
   warning: conflicts while merging bar1! (edit, then use 'hg resolve --mark')
   warning: conflicts while merging bar2! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg unshelve --continue')
-  [1]
+  [240]
 
   $ cat > bar1 <<EOF
   > A
@@ -1406,7 +1408,7 @@ Abort unshelve while merging (issue5123)
 -- using --continue with --interactive should throw an error
   $ hg unshelve --continue -i
   abort: cannot use both continue and interactive
-  [255]
+  [10]
 
   $ cat bar1
   A
@@ -1483,7 +1485,7 @@ Abort unshelve while merging (issue5123)
 
   $ hg unshelve --continue
   abort: no unshelve in progress
-  [255]
+  [20]
 
   $ hg shelve --list
   default-01      (*)* changes to: add A to bars (glob)
@@ -1509,4 +1511,27 @@ Abort unshelve while merging (issue5123)
 -- test for --interactive --keep
   $ hg unshelve -i --keep
   abort: --keep on --interactive is not yet supported
-  [255]
+  [10]
+
+  $ hg update -q --clean .
+
+Test that we can successfully shelve and unshelve a file with a trailing space
+in the filename. Such filenames are supposedly unsupported on Windows, so we
+wrap it in the no-windows check. Also test `hg patch` of the .patch file
+produced by `hg shelve`.
+#if no-windows
+  $ echo hi > 'my filename '
+  $ hg add 'my filename '
+  warning: filename ends with ' ', which is not allowed on Windows: 'my filename '
+  $ hg shelve
+  shelved as default-01
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
+  $ cp .hg/shelved/default-01.patch test_patch.patch
+  $ hg unshelve
+  unshelving change 'default-01'
+  $ cat 'my filename '
+  hi
+  $ hg update -q --clean .
+  $ hg patch -p1 test_patch.patch
+  applying test_patch.patch
+#endif

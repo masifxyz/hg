@@ -56,6 +56,7 @@ An upgrade of a repository created with recommended settings only suggests optim
   fncache:            yes
   dotencode:          yes
   generaldelta:       yes
+  share-safe:          no
   sparserevlog:       yes
   sidedata:            no
   persistent-nodemap:  no
@@ -68,6 +69,7 @@ An upgrade of a repository created with recommended settings only suggests optim
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -80,6 +82,7 @@ An upgrade of a repository created with recommended settings only suggests optim
   fncache:            yes     no     yes
   dotencode:          yes     no     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -92,6 +95,7 @@ An upgrade of a repository created with recommended settings only suggests optim
   [formatvariant.name.mismatchconfig|fncache:           ][formatvariant.repo.mismatchconfig| yes][formatvariant.config.special|     no][formatvariant.default|     yes]
   [formatvariant.name.mismatchconfig|dotencode:         ][formatvariant.repo.mismatchconfig| yes][formatvariant.config.special|     no][formatvariant.default|     yes]
   [formatvariant.name.uptodate|generaldelta:      ][formatvariant.repo.uptodate| yes][formatvariant.config.default|    yes][formatvariant.default|     yes]
+  [formatvariant.name.uptodate|share-safe:        ][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
   [formatvariant.name.uptodate|sparserevlog:      ][formatvariant.repo.uptodate| yes][formatvariant.config.default|    yes][formatvariant.default|     yes]
   [formatvariant.name.uptodate|sidedata:          ][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
   [formatvariant.name.uptodate|persistent-nodemap:][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
@@ -118,6 +122,12 @@ An upgrade of a repository created with recommended settings only suggests optim
     "default": true,
     "name": "generaldelta",
     "repo": true
+   },
+   {
+    "config": false,
+    "default": false,
+    "name": "share-safe",
+    "repo": false
    },
    {
     "config": true,
@@ -163,11 +173,16 @@ An upgrade of a repository created with recommended settings only suggests optim
    }
   ]
   $ hg debugupgraderepo
-  (no feature deficiencies found in existing repository)
+  (no format upgrades found in existing repository)
   performing an upgrade with "--run" will make the following changes:
   
   requirements
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   additional optimizations are available by specifying "--optimize <name>":
   
@@ -188,11 +203,16 @@ An upgrade of a repository created with recommended settings only suggests optim
   requirements
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
 
 --optimize can be used to add optimizations
 
-  $ hg debugupgrade --optimize redeltaparent
-  (no feature deficiencies found in existing repository)
+  $ hg debugupgrade --optimize 're-delta-parent'
+  (no format upgrades found in existing repository)
   performing an upgrade with "--run" will make the following changes:
   
   requirements
@@ -202,6 +222,11 @@ An upgrade of a repository created with recommended settings only suggests optim
   
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   additional optimizations are available by specifying "--optimize <name>":
   
@@ -218,7 +243,7 @@ An upgrade of a repository created with recommended settings only suggests optim
 modern form of the option
 
   $ hg debugupgrade --optimize re-delta-parent
-  (no feature deficiencies found in existing repository)
+  (no format upgrades found in existing repository)
   performing an upgrade with "--run" will make the following changes:
   
   requirements
@@ -228,6 +253,11 @@ modern form of the option
   
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   additional optimizations are available by specifying "--optimize <name>":
   
@@ -245,6 +275,11 @@ modern form of the option
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
   
   optimisations: re-delta-parent
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
 
 unknown optimization:
@@ -266,6 +301,7 @@ Various sub-optimal detections work
   fncache:             no
   dotencode:           no
   generaldelta:        no
+  share-safe:          no
   sparserevlog:        no
   sidedata:            no
   persistent-nodemap:  no
@@ -278,6 +314,7 @@ Various sub-optimal detections work
   fncache:             no    yes     yes
   dotencode:           no    yes     yes
   generaldelta:        no    yes     yes
+  share-safe:          no     no      no
   sparserevlog:        no    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -290,6 +327,7 @@ Various sub-optimal detections work
   fncache:             no    yes     yes
   dotencode:           no    yes     yes
   generaldelta:        no     no     yes
+  share-safe:          no     no      no
   sparserevlog:        no     no     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -302,6 +340,7 @@ Various sub-optimal detections work
   [formatvariant.name.mismatchconfig|fncache:           ][formatvariant.repo.mismatchconfig|  no][formatvariant.config.default|    yes][formatvariant.default|     yes]
   [formatvariant.name.mismatchconfig|dotencode:         ][formatvariant.repo.mismatchconfig|  no][formatvariant.config.default|    yes][formatvariant.default|     yes]
   [formatvariant.name.mismatchdefault|generaldelta:      ][formatvariant.repo.mismatchdefault|  no][formatvariant.config.special|     no][formatvariant.default|     yes]
+  [formatvariant.name.uptodate|share-safe:        ][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
   [formatvariant.name.mismatchdefault|sparserevlog:      ][formatvariant.repo.mismatchdefault|  no][formatvariant.config.special|     no][formatvariant.default|     yes]
   [formatvariant.name.uptodate|sidedata:          ][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
   [formatvariant.name.uptodate|persistent-nodemap:][formatvariant.repo.uptodate|  no][formatvariant.config.default|     no][formatvariant.default|      no]
@@ -343,6 +382,11 @@ Various sub-optimal detections work
   sparserevlog
      Revlog supports delta chain with more unused data between payload. These gaps will be skipped at read time. This allows for better delta chains, making a better compression and faster exchange with server.
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   additional optimizations are available by specifying "--optimize <name>":
   
   re-delta-parent
@@ -361,6 +405,11 @@ Various sub-optimal detections work
   requirements
      preserved: revlogv1, store
      added: dotencode, fncache, generaldelta, sparserevlog
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
 
   $ hg --config format.dotencode=false debugupgraderepo
@@ -396,6 +445,11 @@ Various sub-optimal detections work
   sparserevlog
      Revlog supports delta chain with more unused data between payload. These gaps will be skipped at read time. This allows for better delta chains, making a better compression and faster exchange with server.
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   additional optimizations are available by specifying "--optimize <name>":
   
   re-delta-parent
@@ -417,25 +471,7 @@ Upgrading a repository that is already modern essentially no-ops
 
   $ hg init modern
   $ hg -R modern debugupgraderepo --run
-  upgrade will perform the following actions:
-  
-  requirements
-     preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
-  
-  beginning upgrade...
-  repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/modern/.hg/upgrade.* (glob)
-  (it is safe to interrupt this process any time before data migration completes)
-  data fully migrated to temporary repository
-  marking source repository as being upgraded; clients will be unable to read from repository
-  starting in-place swap of repository data
-  replaced files will be backed up at $TESTTMP/modern/.hg/upgradebackup.* (glob)
-  replacing store...
-  store replacement complete; repository was inconsistent for *s (glob)
-  finalizing requirements file and making repository readable again
-  removing temporary repository $TESTTMP/modern/.hg/upgrade.* (glob)
-  copy of old repository backed up at $TESTTMP/modern/.hg/upgradebackup.* (glob)
-  the old repository will not be deleted; remove it to free up disk space once the upgraded repository is verified
+  nothing to do
 
 Upgrading a repository to generaldelta works
 
@@ -473,9 +509,14 @@ make sure we have a .d file
   generaldelta
      repository storage will be able to create optimal deltas; new repository data will be smaller and read times should decrease; interacting with other repositories using this storage model should require less network and CPU resources, making "hg push" and "hg pull" faster
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -487,7 +528,7 @@ make sure we have a .d file
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: -17 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
@@ -569,9 +610,14 @@ unless --no-backup is passed
   sparserevlog
      Revlog supports delta chain with more unused data between payload. These gaps will be skipped at read time. This allows for better delta chains, making a better compression and faster exchange with server.
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -583,14 +629,14 @@ unless --no-backup is passed
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for * (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ ls -1 .hg/ | grep upgradebackup
   [1]
@@ -608,9 +654,12 @@ We can restrict optimization to some revlog:
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -627,14 +676,14 @@ We can restrict optimization to some revlog:
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
 
 Check that the repo still works fine
@@ -684,9 +733,13 @@ Check we can select negatively
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -703,14 +756,14 @@ Check we can select negatively
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ hg verify
   checking changesets
@@ -732,9 +785,12 @@ Check that we can select changelog only
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - changelog
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -751,14 +807,14 @@ Check that we can select changelog only
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ hg verify
   checking changesets
@@ -780,9 +836,12 @@ Check that we can select filelog only
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - all-filelogs
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -799,14 +858,14 @@ Check that we can select filelog only
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ hg verify
   checking changesets
@@ -833,9 +892,14 @@ Check you can't skip revlog clone during important format downgrade
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -852,14 +916,14 @@ Check you can't skip revlog clone during important format downgrade
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ hg verify
   checking changesets
@@ -887,9 +951,14 @@ Check you can't skip revlog clone during important format upgrade
   re-delta-parent
      deltas within internal storage will choose a new base revision if needed
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 519 KB in store; 1.05 MB tracked data
@@ -906,14 +975,14 @@ Check you can't skip revlog clone during important format upgrade
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: 0 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   replacing store...
   store replacement complete; repository was inconsistent for *s (glob)
   finalizing requirements file and making repository readable again
-  removing old repository content$TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
+  removing old repository content $TESTTMP/upgradegd/.hg/upgradebackup.* (glob)
   removing temporary repository $TESTTMP/upgradegd/.hg/upgrade.* (glob)
   $ hg verify
   checking changesets
@@ -933,37 +1002,8 @@ store files with special filenames aren't encoded during copy
   $ touch .hg/store/.XX_special_filename
 
   $ hg debugupgraderepo --run
-  upgrade will perform the following actions:
-  
-  requirements
-     preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
-  
-  beginning upgrade...
-  repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/store-filenames/.hg/upgrade.* (glob)
-  (it is safe to interrupt this process any time before data migration completes)
-  migrating 3 total revisions (1 in filelogs, 1 in manifests, 1 in changelog)
-  migrating 301 bytes in store; 107 bytes tracked data
-  migrating 1 filelogs containing 1 revisions (64 bytes in store; 0 bytes tracked data)
-  finished migrating 1 filelog revisions across 1 filelogs; change in size: 0 bytes
-  migrating 1 manifests containing 1 revisions (110 bytes in store; 45 bytes tracked data)
-  finished migrating 1 manifest revisions across 1 manifests; change in size: 0 bytes
-  migrating changelog containing 1 revisions (127 bytes in store; 62 bytes tracked data)
-  finished migrating 1 changelog revisions; change in size: 0 bytes
-  finished migrating 3 total revisions; total change in store size: 0 bytes
-  copying .XX_special_filename
-  copying phaseroots
-  data fully migrated to temporary repository
-  marking source repository as being upgraded; clients will be unable to read from repository
-  starting in-place swap of repository data
-  replaced files will be backed up at $TESTTMP/store-filenames/.hg/upgradebackup.* (glob)
-  replacing store...
-  store replacement complete; repository was inconsistent for *s (glob)
-  finalizing requirements file and making repository readable again
-  removing temporary repository $TESTTMP/store-filenames/.hg/upgrade.* (glob)
-  copy of old repository backed up at $TESTTMP/store-filenames/.hg/upgradebackup.* (glob)
-  the old repository will not be deleted; remove it to free up disk space once the upgraded repository is verified
-  $ hg debugupgraderepo --run --optimize redeltafulladd
+  nothing to do
+  $ hg debugupgraderepo --run --optimize 're-delta-fulladd'
   upgrade will perform the following actions:
   
   requirements
@@ -974,9 +1014,14 @@ store files with special filenames aren't encoded during copy
   re-delta-fulladd
      each revision will be added as new content to the internal storage; this will likely drastically slow down execution time, but some extensions might need it
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/store-filenames/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/store-filenames/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 3 total revisions (1 in filelogs, 1 in manifests, 1 in changelog)
   migrating 301 bytes in store; 107 bytes tracked data
@@ -989,7 +1034,7 @@ store files with special filenames aren't encoded during copy
   finished migrating 3 total revisions; total change in store size: 0 bytes
   copying .XX_special_filename
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/store-filenames/.hg/upgradebackup.* (glob)
@@ -1030,35 +1075,7 @@ Check upgrading a large file repository
   store
 
   $ hg debugupgraderepo --run
-  upgrade will perform the following actions:
-  
-  requirements
-     preserved: dotencode, fncache, generaldelta, largefiles, revlogv1, sparserevlog, store
-  
-  beginning upgrade...
-  repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/largefilesrepo/.hg/upgrade.* (glob)
-  (it is safe to interrupt this process any time before data migration completes)
-  migrating 3 total revisions (1 in filelogs, 1 in manifests, 1 in changelog)
-  migrating 355 bytes in store; 160 bytes tracked data
-  migrating 1 filelogs containing 1 revisions (106 bytes in store; 41 bytes tracked data)
-  finished migrating 1 filelog revisions across 1 filelogs; change in size: 0 bytes
-  migrating 1 manifests containing 1 revisions (116 bytes in store; 51 bytes tracked data)
-  finished migrating 1 manifest revisions across 1 manifests; change in size: 0 bytes
-  migrating changelog containing 1 revisions (133 bytes in store; 68 bytes tracked data)
-  finished migrating 1 changelog revisions; change in size: 0 bytes
-  finished migrating 3 total revisions; total change in store size: 0 bytes
-  copying phaseroots
-  data fully migrated to temporary repository
-  marking source repository as being upgraded; clients will be unable to read from repository
-  starting in-place swap of repository data
-  replaced files will be backed up at $TESTTMP/largefilesrepo/.hg/upgradebackup.* (glob)
-  replacing store...
-  store replacement complete; repository was inconsistent for *s (glob)
-  finalizing requirements file and making repository readable again
-  removing temporary repository $TESTTMP/largefilesrepo/.hg/upgrade.* (glob)
-  copy of old repository backed up at $TESTTMP/largefilesrepo/.hg/upgradebackup.* (glob)
-  the old repository will not be deleted; remove it to free up disk space once the upgraded repository is verified
+  nothing to do
   $ cat .hg/requires
   dotencode
   fncache
@@ -1083,36 +1100,7 @@ Check upgrading a large file repository
   .hg/store/lfs/objects/d0/beab232adff5ba365880366ad30b1edb85c4c5372442b5d2fe27adc96d653f
 
   $ hg debugupgraderepo --run
-  upgrade will perform the following actions:
-  
-  requirements
-     preserved: dotencode, fncache, generaldelta, largefiles, lfs, revlogv1, sparserevlog, store
-  
-  beginning upgrade...
-  repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/largefilesrepo/.hg/upgrade.* (glob)
-  (it is safe to interrupt this process any time before data migration completes)
-  migrating 6 total revisions (2 in filelogs, 2 in manifests, 2 in changelog)
-  migrating 801 bytes in store; 467 bytes tracked data
-  migrating 2 filelogs containing 2 revisions (296 bytes in store; 182 bytes tracked data)
-  finished migrating 2 filelog revisions across 2 filelogs; change in size: 0 bytes
-  migrating 1 manifests containing 2 revisions (241 bytes in store; 151 bytes tracked data)
-  finished migrating 2 manifest revisions across 1 manifests; change in size: 0 bytes
-  migrating changelog containing 2 revisions (264 bytes in store; 134 bytes tracked data)
-  finished migrating 2 changelog revisions; change in size: 0 bytes
-  finished migrating 6 total revisions; total change in store size: 0 bytes
-  copying phaseroots
-  copying lfs blob d0beab232adff5ba365880366ad30b1edb85c4c5372442b5d2fe27adc96d653f
-  data fully migrated to temporary repository
-  marking source repository as being upgraded; clients will be unable to read from repository
-  starting in-place swap of repository data
-  replaced files will be backed up at $TESTTMP/largefilesrepo/.hg/upgradebackup.* (glob)
-  replacing store...
-  store replacement complete; repository was inconsistent for *s (glob)
-  finalizing requirements file and making repository readable again
-  removing temporary repository $TESTTMP/largefilesrepo/.hg/upgrade.* (glob)
-  copy of old repository backed up at $TESTTMP/largefilesrepo/.hg/upgradebackup.* (glob)
-  the old repository will not be deleted; remove it to free up disk space once the upgraded repository is verified
+  nothing to do
 
   $ grep lfs .hg/requires
   lfs
@@ -1177,7 +1165,7 @@ repository config is taken in account
         1       1        2        0      p1         21        191         98   0.51309        98         0    0.00000         98         98   1.00000        1
         2       1        2        0   other         30        200        107   0.53500       128        21    0.19626        128        128   0.83594        1
 
-  $ hg debugupgraderepo --run --optimize redeltaall
+  $ hg debugupgraderepo --run --optimize 're-delta-all'
   upgrade will perform the following actions:
   
   requirements
@@ -1188,9 +1176,14 @@ repository config is taken in account
   re-delta-all
      deltas within internal storage will be fully recomputed; this will likely drastically slow down execution time
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   beginning upgrade...
   repository locked and read-only
-  creating temporary repository to stage migrated data: $TESTTMP/localconfig/.hg/upgrade.* (glob)
+  creating temporary repository to stage upgraded data: $TESTTMP/localconfig/.hg/upgrade.* (glob)
   (it is safe to interrupt this process any time before data migration completes)
   migrating 9 total revisions (3 in filelogs, 3 in manifests, 3 in changelog)
   migrating 1019 bytes in store; 882 bytes tracked data
@@ -1202,7 +1195,7 @@ repository config is taken in account
   finished migrating 3 changelog revisions; change in size: 0 bytes
   finished migrating 9 total revisions; total change in store size: -9 bytes
   copying phaseroots
-  data fully migrated to temporary repository
+  data fully upgraded in a temporary repository
   marking source repository as being upgraded; clients will be unable to read from repository
   starting in-place swap of repository data
   replaced files will be backed up at $TESTTMP/localconfig/.hg/upgradebackup.* (glob)
@@ -1247,6 +1240,11 @@ Check that we can add the sparse-revlog format requirement
      preserved: dotencode, fncache, generaldelta, revlogv1, store
      added: sparserevlog
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ cat .hg/requires
   dotencode
   fncache
@@ -1262,6 +1260,11 @@ Check that we can remove the sparse-revlog format requirement
   requirements
      preserved: dotencode, fncache, generaldelta, revlogv1, store
      removed: sparserevlog
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   $ cat .hg/requires
   dotencode
@@ -1284,11 +1287,17 @@ upgrade
      preserved: dotencode, fncache, generaldelta, revlogv1, store
      added: revlog-compression-zstd, sparserevlog
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -1314,11 +1323,17 @@ downgrade
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
      removed: revlog-compression-zstd
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -1347,11 +1362,17 @@ upgrade from hgrc
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
      added: revlog-compression-zstd
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -1384,11 +1405,17 @@ upgrade
      added: exp-sidedata-flag (zstd !)
      added: exp-sidedata-flag, sparserevlog (no-zstd !)
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes     no      no
   persistent-nodemap:  no     no      no
@@ -1421,11 +1448,17 @@ downgrade
      preserved: dotencode, fncache, generaldelta, revlog-compression-zstd, revlogv1, sparserevlog, store (zstd !)
      removed: exp-sidedata-flag
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -1458,11 +1491,17 @@ upgrade from hgrc
      preserved: dotencode, fncache, generaldelta, revlog-compression-zstd, revlogv1, sparserevlog, store (zstd !)
      added: exp-sidedata-flag
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ hg debugformat -v
   format-variant     repo config default
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes    yes      no
   persistent-nodemap:  no     no      no
@@ -1481,3 +1520,8 @@ upgrade from hgrc
   sparserevlog
   store
   $ hg debugsidedata -c 0
+
+Demonstrate that nothing to perform upgrade will still run all the way through
+
+  $ hg debugupgraderepo --run
+  nothing to do

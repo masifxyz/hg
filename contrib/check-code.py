@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # check-code - a style and portability checker for Mercurial
 #
@@ -620,13 +620,17 @@ cfilters = [
 ]
 
 inutilpats = [
-    [(r'\bui\.', "don't use ui in util"),],
+    [
+        (r'\bui\.', "don't use ui in util"),
+    ],
     # warnings
     [],
 ]
 
 inrevlogpats = [
-    [(r'\brepo\.', "don't use repo in revlog"),],
+    [
+        (r'\brepo\.', "don't use repo in revlog"),
+    ],
     # warnings
     [],
 ]

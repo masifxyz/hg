@@ -1015,9 +1015,9 @@ appear on the remote side.
   $ hg push -r 435b5d83910c ../mu
   pushing to ../mu
   searching for changes
-  abort: push creates new remote head 435b5d83910c!
+  abort: push creates new remote head 435b5d83910c
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg push -fr 435b5d83910c ../mu # because the push will create new visible head
   pushing to ../mu
   searching for changes
@@ -1322,12 +1322,12 @@ server won't turn changeset public.
 error, but EEXIST)
 
   $ touch .hg/store/lock
-  $ hg push ../Phi --config ui.timeout=1
+  $ hg push ../Phi --config ui.timeout=1 --config ui.timeout.warn=0
   pushing to ../Phi
   waiting for lock on repository $TESTTMP/Upsilon held by ''
   abort: repository $TESTTMP/Upsilon: timed out waiting for lock held by ''
   (lock might be very busy)
-  [255]
+  [20]
   $ rm .hg/store/lock
 
   $ cd ..

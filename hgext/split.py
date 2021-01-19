@@ -72,7 +72,7 @@ def split(ui, repo, *revs, **opts):
     with repo.wlock(), repo.lock(), repo.transaction(b'split') as tr:
         revs = scmutil.revrange(repo, revlist or [b'.'])
         if len(revs) > 1:
-            raise error.Abort(_(b'cannot split multiple revisions'))
+            raise error.InputError(_(b'cannot split multiple revisions'))
 
         rev = revs.first()
         ctx = repo[rev]
@@ -82,7 +82,7 @@ def split(ui, repo, *revs, **opts):
             ui.status(_(b'nothing to split\n'))
             return 1
         if ctx.node() is None:
-            raise error.Abort(_(b'cannot split working directory'))
+            raise error.InputError(_(b'cannot split working directory'))
 
         if opts.get(b'rebase'):
             # Skip obsoleted descendants and their descendants so the rebase
@@ -98,7 +98,7 @@ def split(ui, repo, *revs, **opts):
         rewriteutil.precheck(repo, [rev] + torebase, b'split')
 
         if len(ctx.parents()) > 1:
-            raise error.Abort(_(b'cannot split a merge changeset'))
+            raise error.InputError(_(b'cannot split a merge changeset'))
 
         cmdutil.bailifchanged(repo)
 
@@ -142,9 +142,14 @@ def dosplit(ui, repo, tr, ctx, opts):
             header = _(
                 b'HG: Splitting %s. So far it has been split into:\n'
             ) % short(ctx.node())
-            for c in committed:
-                firstline = c.description().split(b'\n', 1)[0]
-                header += _(b'HG: - %s: %s\n') % (short(c.node()), firstline)
+            # We don't want color codes in the commit message template, so
+            # disable the label() template function while we render it.
+            with ui.configoverride(
+                {(b'templatealias', b'label(l,x)'): b"x"}, b'split'
+            ):
+                for c in committed:
+                    summary = cmdutil.format_changeset_summary(ui, c, b'split')
+                    header += _(b'HG: - %s\n') % summary
             header += _(
                 b'HG: Write commit message for the next split changeset.\n'
             )
@@ -165,7 +170,7 @@ def dosplit(ui, repo, tr, ctx, opts):
         committed.append(newctx)
 
     if not committed:
-        raise error.Abort(_(b'cannot split an empty revision'))
+        raise error.InputError(_(b'cannot split an empty revision'))
 
     scmutil.cleanupnodes(
         repo,

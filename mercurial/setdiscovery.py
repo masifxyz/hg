@@ -290,11 +290,18 @@ def findcommonheads(
     fullsamplesize=200,
     abortwhenunrelated=True,
     ancestorsof=None,
-    samplegrowth=1.05,
+    audit=None,
 ):
-    '''Return a tuple (common, anyincoming, remoteheads) used to identify
+    """Return a tuple (common, anyincoming, remoteheads) used to identify
     missing nodes from or in remote.
-    '''
+
+    The audit argument is an optional dictionnary that a caller can pass. it
+    will be updated with extra data about the discovery, this is useful for
+    debug.
+    """
+
+    samplegrowth = float(ui.config(b'devel', b'discovery.grow-sample.rate'))
+
     start = util.timer()
 
     roundtrips = 0
@@ -307,9 +314,8 @@ def findcommonheads(
     else:
         ownheads = [rev for rev in cl.headrevs() if rev != nullrev]
 
-    # early exit if we know all the specified remote heads already
-    ui.debug(b"query 1; heads\n")
-    roundtrips += 1
+    initial_head_exchange = ui.configbool(b'devel', b'discovery.exchange-heads')
+
     # We also ask remote about all the local heads. That set can be arbitrarily
     # large, so we used to limit it size to `initialsamplesize`. We no longer
     # do as it proved counter productive. The skipped heads could lead to a
@@ -361,25 +367,39 @@ def findcommonheads(
     #     graph (with many heads) attached to, but very independant to a the
     #     "simple" graph on the server. This is a fairly usual case and have
     #     not been met in the wild so far.
-    if remote.limitedarguments:
-        sample = _limitsample(ownheads, initialsamplesize)
-        # indices between sample and externalized version must match
-        sample = list(sample)
+    if initial_head_exchange:
+        if remote.limitedarguments:
+            sample = _limitsample(ownheads, initialsamplesize)
+            # indices between sample and externalized version must match
+            sample = list(sample)
+        else:
+            sample = ownheads
+
+        ui.debug(b"query 1; heads\n")
+        roundtrips += 1
+        with remote.commandexecutor() as e:
+            fheads = e.callcommand(b'heads', {})
+            fknown = e.callcommand(
+                b'known',
+                {
+                    b'nodes': [clnode(r) for r in sample],
+                },
+            )
+
+        srvheadhashes, yesno = fheads.result(), fknown.result()
+
+        if audit is not None:
+            audit[b'total-roundtrips'] = 1
+
+        if cl.tip() == nullid:
+            if srvheadhashes != [nullid]:
+                return [nullid], True, srvheadhashes
+            return [nullid], False, []
     else:
-        sample = ownheads
-
-    with remote.commandexecutor() as e:
-        fheads = e.callcommand(b'heads', {})
-        fknown = e.callcommand(
-            b'known', {b'nodes': [clnode(r) for r in sample],}
-        )
-
-    srvheadhashes, yesno = fheads.result(), fknown.result()
-
-    if cl.tip() == nullid:
-        if srvheadhashes != [nullid]:
-            return [nullid], True, srvheadhashes
-        return [nullid], False, []
+        # we still need the remote head for the function return
+        with remote.commandexecutor() as e:
+            fheads = e.callcommand(b'heads', {})
+        srvheadhashes = fheads.result()
 
     # start actual discovery (we note this before the next "if" for
     # compatibility reasons)
@@ -396,27 +416,35 @@ def findcommonheads(
         except error.LookupError:
             continue
 
-    if len(knownsrvheads) == len(srvheadhashes):
-        ui.debug(b"all remote heads known locally\n")
-        return srvheadhashes, False, srvheadhashes
+    if initial_head_exchange:
+        # early exit if we know all the specified remote heads already
+        if len(knownsrvheads) == len(srvheadhashes):
+            ui.debug(b"all remote heads known locally\n")
+            return srvheadhashes, False, srvheadhashes
 
-    if len(sample) == len(ownheads) and all(yesno):
-        ui.note(_(b"all local changesets known remotely\n"))
-        ownheadhashes = [clnode(r) for r in ownheads]
-        return ownheadhashes, True, srvheadhashes
+        if len(sample) == len(ownheads) and all(yesno):
+            ui.note(_(b"all local changesets known remotely\n"))
+            ownheadhashes = [clnode(r) for r in ownheads]
+            return ownheadhashes, True, srvheadhashes
 
     # full blown discovery
 
+    # if the server has a limit to its arguments size, we can't grow the sample.
+    hard_limit_sample = remote.limitedarguments
+    grow_sample = local.ui.configbool(b'devel', b'discovery.grow-sample')
+    hard_limit_sample = hard_limit_sample and grow_sample
+
     randomize = ui.configbool(b'devel', b'discovery.randomize')
     disco = partialdiscovery(
-        local, ownheads, remote.limitedarguments, randomize=randomize
+        local, ownheads, hard_limit_sample, randomize=randomize
     )
-    # treat remote heads (and maybe own heads) as a first implicit sample
-    # response
-    disco.addcommons(knownsrvheads)
-    disco.addinfo(zip(sample, yesno))
+    if initial_head_exchange:
+        # treat remote heads (and maybe own heads) as a first implicit sample
+        # response
+        disco.addcommons(knownsrvheads)
+        disco.addinfo(zip(sample, yesno))
 
-    full = False
+    full = not initial_head_exchange
     progress = ui.makeprogress(_(b'searching'), unit=_(b'queries'))
     while not disco.iscomplete():
 
@@ -427,7 +455,7 @@ def findcommonheads(
                 ui.debug(b"taking initial sample\n")
             samplefunc = disco.takefullsample
             targetsize = fullsamplesize
-            if not remote.limitedarguments:
+            if not hard_limit_sample:
                 fullsamplesize = int(fullsamplesize * samplegrowth)
         else:
             # use even cheaper initial sample
@@ -449,7 +477,10 @@ def findcommonheads(
 
         with remote.commandexecutor() as e:
             yesno = e.callcommand(
-                b'known', {b'nodes': [clnode(r) for r in sample],}
+                b'known',
+                {
+                    b'nodes': [clnode(r) for r in sample],
+                },
             ).result()
 
         full = True
@@ -466,6 +497,9 @@ def findcommonheads(
     )
     missing = set(result) - set(knownsrvheads)
     ui.log(b'discovery', msg, len(result), len(missing), roundtrips, elapsed)
+
+    if audit is not None:
+        audit[b'total-roundtrips'] = roundtrips
 
     if not result and srvheadhashes != [nullid]:
         if abortwhenunrelated:

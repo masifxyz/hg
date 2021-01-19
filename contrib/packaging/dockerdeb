@@ -12,10 +12,12 @@ shift; shift # extra params are passed to build process
 
 OUTPUTDIR=${OUTPUTDIR:=$ROOTDIR/packages/$PLATFORM}
 CONTAINER=hg-docker-$PLATFORM
+TZ=`ls -la /etc/localtime | cut -d/ -f7-9`
 
 DOCKER=$($BUILDDIR/hg-docker docker-path)
 
 $BUILDDIR/hg-docker build \
+    --build-arg TZ=$TZ \
     --build-arg CODENAME=$CODENAME \
     $BUILDDIR/docker/$DISTID.template \
     $CONTAINER
@@ -25,7 +27,11 @@ $BUILDDIR/hg-docker build \
 # container and hope it's writable. Whee.
 dn=$(basename $ROOTDIR)
 
-DBUILDUSER=build
+if [[ -z "${HG_DOCKER_OWN_USER:-}" ]]; then
+    DBUILDUSER=build
+else
+    DBUILDUSER="$(id -u):$(id -g)"
+fi
 
 if [ $(uname) = "Darwin" ] ; then
     $DOCKER run -u $DBUILDUSER --rm -v $PWD/..:/mnt $CONTAINER \

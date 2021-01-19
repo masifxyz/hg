@@ -30,7 +30,7 @@
 
   $ hg tag ' '
   abort: tag names cannot consist entirely of whitespace
-  [255]
+  [10]
 
 (this tests also that editor is not invoked, if '--edit' is not
 specified)
@@ -61,29 +61,29 @@ specified)
   $ hg revert .hgtags
   $ hg tag -r 0 x y z y y z
   abort: tag names must be unique
-  [255]
+  [10]
   $ hg tag tap nada dot tip
   abort: the name 'tip' is reserved
-  [255]
+  [10]
   $ hg tag .
   abort: the name '.' is reserved
-  [255]
+  [10]
   $ hg tag null
   abort: the name 'null' is reserved
-  [255]
+  [10]
   $ hg tag "bleah"
   abort: tag 'bleah' already exists (use -f to force)
-  [255]
+  [10]
   $ hg tag "blecch" "bleah"
   abort: tag 'bleah' already exists (use -f to force)
-  [255]
+  [10]
 
   $ hg tag --remove "blecch"
   abort: tag 'blecch' does not exist
-  [255]
+  [10]
   $ hg tag --remove "bleah" "blecch" "blough"
   abort: tag 'blecch' does not exist
-  [255]
+  [10]
 
   $ hg tag -r 0 "bleah0"
   hook: tag changes detected
@@ -105,13 +105,13 @@ specified)
 
   $ hg tag "bleah "
   abort: tag 'bleah' already exists (use -f to force)
-  [255]
+  [10]
   $ hg tag " bleah"
   abort: tag 'bleah' already exists (use -f to force)
-  [255]
+  [10]
   $ hg tag " bleah"
   abort: tag 'bleah' already exists (use -f to force)
-  [255]
+  [10]
   $ hg tag -r 0 "  bleahbleah  "
   hook: tag changes detected
   hook: +A acb14030fe0a21b60322c440ad2d20cf7685a376 bleahbleah
@@ -144,7 +144,7 @@ tagging on a non-head revision
   $ hg tag -l localblah
   $ hg tag "foobar"
   abort: working directory is not at a branch head (use -f to force)
-  [255]
+  [10]
   $ hg tag -f "foobar"
   hook: tag changes detected
   hook: +A acb14030fe0a21b60322c440ad2d20cf7685a376 foobar
@@ -157,10 +157,10 @@ tagging on a non-head revision
   $ hg tag -l 'xx
   > newline'
   abort: '\n' cannot be used in a name
-  [255]
+  [10]
   $ hg tag -l 'xx:xx'
   abort: ':' cannot be used in a name
-  [255]
+  [10]
 
 cloning local tags
 
@@ -401,16 +401,16 @@ tagging on null rev
   0 files updated, 0 files merged, 2 files removed, 0 files unresolved
   $ hg tag nullrev
   abort: working directory is not at a branch head (use -f to force)
-  [255]
+  [10]
 
   $ hg init empty
   $ hg tag -R empty nullrev
   abort: cannot tag null revision
-  [255]
+  [10]
 
   $ hg tag -R empty -r 00000000000 -f nulltag
   abort: cannot tag null revision
-  [255]
+  [10]
 
 issue5539: pruned tags do not appear in .hgtags
 
@@ -492,11 +492,11 @@ tagging on an uncommitted merge (issue2542)
 
   $ hg tag t1
   abort: uncommitted merge
-  [255]
+  [20]
   $ hg status
   $ hg tag --rev 1 t2
   abort: uncommitted merge
-  [255]
+  [20]
   $ hg tag --rev 1 --local t3
   $ hg tags -v
   tip                                2:2a156e8887cc

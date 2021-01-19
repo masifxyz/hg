@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::fs::File;
 use std::io::Read;
 use std::ops::Deref;
 use std::path::Path;
@@ -8,27 +7,26 @@ use byteorder::{BigEndian, ByteOrder};
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 use flate2::read::ZlibDecoder;
-use memmap::{Mmap, MmapOptions};
 use micro_timer::timed;
 use zstd;
 
 use super::index::Index;
-use super::node::{NODE_BYTES_LENGTH, NULL_NODE_ID};
+use super::node::{NodePrefixRef, NODE_BYTES_LENGTH, NULL_NODE};
+use super::nodemap;
+use super::nodemap::NodeMap;
+use super::nodemap_docket::NodeMapDocket;
 use super::patch;
+use crate::repo::Repo;
 use crate::revlog::Revision;
 
 pub enum RevlogError {
     IoError(std::io::Error),
     UnsuportedVersion(u16),
     InvalidRevision,
+    /// Found more than one entry whose ID match the requested prefix
+    AmbiguousPrefix,
     Corrupted,
     UnknowDataFormat(u8),
-}
-
-fn mmap_open(path: &Path) -> Result<Mmap, std::io::Error> {
-    let file = File::open(path)?;
-    let mmap = unsafe { MmapOptions::new().map(&file) }?;
-    Ok(mmap)
 }
 
 /// Read only implementation of revlog.
@@ -39,6 +37,8 @@ pub struct Revlog {
     index: Index,
     /// When index and data are not interleaved: bytes of the revlog data
     data_bytes: Option<Box<dyn Deref<Target = [u8]> + Send>>,
+    /// When present on disk: the persistent nodemap for this revlog
+    nodemap: Option<nodemap::NodeTree>,
 }
 
 impl Revlog {
@@ -47,9 +47,16 @@ impl Revlog {
     /// It will also open the associated data file if index and data are not
     /// interleaved.
     #[timed]
-    pub fn open(index_path: &Path) -> Result<Self, RevlogError> {
-        let index_mmap =
-            mmap_open(&index_path).map_err(RevlogError::IoError)?;
+    pub fn open(
+        repo: &Repo,
+        index_path: impl AsRef<Path>,
+        data_path: Option<&Path>,
+    ) -> Result<Self, RevlogError> {
+        let index_path = index_path.as_ref();
+        let index_mmap = repo
+            .store_vfs()
+            .mmap_open(&index_path)
+            .map_err(RevlogError::IoError)?;
 
         let version = get_version(&index_mmap);
         if version != 1 {
@@ -58,20 +65,36 @@ impl Revlog {
 
         let index = Index::new(Box::new(index_mmap))?;
 
-        // TODO load data only when needed //
+        let default_data_path = index_path.with_extension("d");
+
         // type annotation required
         // won't recognize Mmap as Deref<Target = [u8]>
         let data_bytes: Option<Box<dyn Deref<Target = [u8]> + Send>> =
             if index.is_inline() {
                 None
             } else {
-                let data_path = index_path.with_extension("d");
-                let data_mmap =
-                    mmap_open(&data_path).map_err(RevlogError::IoError)?;
+                let data_path = data_path.unwrap_or(&default_data_path);
+                let data_mmap = repo
+                    .store_vfs()
+                    .mmap_open(data_path)
+                    .map_err(RevlogError::IoError)?;
                 Some(Box::new(data_mmap))
             };
 
-        Ok(Revlog { index, data_bytes })
+        let nodemap = NodeMapDocket::read_from_file(repo, index_path)?.map(
+            |(docket, data)| {
+                nodemap::NodeTree::load_bytes(
+                    Box::new(data),
+                    docket.data_length,
+                )
+            },
+        );
+
+        Ok(Revlog {
+            index,
+            data_bytes,
+            nodemap,
+        })
     }
 
     /// Return number of entries of the `Revlog`.
@@ -86,17 +109,39 @@ impl Revlog {
 
     /// Return the full data associated to a node.
     #[timed]
-    pub fn get_node_rev(&self, node: &[u8]) -> Result<Revision, RevlogError> {
-        // This is brute force. But it is fast enough for now.
-        // Optimization will come later.
+    pub fn get_node_rev(
+        &self,
+        node: NodePrefixRef,
+    ) -> Result<Revision, RevlogError> {
+        if let Some(nodemap) = &self.nodemap {
+            return nodemap
+                .find_bin(&self.index, node)
+                // TODO: propagate details of this error:
+                .map_err(|_| RevlogError::Corrupted)?
+                .ok_or(RevlogError::InvalidRevision);
+        }
+
+        // Fallback to linear scan when a persistent nodemap is not present.
+        // This happens when the persistent-nodemap experimental feature is not
+        // enabled, or for small revlogs.
+        //
+        // TODO: consider building a non-persistent nodemap in memory to
+        // optimize these cases.
+        let mut found_by_prefix = None;
         for rev in (0..self.len() as Revision).rev() {
             let index_entry =
                 self.index.get_entry(rev).ok_or(RevlogError::Corrupted)?;
-            if node == index_entry.hash() {
+            if node == *index_entry.hash() {
                 return Ok(rev);
             }
+            if node.is_prefix_of(index_entry.hash()) {
+                if found_by_prefix.is_some() {
+                    return Err(RevlogError::AmbiguousPrefix);
+                }
+                found_by_prefix = Some(rev)
+            }
         }
-        Err(RevlogError::InvalidRevision)
+        found_by_prefix.ok_or(RevlogError::InvalidRevision)
     }
 
     /// Return the full data associated to a revision.
@@ -130,7 +175,7 @@ impl Revlog {
         if self.check_hash(
             index_entry.p1(),
             index_entry.p2(),
-            index_entry.hash(),
+            index_entry.hash().as_bytes(),
             &data,
         ) {
             Ok(data)
@@ -150,15 +195,15 @@ impl Revlog {
         let e1 = self.index.get_entry(p1);
         let h1 = match e1 {
             Some(ref entry) => entry.hash(),
-            None => &NULL_NODE_ID,
+            None => &NULL_NODE,
         };
         let e2 = self.index.get_entry(p2);
         let h2 = match e2 {
             Some(ref entry) => entry.hash(),
-            None => &NULL_NODE_ID,
+            None => &NULL_NODE,
         };
 
-        hash(data, &h1, &h2).as_slice() == expected
+        hash(data, h1.as_bytes(), h2.as_bytes()).as_slice() == expected
     }
 
     /// Build the full data of a revision out its snapshot

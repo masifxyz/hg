@@ -13,7 +13,7 @@ rename a single file
   $ hg rename d1/d11/a1 d2/c
   $ hg --config ui.portablefilenames=abort rename d1/a d1/con.xml
   abort: filename contains 'con', which is reserved on Windows: d1/con.xml
-  [255]
+  [10]
   $ hg sum
   parent: 0:9b4b6e7b2c26 tip
    1
@@ -295,7 +295,7 @@ attempt to move one file into a non-existent directory
 
   $ hg rename d1/a dx/
   abort: destination dx/ is not a directory
-  [255]
+  [10]
   $ hg status -C
   $ hg update -C
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -304,7 +304,7 @@ attempt to move potentially more than one file into a non-existent directory
 
   $ hg rename 'glob:d1/**' dx
   abort: with multiple sources, destination must be an existing directory
-  [255]
+  [10]
 
 move every file under d1 to d2/d21
 

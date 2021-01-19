@@ -128,11 +128,6 @@ non-lfs content, and the extension enabled.
   @@ -0,0 +1,1 @@
   +non-lfs
   *** runcommand debugupgraderepo -q --run
-  upgrade will perform the following actions:
-  
-  requirements
-     preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
-  
 
   $ grep 'lfs' .hg/requires $SERVER_REQUIRES
   [1]
@@ -282,7 +277,7 @@ lfs content, and the extension enabled.
 
   $ hg clone http://localhost:$HGPORT $TESTTMP/client4_clone
   (remote is using large file support (lfs), but it is explicitly disabled in the local configuration)
-  abort: repository requires features unknown to this Mercurial: lfs!
+  abort: repository requires features unknown to this Mercurial: lfs
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
   $ grep 'lfs' $TESTTMP/client4_clone/.hg/requires $SERVER_REQUIRES
@@ -510,7 +505,7 @@ lfs content, and the extension enabled.
 Misc: process dies early if a requirement exists and the extension is disabled
 
   $ hg --config extensions.lfs=! summary
-  abort: repository requires features unknown to this Mercurial: lfs!
+  abort: repository requires features unknown to this Mercurial: lfs
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 

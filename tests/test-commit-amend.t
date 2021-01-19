@@ -12,7 +12,7 @@ Refuse to amend public csets:
   $ hg ci --amend
   abort: cannot amend public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
   $ hg phase -r . -f -d
 
   $ echo a >> a
@@ -83,7 +83,7 @@ the amend, there should be no rollback.
   phases: 2 draft
   $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit --amend
   abort: empty commit message
-  [255]
+  [10]
   $ hg summary
   parent: 1:43f1ba15f28a tip
    amend base1
@@ -350,7 +350,7 @@ abort does not loose bookmarks
   $ echo a >> a
   $ HGEDITOR="\"sh\" \"`pwd`/editor.sh\"" hg commit --amend
   abort: empty commit message
-  [255]
+  [10]
   $ hg book
      book1                     1:a3b65065808c
    * book2                     1:a3b65065808c
@@ -407,7 +407,7 @@ Refuse to amend during a merge:
   (branch merge, don't forget to commit)
   $ hg ci --amend
   abort: cannot amend while merging
-  [255]
+  [20]
   $ hg ci -m 'merge'
 
 Refuse to amend if there is a merge conflict (issue5805):
@@ -423,7 +423,7 @@ Refuse to amend if there is a merge conflict (issue5805):
 
   $ hg ci --amend
   abort: unresolved merge conflicts (see 'hg help resolve')
-  [255]
+  [20]
 
   $ hg up -qC .
 
@@ -884,7 +884,7 @@ This shouldn't be possible:
   $ hg ci -m..
   $ hg ci --amend --close-branch -m 'closing'
   abort: can only close branch heads
-  [255]
+  [10]
 
 This silliness fails:
 
@@ -893,7 +893,7 @@ This silliness fails:
   $ echo b >> b
   $ hg ci --close-branch -m'open and close'
   abort: branch "silliness" has no heads to close
-  [255]
+  [10]
 
 Test that amend with --secret creates new secret changeset forcibly
 ---------------------------------------------------------------------

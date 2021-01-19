@@ -2,8 +2,8 @@ use crate::commands::Command;
 use crate::error::{CommandError, CommandErrorKind};
 use crate::ui::utf8_to_local;
 use crate::ui::Ui;
-use hg::operations::FindRoot;
-use hg::operations::{CatRev, CatRevError, CatRevErrorKind};
+use hg::operations::{cat, CatRevError, CatRevErrorKind};
+use hg::repo::Repo;
 use hg::utils::hg_path::HgPathBuf;
 use micro_timer::timed;
 use std::convert::TryFrom;
@@ -31,7 +31,8 @@ impl<'a> CatCommand<'a> {
 impl<'a> Command for CatCommand<'a> {
     #[timed]
     fn run(&self, ui: &Ui) -> Result<(), CommandError> {
-        let root = FindRoot::new().run()?;
+        let repo = Repo::find()?;
+        repo.check_requirements()?;
         let cwd = std::env::current_dir()
             .or_else(|e| Err(CommandErrorKind::CurrentDirNotFound(e)))?;
 
@@ -39,7 +40,7 @@ impl<'a> Command for CatCommand<'a> {
         for file in self.files.iter() {
             let normalized = cwd.join(&file);
             let stripped = normalized
-                .strip_prefix(&root)
+                .strip_prefix(&repo.working_directory_path())
                 .or(Err(CommandErrorKind::Abort(None)))?;
             let hg_file = HgPathBuf::try_from(stripped.to_path_buf())
                 .or(Err(CommandErrorKind::Abort(None)))?;
@@ -48,10 +49,8 @@ impl<'a> Command for CatCommand<'a> {
 
         match self.rev {
             Some(rev) => {
-                let mut operation = CatRev::new(&root, rev, &files)
+                let data = cat(&repo, rev, &files)
                     .map_err(|e| map_rev_error(rev, e))?;
-                let data =
-                    operation.run().map_err(|e| map_rev_error(rev, e))?;
                 self.display(ui, &data)
             }
             None => Err(CommandErrorKind::Unimplemented.into()),
@@ -68,7 +67,14 @@ fn map_rev_error(rev: &str, err: CatRevError) -> CommandError {
             )),
             CatRevErrorKind::InvalidRevision => CommandErrorKind::Abort(Some(
                 utf8_to_local(&format!(
-                    "abort: invalid revision identifier{}\n",
+                    "abort: invalid revision identifier {}\n",
+                    rev
+                ))
+                .into(),
+            )),
+            CatRevErrorKind::AmbiguousPrefix => CommandErrorKind::Abort(Some(
+                utf8_to_local(&format!(
+                    "abort: ambiguous revision identifier {}\n",
                     rev
                 ))
                 .into(),

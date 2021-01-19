@@ -51,7 +51,7 @@ Nothing to split
   $ hg commit -m empty --config ui.allowemptycommit=1
   $ hg split
   abort: cannot split an empty revision
-  [255]
+  [10]
 
   $ rm -rf .hg
   $ hg init
@@ -60,7 +60,7 @@ Cannot split working directory
 
   $ hg split -r 'wdir()'
   abort: cannot split working directory
-  [255]
+  [10]
 
 Generate some content.  The sed filter drop CR on Windows, which is dropped in
 the a > b line.
@@ -79,7 +79,7 @@ Cannot split a public changeset
   $ hg split .
   abort: cannot split public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
 
   $ hg phase --draft -f -r 'all()'
 
@@ -89,7 +89,7 @@ Cannot split while working directory is dirty
   $ hg add dirty
   $ hg split .
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg forget dirty
   $ rm dirty
 
@@ -103,7 +103,7 @@ Split a head
 
   $ hg split 'all()'
   abort: cannot split multiple revisions
-  [255]
+  [10]
 
 This function splits a bit strangely primarily to avoid changing the behavior of
 the test after a bug was fixed with how split/commit --interactive handled
@@ -159,7 +159,7 @@ was always recording three commits, one for each diff hunk, in reverse order
   transaction abort!
   rollback completed
   abort: edit failed: false exited with status 1
-  [255]
+  [250]
   $ hg status
 
   $ HGEDITOR="\"$PYTHON\" $TESTTMP/editor.py"
@@ -216,7 +216,7 @@ was always recording three commits, one for each diff hunk, in reverse order
   (enter ? for help) [Ynesfdaq?] y
   
   EDITOR: HG: Splitting 1df0d5c5a3ab. So far it has been split into:
-  EDITOR: HG: - e704349bd21b: split 1
+  EDITOR: HG: - 2:e704349bd21b tip "split 1"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: a2
   EDITOR: 
@@ -239,8 +239,8 @@ was always recording three commits, one for each diff hunk, in reverse order
   (enter ? for help) [Ynesfdaq?] y
   
   EDITOR: HG: Splitting 1df0d5c5a3ab. So far it has been split into:
-  EDITOR: HG: - e704349bd21b: split 1
-  EDITOR: HG: - a09ad58faae3: split 2
+  EDITOR: HG: - 2:e704349bd21b tip "split 1"
+  EDITOR: HG: - 3:a09ad58faae3 "split 2"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: a2
   EDITOR: 
@@ -368,9 +368,9 @@ Split a non-head
   $ cp -R . ../d
 
   $ runsplit -r 1 | grep rebasing
-  rebasing 2:b5c5ea414030 "d1" (d1)
-  rebasing 3:f4a0a8d004cc "d2" (d2)
-  rebasing 4:777940761eba "d3" (d3)
+  rebasing 2:b5c5ea414030 d1 "d1"
+  rebasing 3:f4a0a8d004cc d2 "d2"
+  rebasing 4:777940761eba d3 "d3"
 #if obsstore-off
   $ hg bookmark
      d1                        4:c4b449ef030e
@@ -467,7 +467,7 @@ Split a non-head without rebase
 #if obsstore-off
   $ runsplit -r 1 --no-rebase
   abort: cannot split changeset with children
-  [255]
+  [10]
 #else
   $ runsplit -r 1 --no-rebase >/dev/null
   3 new orphan changesets
@@ -518,7 +518,7 @@ Split a non-head with obsoleted descendants
   $ rm .hg/localtags
   $ hg split $B --config experimental.evolution=createmarkers
   abort: cannot split changeset with children
-  [255]
+  [10]
   $ cat > $TESTTMP/messages <<EOF
   > Split B
   > EOF
@@ -661,7 +661,7 @@ Do not move things to secret even if phases.new-commit=secret
   (enter ? for help) [Ynesfdaq?] f
   
   EDITOR: HG: Splitting dd3c45017cbf. So far it has been split into:
-  EDITOR: HG: - f205aea1c624: split 1
+  EDITOR: HG: - 2:f205aea1c624 tip "split 1"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: splitme
   EDITOR: 
@@ -718,7 +718,7 @@ the ignoreblanklines thing isn't somehow position dependent.
   (enter ? for help) [Ynesfdaq?] f
   
   EDITOR: HG: Splitting 904c80b40a4a. So far it has been split into:
-  EDITOR: HG: - ffecf40fa954: split 1
+  EDITOR: HG: - 2:ffecf40fa954 tip "split 1"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: splitme
   EDITOR: 
@@ -787,7 +787,7 @@ TODO: Fix this on Windows. See issue 2020 and 5883
 
   $ printf 'y\ny\ny\n' | hg split
   abort: cannot split an empty revision
-  [255]
+  [10]
 #endif
 
 Test that splitting moves works properly (issue5723)
@@ -843,7 +843,7 @@ Test that splitting moves works properly (issue5723)
   (enter ? for help) [Ynesfdaq?] a
   
   EDITOR: HG: Splitting 8c42fa635116. So far it has been split into:
-  EDITOR: HG: - 478be2a70c27: split1, keeping only the numbered lines
+  EDITOR: HG: - 2:478be2a70c27 tip "split1, keeping only the numbered lines"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: move and modify
   EDITOR: 
@@ -941,7 +941,7 @@ accidentally.
   (enter ? for help) [Ynesfdaq?] a
   
   EDITOR: HG: Splitting 41c861dfa61e. So far it has been split into:
-  EDITOR: HG: - 4b19e06610eb: split1, keeping "file" and only the numbered lines in file2
+  EDITOR: HG: - 2:4b19e06610eb tip "split1, keeping "file" and only the numbered lines in file2"
   EDITOR: HG: Write commit message for the next split changeset.
   EDITOR: copy file->file2, modify both
   EDITOR: 
@@ -976,3 +976,73 @@ accidentally.
   2
   3
   4
+
+Test that color codes don't end up in the commit message template
+----------------------------------------------------
+
+  $ hg init $TESTTMP/colorless
+  $ cd $TESTTMP/colorless
+  $ echo 1 > file1
+  $ echo 1 > file2
+  $ hg ci -qAm initial
+  $ echo 2 > file1
+  $ echo 2 > file2
+  $ cat > $TESTTMP/messages <<EOF
+  > split1, modifying file1
+  > --
+  > split2, modifying file2
+  > EOF
+  $ hg ci
+  EDITOR: 
+  EDITOR: 
+  EDITOR: HG: Enter commit message.  Lines beginning with 'HG:' are removed.
+  EDITOR: HG: Leave message empty to abort commit.
+  EDITOR: HG: --
+  EDITOR: HG: user: test
+  EDITOR: HG: branch 'default'
+  EDITOR: HG: changed file1
+  EDITOR: HG: changed file2
+  $ printf 'f\nn\na\n' | hg split --color=debug \
+  > --config command-templates.oneline-summary='{label("rev", rev)} {desc}'
+  [diff.diffline|diff --git a/file1 b/file1]
+  1 hunks, 1 lines changed
+  [ ui.prompt|examine changes to 'file1'?
+  (enter ? for help) [Ynesfdaq?]] [ ui.promptecho|f]
+  
+  [diff.diffline|diff --git a/file2 b/file2]
+  1 hunks, 1 lines changed
+  [ ui.prompt|examine changes to 'file2'?
+  (enter ? for help) [Ynesfdaq?]] [ ui.promptecho|n]
+  
+  EDITOR: HG: Splitting 6432c65c3078. Write commit message for the first split changeset.
+  EDITOR: split1, modifying file1
+  EDITOR: 
+  EDITOR: 
+  EDITOR: HG: Enter commit message.  Lines beginning with 'HG:' are removed.
+  EDITOR: HG: Leave message empty to abort commit.
+  EDITOR: HG: --
+  EDITOR: HG: user: test
+  EDITOR: HG: branch 'default'
+  EDITOR: HG: changed file1
+  [ ui.status|created new head]
+  [diff.diffline|diff --git a/file2 b/file2]
+  1 hunks, 1 lines changed
+  [ ui.prompt|examine changes to 'file2'?
+  (enter ? for help) [Ynesfdaq?]] [ ui.promptecho|a]
+  
+  EDITOR: HG: Splitting 6432c65c3078. So far it has been split into:
+  EDITOR: HG: - 2 split2, modifying file2
+  EDITOR: HG: Write commit message for the next split changeset.
+  EDITOR: split1, modifying file1
+  EDITOR: 
+  EDITOR: 
+  EDITOR: HG: Enter commit message.  Lines beginning with 'HG:' are removed.
+  EDITOR: HG: Leave message empty to abort commit.
+  EDITOR: HG: --
+  EDITOR: HG: user: test
+  EDITOR: HG: branch 'default'
+  EDITOR: HG: changed file2
+  [ ui.warning|transaction abort!]
+  [ ui.warning|rollback completed]
+  [ ui.error|abort: empty commit message]
+  [10]

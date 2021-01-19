@@ -315,8 +315,8 @@ merge tests
   resolving manifests
    branchmerge: True, force: False, partial: False
    ancestor: 6747d179aa9a, local: 20a0db6fbf6c+, remote: 7af322bc1198
-   preserving t for resolve of t
   starting 4 threads for background file closing (?)
+   preserving t for resolve of t
    t: versions differ -> m (premerge)
   picked tool ':merge' for t (binary False symlink False changedelete False)
   merging t
@@ -571,7 +571,7 @@ push -f
   no changes made to subrepo s/ss since last push to $TESTTMP/t/s/ss
   pushing subrepo s to $TESTTMP/t/s
   searching for changes
-  abort: push creates new remote head 12a213df6fa9! (in subrepository "s")
+  abort: push creates new remote head 12a213df6fa9 (in subrepository "s")
   (merge or see 'hg help push' for details about pushing new heads)
   [255]
   $ hg push -f
@@ -1013,7 +1013,7 @@ Issue1977: multirepo push should fail if subrepo push fails
   created new head
   $ hg -R repo2 ci -m3
   $ hg -q -R repo2 push
-  abort: push creates new remote head cc505f09a8b2! (in subrepository "s")
+  abort: push creates new remote head cc505f09a8b2 (in subrepository "s")
   (merge or see 'hg help push' for details about pushing new heads)
   [255]
   $ hg -R repo update
@@ -1280,7 +1280,7 @@ Check that share works with subrepo
   ../shared/subrepo-2/.hg/wcache/manifestfulltextcache (reporevlogstore !)
   ../shared/subrepo-2/file
   $ hg -R ../shared in
-  abort: repository default not found!
+  abort: repository default not found
   [255]
   $ hg -R ../shared/subrepo-2 showconfig paths
   paths.default=$TESTTMP/subrepo-status/subrepo-2
@@ -1964,7 +1964,7 @@ also check for a pipe
   $ hg clone malicious-proxycommand malicious-proxycommand-clone
   updating to branch default
   cloning subrepo s from ssh://fakehost%7Ctouch%24%7BIFS%7Downed/path
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ [ ! -f owned ] || echo 'you got owned'
 
@@ -1978,7 +1978,7 @@ also check that a percent encoded '|' (%7C) doesn't work
   $ hg clone malicious-proxycommand malicious-proxycommand-clone
   updating to branch default
   cloning subrepo s from ssh://fakehost%7Ctouch%20owned/path
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ [ ! -f owned ] || echo 'you got owned'
 

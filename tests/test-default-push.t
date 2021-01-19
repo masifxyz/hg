@@ -18,9 +18,9 @@
 Push should provide a hint when both 'default' and 'default-push' not set:
   $ cd c
   $ hg push --config paths.default=
-  abort: default repository not configured!
+  config error: default repository not configured!
   (see 'hg help config.paths')
-  [255]
+  [30]
 
   $ cd ..
 
@@ -75,7 +75,7 @@ Push should push to 'default-push' when 'default' is not set
 Pushing to a path that isn't defined should not fall back to default
 
   $ hg --cwd b push doesnotexist
-  abort: repository doesnotexist does not exist!
+  abort: repository doesnotexist does not exist
   [255]
 
 :pushurl is used when defined
@@ -137,13 +137,13 @@ Invalid :pushrev raises appropriately
   $ hg --config 'paths.default:pushrev=notdefined()' push
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
   hg: parse error: unknown identifier: notdefined
-  [255]
+  [10]
 
   $ hg --config 'paths.default:pushrev=(' push
   pushing to file:/*/$TESTTMP/pushurlsource/../pushurldest (glob)
   hg: parse error at 1: not a prefix: end
   ((
     ^ here)
-  [255]
+  [10]
 
   $ cd ..

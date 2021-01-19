@@ -122,7 +122,7 @@ Local is empty:
   $ cd empty1
   $ hg incoming $remote --rev name1
   comparing with http://localhost:$HGPORT/
-  abort: cannot look up remote changes; remote repository does not support the 'changegroupsubset' capability!
+  abort: cannot look up remote changes; remote repository does not support the 'changegroupsubset' capability
   [255]
   $ hg incoming $remote
   comparing with http://localhost:$HGPORT/
@@ -285,9 +285,9 @@ Local is superset:
   $ hg push $remote
   pushing to http://localhost:$HGPORT/
   searching for changes
-  abort: push creates new remote branches: both, name1!
+  abort: push creates new remote branches: both, name1
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
   $ hg push $remote --new-branch
   pushing to http://localhost:$HGPORT/
   searching for changes
@@ -311,7 +311,7 @@ Partial pull:
   $ hg init partial; cd partial
   $ hg incoming $remote --rev name2
   comparing with http://localhost:$HGPORT/
-  abort: cannot look up remote changes; remote repository does not support the 'changegroupsubset' capability!
+  abort: cannot look up remote changes; remote repository does not support the 'changegroupsubset' capability
   [255]
   $ hg pull $remote --rev name2
   pulling from http://localhost:$HGPORT/

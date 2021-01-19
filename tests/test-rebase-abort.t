@@ -78,11 +78,11 @@ Conflicting rebase:
 
   $ hg rebase -s 3 -d 2
   rebasing 3:3163e20567cc "L1"
-  rebasing 4:46f0b057b5c0 "L2" (tip)
+  rebasing 4:46f0b057b5c0 tip "L2"
   merging common
   warning: conflicts while merging common! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
 Insert unsupported advisory merge record:
 
@@ -145,11 +145,11 @@ earlier than 2.7 by renaming ".hg/rebasestate" temporarily.
 
   $ hg rebase -s 3 -d 2
   rebasing 3:3163e20567cc "L1"
-  rebasing 4:46f0b057b5c0 "L2" (tip)
+  rebasing 4:46f0b057b5c0 tip "L2"
   merging common
   warning: conflicts while merging common! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
   $ mv .hg/rebasestate .hg/rebasestate.back
   $ hg update --quiet --clean 2
@@ -215,11 +215,11 @@ Rebase and abort without generating new changesets:
   $ hg rebase -b 4 -d 2
   rebasing 3:a6484957d6b9 "B bis"
   note: not rebasing 3:a6484957d6b9 "B bis", its destination already has all its changes
-  rebasing 4:145842775fec "C1" (tip)
+  rebasing 4:145842775fec tip "C1"
   merging c
   warning: conflicts while merging c! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
   $ hg tglog
   %  4:draft 'C1'
@@ -274,11 +274,11 @@ rebase abort should not leave working copy in a merge state if tip-1 is public
   
 
   $ hg rebase -d master -r foo
-  rebasing 3:6c0f977a22d8 "C" (foo tip)
+  rebasing 3:6c0f977a22d8 foo tip "C"
   merging c
   warning: conflicts while merging c! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
   $ hg abort
   rebase aborted
   $ hg log -G --template "{rev} {desc} {bookmarks}"
@@ -314,9 +314,9 @@ user has somehow managed to update to a different revision (issue4009)
   created new head
 
   $ hg rebase -d @ -b foo --tool=internal:fail
-  rebasing 2:070cf4580bb5 "b2" (foo tip)
+  rebasing 2:070cf4580bb5 foo tip "b2"
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
   $ mv .hg/rebasestate ./ # so we're allowed to hg up like in mercurial <2.6.3
   $ hg up -C 0            # user does other stuff in the repo
@@ -328,7 +328,7 @@ user has somehow managed to update to a different revision (issue4009)
   $ hg up 1               # user gets an error saying to run hg rebase --abort
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
 
   $ cat a
   new
@@ -398,20 +398,20 @@ New operations are blocked with the correct state message
   $ hg rebase -s 3 -d tip
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
   $ hg up .
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
   $ hg up -C .
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
 
   $ hg graft 3
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
 
   $ hg abort
   saved backup bundle to $TESTTMP/interrupted/.hg/strip-backup/3d8812cf300d-93041a90-backup.hg
@@ -463,7 +463,7 @@ during a rebase (issue4661)
   $ hg rebase -d 1 --tool 'internal:fail'
   rebasing 2:e4ea5cdc9789 "conflicting 1"
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
   $ hg abort
   rebase aborted
   $ hg summary
@@ -504,7 +504,7 @@ commit will cause merge conflict on rebase
   note: not rebasing 3:0682fd3dabf5 "disappear draft", its destination already has all its changes
   warning: conflicts while merging root! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
   $ hg abort
   rebase aborted
   $ cd ..

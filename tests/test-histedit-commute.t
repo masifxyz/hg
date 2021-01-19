@@ -68,7 +68,7 @@ show the edit commands offered
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there
@@ -94,7 +94,33 @@ test customization of revision summary
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
+  #  m, mess = edit commit message without changing commit content
+  #  p, pick = use commit
+  #  b, base = checkout changeset and apply further changesets from there
+  #  d, drop = remove commit from history
+  #  f, fold = use commit, but combine it with the one above
+  #  r, roll = like fold, but discard this commit's description and date
+  #
+
+
+colors in the custom template don't show up in the editor
+  $ HGEDITOR=cat hg histedit 177f92b77385 --color=debug \
+  >  --config histedit.summary-template='I am rev {label("rev", rev)}'
+  pick 177f92b77385 I am rev 2
+  pick 055a42cdd887 I am rev 3
+  pick e860deea161a I am rev 4
+  pick 652413bf663e I am rev 5
+  
+  # Edit history between 177f92b77385 and 652413bf663e
+  #
+  # Commits are listed from least to most recent
+  #
+  # You can reorder changesets by reordering the lines
+  #
+  # Commands:
+  #
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there
@@ -116,8 +142,8 @@ edit the history
   > EOF
   $ HGEDITOR="cat \"$EDITED\" > " hg histedit 177f92b77385 2>&1 | fixbundle
   0 files updated, 0 files merged, 4 files removed, 0 files unresolved
-  Editing (177f92b77385), you may commit or record as needed now.
-  (hg histedit --continue to resume)
+  Editing (177f92b77385), commit as needed now to split the change
+  (to edit 177f92b77385, `hg histedit --continue` after making changes)
 
 rules should end up in .hg/histedit-last-edit.txt:
   $ cat .hg/histedit-last-edit.txt
@@ -379,7 +405,7 @@ Verify that revsetalias entries work with histedit:
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there

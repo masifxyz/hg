@@ -56,9 +56,17 @@ Default operation:
 Ensure branchcache got copied over:
 
   $ ls .hg/cache
+  branch2-base
+  branch2-immutable
   branch2-served
+  branch2-served.hidden
+  branch2-visible
+  branch2-visible-hidden
+  hgtagsfnodes1
   rbc-names-v1
   rbc-revs-v1
+  tags2
+  tags2-served
 
   $ cat a
   a
@@ -73,7 +81,7 @@ Invalid dest '' must abort:
 
   $ hg clone . ''
   abort: empty destination path is not valid
-  [255]
+  [10]
 
 No update, with debug option:
 
@@ -99,6 +107,7 @@ No update, with debug option:
   linking: 17 files (reposimplestore !)
   linking: 18 files (reposimplestore !)
   linked 18 files (reposimplestore !)
+  updating the branch cache
 #else
   $ hg --debug clone -U . ../c --config progress.debug=true
   linking: 1 files
@@ -127,9 +136,17 @@ No update, with debug option:
 Ensure branchcache got copied over:
 
   $ ls .hg/cache
+  branch2-base
+  branch2-immutable
   branch2-served
+  branch2-served.hidden
+  branch2-visible
+  branch2-visible-hidden
+  hgtagsfnodes1
   rbc-names-v1
   rbc-revs-v1
+  tags2
+  tags2-served
 
   $ cat a 2>/dev/null || echo "a not present"
   a not present
@@ -189,7 +206,7 @@ Invalid dest '' with --pull must abort (issue2528):
 
   $ hg clone --pull a ''
   abort: empty destination path is not valid
-  [255]
+  [10]
 
 Clone to '.':
 
@@ -254,7 +271,7 @@ Testing --noupdate with --updaterev (must abort):
 
   $ hg clone --noupdate --updaterev 1 a ua
   abort: cannot specify both --noupdate and --updaterev
-  [255]
+  [10]
 
 
 Testing clone -u:
@@ -611,25 +628,25 @@ Testing failures:
 No local source
 
   $ hg clone a b
-  abort: repository a not found!
+  abort: repository a not found
   [255]
 
 Invalid URL
 
   $ hg clone http://invalid:url/a b
   abort: error: nonnumeric port: 'url'
-  [255]
+  [100]
 
 No remote source
 
 #if windows
   $ hg clone http://$LOCALIP:3121/a b
   abort: error: * (glob)
-  [255]
+  [100]
 #else
   $ hg clone http://$LOCALIP:3121/a b
   abort: error: *refused* (glob)
-  [255]
+  [100]
 #endif
   $ rm -rf b # work around bug with http clone
 
@@ -676,7 +693,7 @@ Default destination, same directory
   $ hg clone q
   destination directory: q
   abort: destination 'q' is not empty
-  [255]
+  [10]
 
 destination directory not empty
 
@@ -684,7 +701,7 @@ destination directory not empty
   $ echo stuff > a/a
   $ hg clone q a
   abort: destination 'a' is not empty
-  [255]
+  [10]
 
 
 #if unix-permissions no-root
@@ -1106,7 +1123,7 @@ Test that auto sharing doesn't cause failure of "hg clone local remote"
   $ hg -R a id -r 0
   acb14030fe0a
   $ hg id -R remote -r 0
-  abort: repository remote not found!
+  abort: repository remote not found
   [255]
   $ hg --config share.pool=share -q clone -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" a ssh://user@dummy/remote
   $ hg -R remote id -r 0
@@ -1176,10 +1193,10 @@ SEC: check for unsafe ssh url
   abort: potentially unsafe url: 'ssh://-oProxyCommand=touch${IFS}owned/path'
   [255]
   $ hg clone 'ssh://fakehost|touch%20owned/path'
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ hg clone 'ssh://fakehost%7Ctouch%20owned/path'
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
   $ hg clone 'ssh://-oProxyCommand=touch owned%20foo@example.com/nonexistent/path'
@@ -1192,14 +1209,14 @@ SEC: check for unsafe ssh url
   sending upgrade request: * proto=exp-ssh-v2-0003 (glob) (sshv2 !)
   sending hello command
   sending between command
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ hg clone "ssh://example.com:%26touch%20owned%20/" --debug
   running sh -c "read l; read l; read l" -p "&touch owned " example.com "hg -R . serve --stdio"
   sending upgrade request: * proto=exp-ssh-v2-0003 (glob) (sshv2 !)
   sending hello command
   sending between command
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 #else
   $ hg clone "ssh://%3btouch%20owned%20/" --debug
@@ -1207,14 +1224,14 @@ SEC: check for unsafe ssh url
   sending upgrade request: * proto=exp-ssh-v2-0003 (glob) (sshv2 !)
   sending hello command
   sending between command
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ hg clone "ssh://example.com:%3btouch%20owned%20/" --debug
   running sh -c "read l; read l; read l" -p ';touch owned ' example.com 'hg -R . serve --stdio'
   sending upgrade request: * proto=exp-ssh-v2-0003 (glob) (sshv2 !)
   sending hello command
   sending between command
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 #endif
 
@@ -1223,7 +1240,7 @@ SEC: check for unsafe ssh url
   sending upgrade request: * proto=exp-ssh-v2-0003 (glob) (sshv2 !)
   sending hello command
   sending between command
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
 We should not have created a file named owned - if it exists, the

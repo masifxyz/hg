@@ -75,7 +75,7 @@ def findcommonincoming(repo, remote, heads=None, force=False, ancestorsof=None):
 
 
 class outgoing(object):
-    '''Represents the result of a findcommonoutgoing() call.
+    """Represents the result of a findcommonoutgoing() call.
 
     Members:
 
@@ -94,7 +94,7 @@ class outgoing(object):
       remotely.
 
     Some members are computed on demand from the heads, unless provided upfront
-    by discovery.'''
+    by discovery."""
 
     def __init__(
         self, repo, commonheads=None, ancestorsof=None, missingroots=None
@@ -157,7 +157,7 @@ class outgoing(object):
 def findcommonoutgoing(
     repo, other, onlyheads=None, force=False, commoninc=None, portable=False
 ):
-    '''Return an outgoing instance to identify the nodes present in repo but
+    """Return an outgoing instance to identify the nodes present in repo but
     not in other.
 
     If onlyheads is given, only nodes ancestral to nodes in onlyheads
@@ -168,7 +168,7 @@ def findcommonoutgoing(
     findcommonincoming(repo, other, force) to avoid recomputing it here.
 
     If portable is given, compute more conservative common and ancestorsof,
-    to make bundles created from the instance more portable.'''
+    to make bundles created from the instance more portable."""
     # declare an empty outgoing object to be filled later
     og = outgoing(repo, None, None)
 
@@ -332,7 +332,10 @@ def _nowarnheads(pushop):
 
     with remote.commandexecutor() as e:
         remotebookmarks = e.callcommand(
-            b'listkeys', {b'namespace': b'bookmarks',}
+            b'listkeys',
+            {
+                b'namespace': b'bookmarks',
+            },
         ).result()
 
     bookmarkedheads = set()
@@ -359,7 +362,7 @@ def _nowarnheads(pushop):
 def checkheads(pushop):
     """Check that a push won't add any outgoing head
 
-    raise Abort error and display ui message as needed.
+    raise StateError error and display ui message as needed.
     """
 
     repo = pushop.repo.unfiltered()
@@ -399,14 +402,14 @@ def checkheads(pushop):
                 closedbranches.add(tag)
         closedbranches = closedbranches & set(newbranches)
         if closedbranches:
-            errmsg = _(b"push creates new remote branches: %s (%d closed)!") % (
+            errmsg = _(b"push creates new remote branches: %s (%d closed)") % (
                 branchnames,
                 len(closedbranches),
             )
         else:
-            errmsg = _(b"push creates new remote branches: %s!") % branchnames
+            errmsg = _(b"push creates new remote branches: %s") % branchnames
         hint = _(b"use 'hg push --new-branch' to create new remote branches")
-        raise error.Abort(errmsg, hint=hint)
+        raise error.StateError(errmsg, hint=hint)
 
     # 2. Find heads that we need not warn about
     nowarnheads = _nowarnheads(pushop)
@@ -469,15 +472,18 @@ def checkheads(pushop):
             if errormsg is None:
                 if branch not in (b'default', None):
                     errormsg = _(
-                        b"push creates new remote head %s on branch '%s'!"
-                    ) % (short(dhs[0]), branch,)
+                        b"push creates new remote head %s on branch '%s'"
+                    ) % (
+                        short(dhs[0]),
+                        branch,
+                    )
                 elif repo[dhs[0]].bookmarks():
                     errormsg = _(
                         b"push creates new remote head %s "
-                        b"with bookmark '%s'!"
+                        b"with bookmark '%s'"
                     ) % (short(dhs[0]), repo[dhs[0]].bookmarks()[0])
                 else:
-                    errormsg = _(b"push creates new remote head %s!") % short(
+                    errormsg = _(b"push creates new remote head %s") % short(
                         dhs[0]
                     )
                 if unsyncedheads:
@@ -499,7 +505,7 @@ def checkheads(pushop):
             for h in dhs:
                 repo.ui.note(b" %s\n" % short(h))
     if errormsg:
-        raise error.Abort(errormsg, hint=hint)
+        raise error.StateError(errormsg, hint=hint)
 
 
 def _postprocessobsolete(pushop, futurecommon, candidate_newhs):

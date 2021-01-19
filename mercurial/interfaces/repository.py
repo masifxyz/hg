@@ -617,7 +617,7 @@ class ifiledata(interfaceutil.Interface):
         """
 
     def revision(node, raw=False):
-        """"Obtain fulltext data for a node.
+        """Obtain fulltext data for a node.
 
         By default, any storage transformations are applied before the data
         is returned. If ``raw`` is True, non-raw storage transformations
@@ -628,8 +628,7 @@ class ifiledata(interfaceutil.Interface):
         """
 
     def rawdata(node):
-        """Obtain raw data for a node.
-        """
+        """Obtain raw data for a node."""
 
     def read(node):
         """Resolve file fulltext data.
@@ -756,6 +755,7 @@ class ifilemutation(interfaceutil.Interface):
         linkmapper,
         transaction,
         addrevisioncb=None,
+        duplicaterevisioncb=None,
         maybemissingparents=False,
     ):
         """Process a series of deltas for storage.
@@ -1247,7 +1247,13 @@ class imanifeststorage(interfaceutil.Interface):
         See the documentation for ``ifiledata`` for more.
         """
 
-    def addgroup(deltas, linkmapper, transaction, addrevisioncb=None):
+    def addgroup(
+        deltas,
+        linkmapper,
+        transaction,
+        addrevisioncb=None,
+        duplicaterevisioncb=None,
+    ):
         """Process a series of deltas for storage.
 
         See the documentation in ``ifilemutation`` for more.

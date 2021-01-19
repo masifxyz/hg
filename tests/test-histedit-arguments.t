@@ -55,11 +55,11 @@ histedit --continue/--abort with no existing state
 
   $ hg histedit --continue
   abort: no histedit in progress
-  [255]
+  [20]
   $ hg abort
   abort: no histedit in progress (abortflag !)
   abort: no operation in progress (abortcommand !)
-  [255]
+  [20]
 
 Run a dummy edit to make sure we get tip^^ correctly via revsingle.
 --------------------------------------------------------------------
@@ -77,7 +77,7 @@ Run a dummy edit to make sure we get tip^^ correctly via revsingle.
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there
@@ -126,8 +126,8 @@ Test invalid config default
 ---------------------------
 
   $ hg histedit --config "histedit.defaultrev="
-  abort: config option histedit.defaultrev can't be empty
-  [255]
+  config error: config option histedit.defaultrev can't be empty
+  [30]
 
 Run on a revision not descendants of the initial parent
 --------------------------------------------------------------------
@@ -149,14 +149,14 @@ temporarily.
   > edit 08d98a8350f3 4 five
   > EOF
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-  Editing (08d98a8350f3), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (08d98a8350f3), commit as needed now to split the change
+  (to edit 08d98a8350f3, `hg histedit --continue` after making changes)
+  [240]
 
   $ hg graft --continue
   abort: no graft in progress
   (continue: hg histedit --continue)
-  [255]
+  [20]
 
   $ mv .hg/histedit-state .hg/histedit-state.back
   $ hg update --quiet --clean 2
@@ -187,7 +187,7 @@ Test that missing revisions are detected
   > EOF
   hg: parse error: missing rules for changeset c8e68270e35a
   (use "drop c8e68270e35a" to discard, see also: 'hg help -e histedit.config')
-  [255]
+  [10]
 
 Test that extra revisions are detected
 ---------------------------------------
@@ -199,7 +199,7 @@ Test that extra revisions are detected
   > EOF
   hg: parse error: pick "6058cbb6cfd7" changeset was not a candidate
   (only use listed changesets)
-  [255]
+  [10]
 
 Test malformed line
 ---------------------------------------
@@ -210,7 +210,7 @@ Test malformed line
   > pick 08d98a8350f3 4 five
   > EOF
   hg: parse error: malformed line "pickeb57da33312f2three"
-  [255]
+  [10]
 
 Test unknown changeset
 ---------------------------------------
@@ -221,7 +221,7 @@ Test unknown changeset
   > pick 08d98a8350f3 4 five
   > EOF
   hg: parse error: unknown changeset 0123456789ab listed
-  [255]
+  [10]
 
 Test unknown command
 ---------------------------------------
@@ -232,7 +232,7 @@ Test unknown command
   > pick 08d98a8350f3 4 five
   > EOF
   hg: parse error: unknown action "coin"
-  [255]
+  [10]
 
 Test duplicated changeset
 ---------------------------------------
@@ -245,7 +245,7 @@ So one is missing and one appear twice.
   > pick 08d98a8350f3 4 five
   > EOF
   hg: parse error: duplicated command for changeset eb57da33312f
-  [255]
+  [10]
 
 Test bogus rev
 ---------------------------------------
@@ -256,7 +256,7 @@ Test bogus rev
   > pick 08d98a8350f3 4 five
   > EOF
   hg: parse error: invalid changeset 0u98
-  [255]
+  [10]
 
 Test short version of command
 ---------------------------------------
@@ -319,7 +319,7 @@ Test that trimming description using multi-byte characters
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there
@@ -335,9 +335,9 @@ Test --continue with --keep
   > edit eb57da33312f 2 three
   > pick f3cfcca30c44 4 x
   > EOF
-  Editing (eb57da33312f), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (eb57da33312f), commit as needed now to split the change
+  (to edit eb57da33312f, `hg histedit --continue` after making changes)
+  [240]
   $ echo edit >> alpha
   $ hg histedit -q --continue
   $ hg log -G -T '{rev}:{node|short} {desc}'
@@ -362,9 +362,9 @@ Test that abort fails gracefully on exception
   $ hg histedit . -q --commands - << EOF
   > edit 8fda0c726bf2 6 x
   > EOF
-  Editing (8fda0c726bf2), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (8fda0c726bf2), commit as needed now to split the change
+  (to edit 8fda0c726bf2, `hg histedit --continue` after making changes)
+  [240]
 Corrupt histedit state file
   $ sed 's/8fda0c726bf2/123456789012/' .hg/histedit-state > ../corrupt-histedit
   $ mv ../corrupt-histedit .hg/histedit-state
@@ -489,23 +489,23 @@ in which case this test should be revisited.
   warning: conflicts while merging foo! (edit, then use 'hg resolve --mark')
   Fix up the change (pick 8cde254db839)
   (hg histedit --continue to resume)
-  [1]
+  [240]
   $ hg resolve -m --all
   (no more unresolved files)
   continue: hg histedit --continue
   $ hg histedit --cont
   merging foo
   warning: conflicts while merging foo! (edit, then use 'hg resolve --mark')
-  Editing (6f2f0241f119), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (6f2f0241f119), commit as needed now to split the change
+  (to edit 6f2f0241f119, `hg histedit --continue` after making changes)
+  [240]
   $ hg resolve -m --all
   (no more unresolved files)
   continue: hg histedit --continue
   $ hg commit --amend -m 'reject this fold'
   abort: histedit in progress
   (use 'hg histedit --continue' or 'hg histedit --abort')
-  [255]
+  [20]
 
 With markers enabled, histedit does not get confused, and
 amend should not be blocked by the ongoing histedit.
@@ -557,7 +557,7 @@ Check that 'roll' is selected by default
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there

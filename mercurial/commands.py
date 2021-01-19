@@ -26,6 +26,7 @@ from . import (
     archival,
     bookmarks,
     bundle2,
+    bundlecaches,
     changegroup,
     cmdutil,
     copies,
@@ -186,9 +187,9 @@ def abort(ui, repo, **opts):
     dryrun = opts.get('dry_run')
     abortstate = cmdutil.getunfinishedstate(repo)
     if not abortstate:
-        raise error.Abort(_(b'no operation in progress'))
+        raise error.StateError(_(b'no operation in progress'))
     if not abortstate.abortfunc:
-        raise error.Abort(
+        raise error.InputError(
             (
                 _(b"%s in progress but does not support 'hg abort'")
                 % (abortstate._opname)
@@ -417,7 +418,9 @@ def annotate(ui, repo, *pats, **opts):
     """
     opts = pycompat.byteskwargs(opts)
     if not pats:
-        raise error.Abort(_(b'at least one filename or pattern is required'))
+        raise error.InputError(
+            _(b'at least one filename or pattern is required')
+        )
 
     if opts.get(b'follow'):
         # --follow is deprecated and now just an alias for -f/--file
@@ -438,7 +441,7 @@ def annotate(ui, repo, *pats, **opts):
         and (not opts.get(b'changeset'))
         and (not opts.get(b'number'))
     ):
-        raise error.Abort(_(b'at least one of -n/-c is required for -l'))
+        raise error.InputError(_(b'at least one of -n/-c is required for -l'))
 
     rev = opts.get(b'rev')
     if rev:
@@ -602,7 +605,7 @@ def annotate(ui, repo, *pats, **opts):
     helpcategory=command.CATEGORY_IMPORT_EXPORT,
 )
 def archive(ui, repo, dest, **opts):
-    '''create an unversioned archive of a repository revision
+    """create an unversioned archive of a repository revision
 
     By default, the revision used is the parent of the working
     directory; use -r/--rev to specify a different revision.
@@ -641,7 +644,7 @@ def archive(ui, repo, dest, **opts):
     removed.
 
     Returns 0 on success.
-    '''
+    """
 
     opts = pycompat.byteskwargs(opts)
     rev = opts.get(b'rev')
@@ -649,18 +652,20 @@ def archive(ui, repo, dest, **opts):
         repo = scmutil.unhidehashlikerevs(repo, [rev], b'nowarn')
     ctx = scmutil.revsingle(repo, rev)
     if not ctx:
-        raise error.Abort(_(b'no working directory: please specify a revision'))
+        raise error.InputError(
+            _(b'no working directory: please specify a revision')
+        )
     node = ctx.node()
     dest = cmdutil.makefilename(ctx, dest)
     if os.path.realpath(dest) == repo.root:
-        raise error.Abort(_(b'repository root cannot be destination'))
+        raise error.InputError(_(b'repository root cannot be destination'))
 
     kind = opts.get(b'type') or archival.guesskind(dest) or b'files'
     prefix = opts.get(b'prefix')
 
     if dest == b'-':
         if kind == b'files':
-            raise error.Abort(_(b'cannot archive plain files to stdout'))
+            raise error.InputError(_(b'cannot archive plain files to stdout'))
         dest = cmdutil.makefileobj(ctx, dest)
         if not prefix:
             prefix = os.path.basename(repo.root) + b'-%h'
@@ -713,7 +718,7 @@ def archive(ui, repo, dest, **opts):
     helpcategory=command.CATEGORY_CHANGE_MANAGEMENT,
 )
 def backout(ui, repo, node=None, rev=None, **opts):
-    '''reverse effect of earlier changeset
+    """reverse effect of earlier changeset
 
     Prepare a new changeset with the effect of REV undone in the
     current working directory. If no conflicts were encountered,
@@ -763,7 +768,7 @@ def backout(ui, repo, node=None, rev=None, **opts):
 
     Returns 0 on success, 1 if nothing to backout or there are unresolved
     files.
-    '''
+    """
     with repo.wlock(), repo.lock():
         return _dobackout(ui, repo, node, rev, **opts)
 
@@ -773,13 +778,13 @@ def _dobackout(ui, repo, node=None, rev=None, **opts):
     opts = pycompat.byteskwargs(opts)
 
     if rev and node:
-        raise error.Abort(_(b"please specify just one revision"))
+        raise error.InputError(_(b"please specify just one revision"))
 
     if not rev:
         rev = node
 
     if not rev:
-        raise error.Abort(_(b"please specify a revision to backout"))
+        raise error.InputError(_(b"please specify a revision to backout"))
 
     date = opts.get(b'date')
     if date:
@@ -792,23 +797,27 @@ def _dobackout(ui, repo, node=None, rev=None, **opts):
 
     op1, op2 = repo.dirstate.parents()
     if not repo.changelog.isancestor(node, op1):
-        raise error.Abort(_(b'cannot backout change that is not an ancestor'))
+        raise error.InputError(
+            _(b'cannot backout change that is not an ancestor')
+        )
 
     p1, p2 = repo.changelog.parents(node)
     if p1 == nullid:
-        raise error.Abort(_(b'cannot backout a change with no parents'))
+        raise error.InputError(_(b'cannot backout a change with no parents'))
     if p2 != nullid:
         if not opts.get(b'parent'):
-            raise error.Abort(_(b'cannot backout a merge changeset'))
+            raise error.InputError(_(b'cannot backout a merge changeset'))
         p = repo.lookup(opts[b'parent'])
         if p not in (p1, p2):
-            raise error.Abort(
+            raise error.InputError(
                 _(b'%s is not a parent of %s') % (short(p), short(node))
             )
         parent = p
     else:
         if opts.get(b'parent'):
-            raise error.Abort(_(b'cannot use --parent on non-merge changeset'))
+            raise error.InputError(
+                _(b'cannot use --parent on non-merge changeset')
+            )
         parent = p1
 
     # the backout should appear on the same branch
@@ -850,11 +859,14 @@ def _dobackout(ui, repo, node=None, rev=None, **opts):
             message, opts.get(b'user'), opts.get(b'date'), match, editor=e
         )
 
+    # save to detect changes
+    tip = repo.changelog.tip()
+
     newnode = cmdutil.commit(ui, repo, commitfunc, [], opts)
     if not newnode:
         ui.status(_(b"nothing changed\n"))
         return 1
-    cmdutil.commitstatus(repo, newnode, branch, bheads)
+    cmdutil.commitstatus(repo, newnode, branch, bheads, tip)
 
     def nice(node):
         return b'%d:%s' % (repo.changelog.rev(node), short(node))
@@ -895,8 +907,8 @@ def _dobackout(ui, repo, node=None, rev=None, **opts):
 def bisect(
     ui,
     repo,
-    rev=None,
-    extra=None,
+    positional_1=None,
+    positional_2=None,
     command=None,
     reset=None,
     good=None,
@@ -986,18 +998,22 @@ def bisect(
 
     Returns 0 on success.
     """
+    rev = []
     # backward compatibility
-    if rev in b"good bad reset init".split():
+    if positional_1 in (b"good", b"bad", b"reset", b"init"):
         ui.warn(_(b"(use of 'hg bisect <cmd>' is deprecated)\n"))
-        cmd, rev, extra = rev, extra, None
+        cmd = positional_1
+        rev.append(positional_2)
         if cmd == b"good":
             good = True
         elif cmd == b"bad":
             bad = True
         else:
             reset = True
-    elif extra:
-        raise error.Abort(_(b'incompatible arguments'))
+    elif positional_2:
+        raise error.InputError(_(b'incompatible arguments'))
+    elif positional_1 is not None:
+        rev.append(positional_1)
 
     incompatibles = {
         b'--bad': bad,
@@ -1011,7 +1027,7 @@ def bisect(
     enabled = [x for x in incompatibles if incompatibles[x]]
 
     if len(enabled) > 1:
-        raise error.Abort(
+        raise error.InputError(
             _(b'%s and %s are incompatible') % tuple(sorted(enabled)[0:2])
         )
 
@@ -1021,12 +1037,13 @@ def bisect(
 
     state = hbisect.load_state(repo)
 
+    if rev:
+        nodes = [repo[i].node() for i in scmutil.revrange(repo, rev)]
+    else:
+        nodes = [repo.lookup(b'.')]
+
     # update state
     if good or bad or skip:
-        if rev:
-            nodes = [repo[i].node() for i in scmutil.revrange(repo, [rev])]
-        else:
-            nodes = [repo.lookup(b'.')]
         if good:
             state[b'good'] += nodes
         elif bad:
@@ -1053,7 +1070,7 @@ def bisect(
             try:
                 node = state[b'current'][0]
             except LookupError:
-                raise error.Abort(
+                raise error.StateError(
                     _(
                         b'current bisect revision is unknown - '
                         b'start a new bisect to fix'
@@ -1062,9 +1079,11 @@ def bisect(
         else:
             node, p2 = repo.dirstate.parents()
             if p2 != nullid:
-                raise error.Abort(_(b'current bisect revision is a merge'))
+                raise error.StateError(_(b'current bisect revision is a merge'))
         if rev:
-            node = repo[scmutil.revsingle(repo, rev, node)].node()
+            if not nodes:
+                raise error.Abort(_(b'empty revision set'))
+            node = repo[nodes.last()].node()
         with hbisect.restore_state(repo, state, node):
             while changesets:
                 # update state
@@ -1115,7 +1134,7 @@ def bisect(
                 state[b'current'] = [extendnode.node()]
                 hbisect.save_state(repo, state)
                 return mayupdate(repo, extendnode.node())
-        raise error.Abort(_(b"nothing to extend"))
+        raise error.StateError(_(b"nothing to extend"))
 
     if changesets == 0:
         hbisect.printresult(ui, repo, state, displayer, nodes, good)
@@ -1154,7 +1173,7 @@ def bisect(
     helpcategory=command.CATEGORY_CHANGE_ORGANIZATION,
 )
 def bookmark(ui, repo, *names, **opts):
-    '''create a new bookmark or list existing bookmarks
+    """create a new bookmark or list existing bookmarks
 
     Bookmarks are labels on changesets to help track lines of development.
     Bookmarks are unversioned and can be moved, renamed and deleted.
@@ -1212,7 +1231,7 @@ def bookmark(ui, repo, *names, **opts):
       - print only the active bookmark name::
 
           hg book -ql .
-    '''
+    """
     opts = pycompat.byteskwargs(opts)
     force = opts.get(b'force')
     rev = opts.get(b'rev')
@@ -1232,7 +1251,7 @@ def bookmark(ui, repo, *names, **opts):
         opts, b'inactive', [b'delete', b'list']
     )
     if not names and action in {b'add', b'delete'}:
-        raise error.Abort(_(b"bookmark name required"))
+        raise error.InputError(_(b"bookmark name required"))
 
     if action in {b'add', b'delete', b'rename', b'inactive'}:
         with repo.wlock(), repo.lock(), repo.transaction(b'bookmark') as tr:
@@ -1241,9 +1260,11 @@ def bookmark(ui, repo, *names, **opts):
                 bookmarks.delete(repo, tr, names)
             elif action == b'rename':
                 if not names:
-                    raise error.Abort(_(b"new bookmark name required"))
+                    raise error.InputError(_(b"new bookmark name required"))
                 elif len(names) > 1:
-                    raise error.Abort(_(b"only one new bookmark name allowed"))
+                    raise error.InputError(
+                        _(b"only one new bookmark name allowed")
+                    )
                 oldname = repo._bookmarks.expandname(opts[b'rename'])
                 bookmarks.rename(repo, tr, oldname, names[0], force, inactive)
             elif action == b'add':
@@ -1319,7 +1340,9 @@ def branch(ui, repo, label=None, **opts):
 
     if not opts.get(b'clean') and not label:
         if revs:
-            raise error.Abort(_(b"no branch name specified for the revisions"))
+            raise error.InputError(
+                _(b"no branch name specified for the revisions")
+            )
         ui.write(b"%s\n" % repo.dirstate.branch())
         return
 
@@ -1336,7 +1359,7 @@ def branch(ui, repo, label=None, **opts):
 
             if not opts.get(b'force') and label in repo.branchmap():
                 if label not in [p.branch() for p in repo[None].parents()]:
-                    raise error.Abort(
+                    raise error.InputError(
                         _(b'a branch of the same name already exists'),
                         # i18n: "it" refers to an existing branch
                         hint=_(b"use 'hg update' to switch to it"),
@@ -1538,13 +1561,15 @@ def bundle(ui, repo, fname, dest=None, **opts):
         revstrings = opts[b'rev']
         revs = scmutil.revrange(repo, revstrings)
         if revstrings and not revs:
-            raise error.Abort(_(b'no commits to bundle'))
+            raise error.InputError(_(b'no commits to bundle'))
 
     bundletype = opts.get(b'type', b'bzip2').lower()
     try:
-        bundlespec = exchange.parsebundlespec(repo, bundletype, strict=False)
+        bundlespec = bundlecaches.parsebundlespec(
+            repo, bundletype, strict=False
+        )
     except error.UnsupportedBundleSpecification as e:
-        raise error.Abort(
+        raise error.InputError(
             pycompat.bytestr(e),
             hint=_(b"see 'hg help bundlespec' for supported values for --type"),
         )
@@ -1552,14 +1577,14 @@ def bundle(ui, repo, fname, dest=None, **opts):
 
     # Packed bundles are a pseudo bundle format for now.
     if cgversion == b's1':
-        raise error.Abort(
+        raise error.InputError(
             _(b'packed bundles cannot be produced by "hg bundle"'),
             hint=_(b"use 'hg debugcreatestreamclonebundle'"),
         )
 
     if opts.get(b'all'):
         if dest:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"--all is incompatible with specifying a destination")
             )
         if opts.get(b'base'):
@@ -1574,7 +1599,7 @@ def bundle(ui, repo, fname, dest=None, **opts):
 
     if base:
         if dest:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"--base is incompatible with specifying a destination")
             )
         common = [repo[rev].node() for rev in base]
@@ -1623,12 +1648,17 @@ def bundle(ui, repo, fname, dest=None, **opts):
     if complevel is not None:
         compopts[b'level'] = complevel
 
-    # Allow overriding the bundling of obsmarker in phases through
-    # configuration while we don't have a bundle version that include them
-    if repo.ui.configbool(b'experimental', b'evolution.bundle-obsmarker'):
-        bundlespec.contentopts[b'obsolescence'] = True
-    if repo.ui.configbool(b'experimental', b'bundle-phases'):
-        bundlespec.contentopts[b'phases'] = True
+    # Bundling of obsmarker and phases is optional as not all clients
+    # support the necessary features.
+    cfg = ui.configbool
+    contentopts = {
+        b'obsolescence': cfg(b'experimental', b'evolution.bundle-obsmarker'),
+        b'obsolescence-mandatory': cfg(
+            b'experimental', b'evolution.bundle-obsmarker:mandatory'
+        ),
+        b'phases': cfg(b'experimental', b'bundle-phases'),
+    }
+    bundlespec.contentopts.update(contentopts)
 
     bundle2.writenewbundle(
         ui,
@@ -2013,8 +2043,7 @@ def _docommit(ui, repo, *pats, **opts):
 
     opts = pycompat.byteskwargs(opts)
     if opts.get(b'subrepos'):
-        if opts.get(b'amend'):
-            raise error.Abort(_(b'cannot amend with --subrepos'))
+        cmdutil.check_incompatible_arguments(opts, b'subrepos', [b'amend'])
         # Let --subrepos on the command line override config setting.
         ui.setconfig(b'ui', b'commitsubrepos', True, b'commit')
 
@@ -2022,17 +2051,20 @@ def _docommit(ui, repo, *pats, **opts):
 
     branch = repo[None].branch()
     bheads = repo.branchheads(branch)
+    tip = repo.changelog.tip()
 
     extra = {}
     if opts.get(b'close_branch') or opts.get(b'force_close_branch'):
         extra[b'close'] = b'1'
 
         if repo[b'.'].closesbranch():
-            raise error.Abort(
+            raise error.InputError(
                 _(b'current revision is already a branch closing head')
             )
         elif not bheads:
-            raise error.Abort(_(b'branch "%s" has no heads to close') % branch)
+            raise error.InputError(
+                _(b'branch "%s" has no heads to close') % branch
+            )
         elif (
             branch == repo[b'.'].branch()
             and repo[b'.'].node() not in bheads
@@ -2042,17 +2074,19 @@ def _docommit(ui, repo, *pats, **opts):
                 b'use --force-close-branch to close branch from a non-head'
                 b' changeset'
             )
-            raise error.Abort(_(b'can only close branch heads'), hint=hint)
+            raise error.InputError(_(b'can only close branch heads'), hint=hint)
         elif opts.get(b'amend'):
             if (
                 repo[b'.'].p1().branch() != branch
                 and repo[b'.'].p2().branch() != branch
             ):
-                raise error.Abort(_(b'can only close branch heads'))
+                raise error.InputError(_(b'can only close branch heads'))
 
     if opts.get(b'amend'):
         if ui.configbool(b'ui', b'commitsubrepos'):
-            raise error.Abort(_(b'cannot amend with ui.commitsubrepos enabled'))
+            raise error.InputError(
+                _(b'cannot amend with ui.commitsubrepos enabled')
+            )
 
         old = repo[b'.']
         rewriteutil.precheck(repo, [old.rev()], b'amend')
@@ -2111,7 +2145,7 @@ def _docommit(ui, repo, *pats, **opts):
                 ui.status(_(b"nothing changed\n"))
             return 1
 
-    cmdutil.commitstatus(repo, node, branch, bheads, opts)
+    cmdutil.commitstatus(repo, node, branch, bheads, tip, opts)
 
     if not ui.quiet and ui.configbool(b'commands', b'commit.post-status'):
         status(
@@ -2138,6 +2172,7 @@ def _docommit(ui, repo, *pats, **opts):
             None,
             _(b'edit shared source repository config (EXPERIMENTAL)'),
         ),
+        (b'', b'non-shared', None, _(b'edit non shared config (EXPERIMENTAL)')),
         (b'g', b'global', None, _(b'edit global config')),
     ]
     + formatteropts,
@@ -2168,6 +2203,9 @@ def config(ui, repo, *values, **opts):
 
     .. container:: verbose
 
+      --non-shared flag is used to edit `.hg/hgrc-not-shared` config file.
+      This file is not shared across shares when in share-safe mode.
+
       Template:
 
       The following keywords are supported. See also :hg:`help templates`.
@@ -2185,28 +2223,32 @@ def config(ui, repo, *values, **opts):
     """
 
     opts = pycompat.byteskwargs(opts)
-    editopts = (b'edit', b'local', b'global', b'shared')
+    editopts = (b'edit', b'local', b'global', b'shared', b'non_shared')
     if any(opts.get(o) for o in editopts):
         cmdutil.check_at_most_one_arg(opts, *editopts[1:])
         if opts.get(b'local'):
             if not repo:
-                raise error.Abort(_(b"can't use --local outside a repository"))
+                raise error.InputError(
+                    _(b"can't use --local outside a repository")
+                )
             paths = [repo.vfs.join(b'hgrc')]
         elif opts.get(b'global'):
             paths = rcutil.systemrcpath()
         elif opts.get(b'shared'):
             if not repo.shared():
-                raise error.Abort(
+                raise error.InputError(
                     _(b"repository is not shared; can't use --shared")
                 )
-                if requirements.SHARESAFE_REQUIREMENT not in repo.requirements:
-                    raise error.Abort(
-                        _(
-                            b"share safe feature not unabled; "
-                            b"unable to edit shared source repository config"
-                        )
+            if requirements.SHARESAFE_REQUIREMENT not in repo.requirements:
+                raise error.InputError(
+                    _(
+                        b"share safe feature not enabled; "
+                        b"unable to edit shared source repository config"
                     )
+                )
             paths = [vfsmod.vfs(repo.sharedpath).join(b'hgrc')]
+        elif opts.get(b'non_shared'):
+            paths = [repo.vfs.join(b'hgrc-not-shared')]
         else:
             paths = rcutil.userrcpath()
 
@@ -2229,7 +2271,7 @@ def config(ui, repo, *values, **opts):
         editor = ui.geteditor()
         ui.system(
             b"%s \"%s\"" % (editor, f),
-            onerr=error.Abort,
+            onerr=error.InputError,
             errprefix=_(b"edit failed"),
             blockedtag=b'config_edit',
         )
@@ -2305,9 +2347,9 @@ def continuecmd(ui, repo, **opts):
     dryrun = opts.get('dry_run')
     contstate = cmdutil.getunfinishedstate(repo)
     if not contstate:
-        raise error.Abort(_(b'no operation in progress'))
+        raise error.StateError(_(b'no operation in progress'))
     if not contstate.continuefunc:
-        raise error.Abort(
+        raise error.StateError(
             (
                 _(b"%s in progress but does not support 'hg continue'")
                 % (contstate._opname)
@@ -2341,7 +2383,7 @@ def continuecmd(ui, repo, **opts):
     ]
     + walkopts
     + dryrunopts,
-    _(b'[OPTION]... SOURCE... DEST'),
+    _(b'[OPTION]... (SOURCE... DEST | --forget DEST...)'),
     helpcategory=command.CATEGORY_FILE_CONTENTS,
 )
 def copy(ui, repo, *pats, **opts):
@@ -2418,14 +2460,16 @@ def debugcomplete(ui, cmd=b'', **opts):
 @command(
     b'diff',
     [
-        (b'r', b'rev', [], _(b'revision'), _(b'REV')),
+        (b'r', b'rev', [], _(b'revision (DEPRECATED)'), _(b'REV')),
+        (b'', b'from', b'', _(b'revision to diff from'), _(b'REV1')),
+        (b'', b'to', b'', _(b'revision to diff to'), _(b'REV2')),
         (b'c', b'change', b'', _(b'change made by revision'), _(b'REV')),
     ]
     + diffopts
     + diffopts2
     + walkopts
     + subrepoopts,
-    _(b'[OPTION]... ([-c REV] | [-r REV1 [-r REV2]]) [FILE]...'),
+    _(b'[OPTION]... ([-c REV] | [--from REV1] [--to REV2]) [FILE]...'),
     helpcategory=command.CATEGORY_FILE_CONTENTS,
     helpbasic=True,
     inferrepo=True,
@@ -2444,14 +2488,17 @@ def diff(ui, repo, *pats, **opts):
        default to comparing against the working directory's first
        parent changeset if no revisions are specified.
 
-    When two revision arguments are given, then changes are shown
-    between those revisions. If only one revision is specified then
-    that revision is compared to the working directory, and, when no
-    revisions are specified, the working directory files are compared
-    to its first parent.
+    By default, the working directory files are compared to its first parent. To
+    see the differences from another revision, use --from. To see the difference
+    to another revision, use --to. For example, :hg:`diff --from .^` will show
+    the differences from the working copy's grandparent to the working copy,
+    :hg:`diff --to .` will show the diff from the working copy to its parent
+    (i.e. the reverse of the default), and :hg:`diff --from 1.0 --to 1.2` will
+    show the diff between those two revisions.
 
-    Alternatively you can specify -c/--change with a revision to see
-    the changes in that changeset relative to its first parent.
+    Alternatively you can specify -c/--change with a revision to see the changes
+    in that changeset relative to its first parent (i.e. :hg:`diff -c 42` is
+    equivalent to :hg:`diff --from 42^ --to 42`)
 
     Without the -a/--text option, diff will avoid generating diffs of
     files it detects as binary. With -a, diff will generate a diff
@@ -2470,11 +2517,11 @@ def diff(ui, repo, *pats, **opts):
 
       - compare two historical versions of a directory, with rename info::
 
-          hg diff --git -r 1.0:1.2 lib/
+          hg diff --git --from 1.0 --to 1.2 lib/
 
       - get change stats relative to the last change on some date::
 
-          hg diff --stat -r "date('may 2')"
+          hg diff --stat --from "date('may 2')"
 
       - diff all newly-added files that contain a keyword::
 
@@ -2482,9 +2529,9 @@ def diff(ui, repo, *pats, **opts):
 
       - compare a revision and its parents::
 
-          hg diff -c 9353         # compare against first parent
-          hg diff -r 9353^:9353   # same using revset syntax
-          hg diff -r 9353^2:9353  # compare against the second parent
+          hg diff -c 9353                  # compare against first parent
+          hg diff --from 9353^ --to 9353   # same using revset syntax
+          hg diff --from 9353^2 --to 9353  # compare against the second parent
 
     Returns 0 on success.
     """
@@ -2493,13 +2540,23 @@ def diff(ui, repo, *pats, **opts):
     opts = pycompat.byteskwargs(opts)
     revs = opts.get(b'rev')
     change = opts.get(b'change')
+    from_rev = opts.get(b'from')
+    to_rev = opts.get(b'to')
     stat = opts.get(b'stat')
     reverse = opts.get(b'reverse')
 
+    cmdutil.check_incompatible_arguments(opts, b'from', [b'rev', b'change'])
+    cmdutil.check_incompatible_arguments(opts, b'to', [b'rev', b'change'])
     if change:
         repo = scmutil.unhidehashlikerevs(repo, [change], b'nowarn')
         ctx2 = scmutil.revsingle(repo, change, None)
         ctx1 = ctx2.p1()
+    elif from_rev or to_rev:
+        repo = scmutil.unhidehashlikerevs(
+            repo, [from_rev] + [to_rev], b'nowarn'
+        )
+        ctx1 = scmutil.revsingle(repo, from_rev, None)
+        ctx2 = scmutil.revsingle(repo, to_rev, None)
     else:
         repo = scmutil.unhidehashlikerevs(repo, revs, b'nowarn')
         ctx1, ctx2 = scmutil.revpair(repo, revs)
@@ -2637,7 +2694,7 @@ def export(ui, repo, *changesets, **opts):
 
     if bookmark:
         if bookmark not in repo._bookmarks:
-            raise error.Abort(_(b"bookmark '%s' not found") % bookmark)
+            raise error.InputError(_(b"bookmark '%s' not found") % bookmark)
 
         revs = scmutil.bookmarkrevs(repo, bookmark)
     else:
@@ -2648,7 +2705,7 @@ def export(ui, repo, *changesets, **opts):
         revs = scmutil.revrange(repo, changesets)
 
     if not revs:
-        raise error.Abort(_(b"export requires at least one changeset"))
+        raise error.InputError(_(b"export requires at least one changeset"))
     if len(revs) > 1:
         ui.note(_(b'exporting patches:\n'))
     else:
@@ -2774,7 +2831,9 @@ def files(ui, repo, *pats, **opts):
 
 @command(
     b'forget',
-    [(b'i', b'interactive', None, _(b'use interactive mode')),]
+    [
+        (b'i', b'interactive', None, _(b'use interactive mode')),
+    ]
     + walkopts
     + dryrunopts,
     _(b'[OPTION]... FILE...'),
@@ -2813,7 +2872,7 @@ def forget(ui, repo, *pats, **opts):
 
     opts = pycompat.byteskwargs(opts)
     if not pats:
-        raise error.Abort(_(b'no files specified'))
+        raise error.InputError(_(b'no files specified'))
 
     m = scmutil.match(repo[None], pats, opts)
     dryrun, interactive = opts.get(b'dry_run'), opts.get(b'interactive')
@@ -2874,7 +2933,7 @@ def forget(ui, repo, *pats, **opts):
     helpcategory=command.CATEGORY_CHANGE_MANAGEMENT,
 )
 def graft(ui, repo, *revs, **opts):
-    '''copy changes from other branches onto the current branch
+    """copy changes from other branches onto the current branch
 
     This command uses Mercurial's merge logic to copy individual
     changes from other branches without merging branches in the
@@ -2913,7 +2972,7 @@ def graft(ui, repo, *revs, **opts):
 
       is thus pretty much the same as::
 
-        hg diff -r 234 -r 345 | hg import
+        hg diff --from 234 --to 345 | hg import
 
       but using merge to resolve conflicts and track moved files.
 
@@ -2967,7 +3026,7 @@ def graft(ui, repo, *revs, **opts):
     See :hg:`help revisions` for more about specifying revisions.
 
     Returns 0 on successful completion, 1 if there are unresolved files.
-    '''
+    """
     with repo.wlock():
         return _dograft(ui, repo, *revs, **opts)
 
@@ -3040,7 +3099,7 @@ def _dograft(ui, repo, *revs, **opts):
     elif opts.get(b'continue'):
         cont = True
         if revs:
-            raise error.Abort(_(b"can't specify --continue and revisions"))
+            raise error.InputError(_(b"can't specify --continue and revisions"))
         # read in unfinished revisions
         if graftstate.exists():
             statedata = cmdutil.readgraftstate(repo, graftstate)
@@ -3060,7 +3119,7 @@ def _dograft(ui, repo, *revs, **opts):
             cmdutil.wrongtooltocontinue(repo, _(b'graft'))
     else:
         if not revs:
-            raise error.Abort(_(b'no revisions specified'))
+            raise error.InputError(_(b'no revisions specified'))
         cmdutil.checkunfinished(repo)
         cmdutil.bailifchanged(repo)
         revs = scmutil.revrange(repo, revs)
@@ -3078,7 +3137,7 @@ def _dograft(ui, repo, *revs, **opts):
     if not revs:
         return -1
     if basectx is not None and len(revs) != 1:
-        raise error.Abort(_(b'only one revision allowed with --base '))
+        raise error.InputError(_(b'only one revision allowed with --base '))
 
     # Don't check in the --continue case, in effect retaining --force across
     # --continues. That's because without --force, any revisions we decided to
@@ -3240,7 +3299,7 @@ def _dograft(ui, repo, *revs, **opts):
 def _stopgraft(ui, repo, graftstate):
     """stop the interrupted graft"""
     if not graftstate.exists():
-        raise error.Abort(_(b"no interrupted graft found"))
+        raise error.StateError(_(b"no interrupted graft found"))
     pctx = repo[b'.']
     mergemod.clean_update(pctx)
     graftstate.delete()
@@ -3753,7 +3812,7 @@ def identify(
 
     opts = pycompat.byteskwargs(opts)
     if not repo and not source:
-        raise error.Abort(
+        raise error.InputError(
             _(b"there is no Mercurial repository here (.hg not found)")
         )
 
@@ -3772,7 +3831,7 @@ def identify(
 
     if not repo:
         if num or branch or tags:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"can't query remote revision number, branch, or tags")
             )
         if not rev and revs:
@@ -4044,7 +4103,7 @@ def import_(ui, repo, patch1=None, *patches, **opts):
     cmdutil.check_incompatible_arguments(opts, 'exact', ['edit', 'prefix'])
     opts = pycompat.byteskwargs(opts)
     if not patch1:
-        raise error.Abort(_(b'need at least one patch to import'))
+        raise error.InputError(_(b'need at least one patch to import'))
 
     patches = (patch1,) + patches
 
@@ -4057,11 +4116,11 @@ def import_(ui, repo, patch1=None, *patches, **opts):
     try:
         sim = float(opts.get(b'similarity') or 0)
     except ValueError:
-        raise error.Abort(_(b'similarity must be a number'))
+        raise error.InputError(_(b'similarity must be a number'))
     if sim < 0 or sim > 100:
-        raise error.Abort(_(b'similarity must be between 0 and 100'))
+        raise error.InputError(_(b'similarity must be between 0 and 100'))
     if sim and not update:
-        raise error.Abort(_(b'cannot use --similarity with --bypass'))
+        raise error.InputError(_(b'cannot use --similarity with --bypass'))
 
     base = opts[b"base"]
     msgs = []
@@ -4118,7 +4177,7 @@ def import_(ui, repo, patch1=None, *patches, **opts):
                         break
 
                 if not haspatch:
-                    raise error.Abort(_(b'%s: no diffs found') % patchurl)
+                    raise error.InputError(_(b'%s: no diffs found') % patchurl)
 
             if msgs:
                 repo.savecommitmessage(b'\n* * *\n'.join(msgs))
@@ -4426,6 +4485,13 @@ def locate(ui, repo, *pats, **opts):
             _(b'BRANCH'),
         ),
         (
+            b'B',
+            b'bookmark',
+            [],
+            _(b"show changesets within the given bookmark"),
+            _(b'BOOKMARK'),
+        ),
+        (
             b'P',
             b'prune',
             [],
@@ -4564,7 +4630,7 @@ def log(ui, repo, *pats, **opts):
 
     See :hg:`help templates` for more about pre-packaged styles and
     specifying custom templates. The default template used by the log
-    command can be customized via the ``ui.logtemplate`` configuration
+    command can be customized via the ``command-templates.log`` configuration
     setting.
 
     Returns 0 on success.
@@ -4574,18 +4640,17 @@ def log(ui, repo, *pats, **opts):
     linerange = opts.get(b'line_range')
 
     if linerange and not opts.get(b'follow'):
-        raise error.Abort(_(b'--line-range requires --follow'))
+        raise error.InputError(_(b'--line-range requires --follow'))
 
     if linerange and pats:
         # TODO: take pats as patterns with no line-range filter
-        raise error.Abort(
+        raise error.InputError(
             _(b'FILE arguments are not compatible with --line-range option')
         )
 
     repo = scmutil.unhidehashlikerevs(repo, opts.get(b'rev'), b'nowarn')
-    revs, differ = logcmdutil.getrevs(
-        repo, logcmdutil.parseopts(ui, pats, opts)
-    )
+    walk_opts = logcmdutil.parseopts(ui, pats, opts)
+    revs, differ = logcmdutil.getrevs(repo, walk_opts)
     if linerange:
         # TODO: should follow file history from logcmdutil._initialrevs(),
         # then filter the result by logcmdutil._makerevset() and --limit
@@ -4640,7 +4705,7 @@ def manifest(ui, repo, node=None, rev=None, **opts):
 
     if opts.get(b'all'):
         if rev or node:
-            raise error.Abort(_(b"can't specify a revision with --all"))
+            raise error.InputError(_(b"can't specify a revision with --all"))
 
         res = set()
         for rev in repo:
@@ -4655,7 +4720,7 @@ def manifest(ui, repo, node=None, rev=None, **opts):
         return
 
     if rev and node:
-        raise error.Abort(_(b"please specify just one revision"))
+        raise error.InputError(_(b"please specify just one revision"))
 
     if not node:
         node = rev
@@ -4737,16 +4802,16 @@ def merge(ui, repo, node=None, **opts):
     if abort:
         state = cmdutil.getunfinishedstate(repo)
         if state and state._opname != b'merge':
-            raise error.Abort(
+            raise error.StateError(
                 _(b'cannot abort merge with %s in progress') % (state._opname),
                 hint=state.hint(),
             )
         if node:
-            raise error.Abort(_(b"cannot specify a node with --abort"))
+            raise error.InputError(_(b"cannot specify a node with --abort"))
         return hg.abortmerge(repo.ui, repo)
 
     if opts.get(b'rev') and node:
-        raise error.Abort(_(b"please specify just one revision"))
+        raise error.InputError(_(b"please specify just one revision"))
     if not node:
         node = opts.get(b'rev')
 
@@ -4754,7 +4819,7 @@ def merge(ui, repo, node=None, **opts):
         ctx = scmutil.revsingle(repo, node)
     else:
         if ui.configbool(b'commands', b'merge.require-rev'):
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b'configuration requires specifying revision to merge '
                     b'with'
@@ -4763,7 +4828,9 @@ def merge(ui, repo, node=None, **opts):
         ctx = repo[destutil.destmerge(repo)]
 
     if ctx.node() is None:
-        raise error.Abort(_(b'merging with the working copy has no effect'))
+        raise error.InputError(
+            _(b'merging with the working copy has no effect')
+        )
 
     if opts.get(b'preview'):
         # find nodes that are ancestors of p2 but not of p1
@@ -4871,7 +4938,7 @@ def outgoing(ui, repo, dest=None, **opts):
     # style URLs, so don't overwrite dest.
     path = ui.paths.getpath(dest, default=(b'default-push', b'default'))
     if not path:
-        raise error.Abort(
+        raise error.ConfigError(
             _(b'default repository not configured!'),
             hint=_(b"see 'hg help config.paths'"),
         )
@@ -4956,7 +5023,7 @@ def parents(ui, repo, file_=None, **opts):
     if file_:
         m = scmutil.match(ctx, (file_,), opts)
         if m.anypats() or len(m.files()) != 1:
-            raise error.Abort(_(b'can only specify an explicit filename'))
+            raise error.InputError(_(b'can only specify an explicit filename'))
         file_ = m.files()[0]
         filenodes = []
         for cp in ctx.parents():
@@ -4967,7 +5034,7 @@ def parents(ui, repo, file_=None, **opts):
             except error.LookupError:
                 pass
         if not filenodes:
-            raise error.Abort(_(b"'%s' not found in manifest!") % file_)
+            raise error.InputError(_(b"'%s' not found in manifest") % file_)
         p = []
         for fn in filenodes:
             fctx = repo.filectx(file_, fileid=fn)
@@ -5109,7 +5176,7 @@ def phase(ui, repo, *revs, **opts):
     for idx, name in enumerate(phases.cmdphasenames):
         if opts[name]:
             if targetphase is not None:
-                raise error.Abort(_(b'only one phase can be specified'))
+                raise error.InputError(_(b'only one phase can be specified'))
             targetphase = idx
 
     # look for specified revision
@@ -5132,7 +5199,7 @@ def phase(ui, repo, *revs, **opts):
         with repo.lock(), repo.transaction(b"phase") as tr:
             # set phase
             if not revs:
-                raise error.Abort(_(b'empty revision set'))
+                raise error.InputError(_(b'empty revision set'))
             nodes = [repo[r].node() for r in revs]
             # moving revision from public to draft may hide them
             # We have to check result on an unfiltered repository
@@ -5217,7 +5284,12 @@ def postincoming(ui, repo, modheads, optupdate, checkout, brev):
             None,
             _(b'run even when remote repository is unrelated'),
         ),
-        (b'', b'confirm', None, _(b'confirm pull before applying changes'),),
+        (
+            b'',
+            b'confirm',
+            None,
+            _(b'confirm pull before applying changes'),
+        ),
         (
             b'r',
             b'rev',
@@ -5275,10 +5347,11 @@ def pull(ui, repo, source=b"default", **opts):
     ):
         msg = _(b'update destination required by configuration')
         hint = _(b'use hg pull followed by hg update DEST')
-        raise error.Abort(msg, hint=hint)
+        raise error.InputError(msg, hint=hint)
 
     source, branches = hg.parseurl(ui.expandpath(source), opts.get(b'branch'))
     ui.status(_(b'pulling from %s\n') % util.hidepassword(source))
+    ui.flush()
     other = hg.peer(repo, opts, source)
     try:
         revs, checkout = hg.addbranchrevs(
@@ -5314,7 +5387,9 @@ def pull(ui, repo, source=b"default", **opts):
             for b in opts.get(b'bookmark', []):
                 b = repo._bookmarks.expandname(b)
                 if b not in remotebookmarks:
-                    raise error.Abort(_(b'remote bookmark %s not found!') % b)
+                    raise error.InputError(
+                        _(b'remote bookmark %s not found!') % b
+                    )
                 nodes.append(remotebookmarks[b])
             for i, rev in enumerate(revs):
                 node = fnodes[i].result()
@@ -5383,6 +5458,7 @@ def pull(ui, repo, source=b"default", **opts):
             _(b'REV'),
         ),
         (b'B', b'bookmark', [], _(b"bookmark to push"), _(b'BOOKMARK')),
+        (b'', b'all-bookmarks', None, _(b"push all bookmarks (EXPERIMENTAL)")),
         (
             b'b',
             b'branch',
@@ -5439,7 +5515,8 @@ def push(ui, repo, dest=None, **opts):
     If -B/--bookmark is used, the specified bookmarked revision, its
     ancestors, and the bookmark will be pushed to the remote
     repository. Specifying ``.`` is equivalent to specifying the active
-    bookmark's name.
+    bookmark's name. Use the --all-bookmarks option for pushing all
+    current bookmarks.
 
     Please see :hg:`help urls` for important details about ``ssh://``
     URLs. If DESTINATION is omitted, a default path will be used.
@@ -5467,6 +5544,15 @@ def push(ui, repo, dest=None, **opts):
     """
 
     opts = pycompat.byteskwargs(opts)
+
+    if opts.get(b'all_bookmarks'):
+        cmdutil.check_incompatible_arguments(
+            opts,
+            b'all_bookmarks',
+            [b'bookmark', b'rev'],
+        )
+        opts[b'bookmark'] = list(repo._bookmarks)
+
     if opts.get(b'bookmark'):
         ui.setconfig(b'bookmarks', b'pushing', opts[b'bookmark'], b'push')
         for b in opts[b'bookmark']:
@@ -5481,7 +5567,7 @@ def push(ui, repo, dest=None, **opts):
 
     path = ui.paths.getpath(dest, default=(b'default-push', b'default'))
     if not path:
-        raise error.Abort(
+        raise error.ConfigError(
             _(b'default repository not configured!'),
             hint=_(b"see 'hg help config.paths'"),
         )
@@ -5494,7 +5580,7 @@ def push(ui, repo, dest=None, **opts):
     if revs:
         revs = [repo[r].node() for r in scmutil.revrange(repo, revs)]
         if not revs:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"specified revisions evaluate to an empty set"),
                 hint=_(b"use different revision arguments"),
             )
@@ -5505,11 +5591,11 @@ def push(ui, repo, dest=None, **opts):
         revs = scmutil.revrange(repo, [expr])
         revs = [repo[rev].node() for rev in revs]
         if not revs:
-            raise error.Abort(
+            raise error.InputError(
                 _(b'default push revset for path evaluates to an empty set')
             )
     elif ui.configbool(b'commands', b'push.require-revs'):
-        raise error.Abort(
+        raise error.InputError(
             _(b'no revisions specified to push'),
             hint=_(b'did you mean "hg push -r ."?'),
         )
@@ -5553,7 +5639,9 @@ def push(ui, repo, dest=None, **opts):
 
 @command(
     b'recover',
-    [(b'', b'verify', False, b"run `hg verify` after successful recover"),],
+    [
+        (b'', b'verify', False, b"run `hg verify` after successful recover"),
+    ],
     helpcategory=command.CATEGORY_MAINTENANCE,
 )
 def recover(ui, repo, **opts):
@@ -5638,7 +5726,7 @@ def remove(ui, repo, *pats, **opts):
     after, force = opts.get(b'after'), opts.get(b'force')
     dryrun = opts.get(b'dry_run')
     if not pats and not after:
-        raise error.Abort(_(b'no files specified'))
+        raise error.InputError(_(b'no files specified'))
 
     m = scmutil.match(repo[None], pats, opts)
     subrepos = opts.get(b'subrepos')
@@ -5768,16 +5856,16 @@ def resolve(ui, repo, *pats, **opts):
 
     actioncount = len(list(filter(None, [show, mark, unmark, remerge])))
     if actioncount > 1:
-        raise error.Abort(_(b"too many actions specified"))
+        raise error.InputError(_(b"too many actions specified"))
     elif actioncount == 0 and ui.configbool(
         b'commands', b'resolve.explicit-re-merge'
     ):
         hint = _(b'use --mark, --unmark, --list or --re-merge')
-        raise error.Abort(_(b'no action specified'), hint=hint)
+        raise error.InputError(_(b'no action specified'), hint=hint)
     if pats and all:
-        raise error.Abort(_(b"can't specify --all and patterns"))
+        raise error.InputError(_(b"can't specify --all and patterns"))
     if not (all or pats or show or mark or unmark):
-        raise error.Abort(
+        raise error.InputError(
             _(b'no files or directories specified'),
             hint=b'use --all to re-merge all unresolved files',
         )
@@ -5787,7 +5875,7 @@ def resolve(ui, repo, *pats, **opts):
             if ui.promptchoice(
                 _(b're-merge all unresolved files (yn)?$$ &Yes $$ &No')
             ):
-                raise error.Abort(_(b'user quit'))
+                raise error.CanceledError(_(b'user quit'))
         if mark and not pats:
             if ui.promptchoice(
                 _(
@@ -5795,7 +5883,7 @@ def resolve(ui, repo, *pats, **opts):
                     b'$$ &Yes $$ &No'
                 )
             ):
-                raise error.Abort(_(b'user quit'))
+                raise error.CanceledError(_(b'user quit'))
         if unmark and not pats:
             if ui.promptchoice(
                 _(
@@ -5803,7 +5891,7 @@ def resolve(ui, repo, *pats, **opts):
                     b'$$ &Yes $$ &No'
                 )
             ):
-                raise error.Abort(_(b'user quit'))
+                raise error.CanceledError(_(b'user quit'))
 
     uipathfn = scmutil.getuipathfn(repo)
 
@@ -5850,7 +5938,7 @@ def resolve(ui, repo, *pats, **opts):
         ms = mergestatemod.mergestate.read(repo)
 
         if not (ms.active() or repo.dirstate.p2() != nullid):
-            raise error.Abort(
+            raise error.StateError(
                 _(b'resolve command not applicable when not merging')
             )
 
@@ -5942,7 +6030,7 @@ def resolve(ui, repo, *pats, **opts):
                 )
             )
             if markcheck == b'abort' and not all and not pats:
-                raise error.Abort(
+                raise error.StateError(
                     _(b'conflict markers detected'),
                     hint=_(b'use --all to mark anyway'),
                 )
@@ -6061,7 +6149,7 @@ def revert(ui, repo, *pats, **opts):
     parent, p2 = repo.dirstate.parents()
     if not opts.get(b'rev') and p2 != nullid:
         # revert after merge is a trap for new users (issue2915)
-        raise error.Abort(
+        raise error.InputError(
             _(b'uncommitted merge with no revision specified'),
             hint=_(b"use 'hg update' or see 'hg help revert'"),
         )
@@ -6084,7 +6172,7 @@ def revert(ui, repo, *pats, **opts):
                 b"uncommitted merge, use --all to discard all changes,"
                 b" or 'hg update -C .' to abort the merge"
             )
-            raise error.Abort(msg, hint=hint)
+            raise error.InputError(msg, hint=hint)
         dirty = any(repo.status())
         node = ctx.node()
         if node != parent:
@@ -6108,7 +6196,7 @@ def revert(ui, repo, *pats, **opts):
             hint = _(b"uncommitted changes, use --all to discard all changes")
         else:
             hint = _(b"use --all to revert all files")
-        raise error.Abort(msg, hint=hint)
+        raise error.InputError(msg, hint=hint)
 
     return cmdutil.revert(ui, repo, ctx, *pats, **pycompat.strkwargs(opts))
 
@@ -6318,7 +6406,7 @@ def serve(ui, repo, **opts):
     cmdutil.check_incompatible_arguments(opts, 'stdio', ['cmdserver'])
     opts = pycompat.byteskwargs(opts)
     if opts[b"print_url"] and ui.verbose:
-        raise error.Abort(_(b"cannot use --print-url with --verbose"))
+        raise error.InputError(_(b"cannot use --print-url with --verbose"))
 
     if opts[b"stdio"]:
         if repo is None:
@@ -6327,6 +6415,7 @@ def serve(ui, repo, **opts):
             )
         s = wireprotoserver.sshserver(ui, repo)
         s.serve_forever()
+        return
 
     service = server.createservice(ui, repo, opts)
     return server.runservice(opts, initfn=service.init, runfn=service.run)
@@ -6392,7 +6481,7 @@ def serve(ui, repo, **opts):
     helpcategory=command.CATEGORY_WORKING_DIRECTORY,
 )
 def shelve(ui, repo, *pats, **opts):
-    '''save and set aside changes from the working directory
+    """save and set aside changes from the working directory
 
     Shelving takes files that "hg status" reports as not clean, saves
     the modifications to a bundle (a shelved change), and reverts the
@@ -6423,7 +6512,7 @@ def shelve(ui, repo, *pats, **opts):
 
     To delete specific shelved changes, use ``--delete``. To delete
     all shelved changes, use ``--cleanup``.
-    '''
+    """
     opts = pycompat.byteskwargs(opts)
     allowables = [
         (b'addremove', {b'create'}),  # 'create' is pseudo action
@@ -6444,7 +6533,7 @@ def shelve(ui, repo, *pats, **opts):
         if opts.get(opt):
             for i, allowable in allowables:
                 if opts[i] and opt not in allowable:
-                    raise error.Abort(
+                    raise error.InputError(
                         _(
                             b"options '--%s' and '--%s' may not be "
                             b"used together"
@@ -6455,7 +6544,9 @@ def shelve(ui, repo, *pats, **opts):
 
     if checkopt(b'cleanup'):
         if pats:
-            raise error.Abort(_(b"cannot specify names when using '--cleanup'"))
+            raise error.InputError(
+                _(b"cannot specify names when using '--cleanup'")
+            )
         return shelvemod.cleanupcmd(ui, repo)
     elif checkopt(b'delete'):
         return shelvemod.deletecmd(ui, repo, pats)
@@ -6621,7 +6712,7 @@ def status(ui, repo, *pats, **opts):
 
     if revs and terse:
         msg = _(b'cannot use --terse with --rev')
-        raise error.Abort(msg)
+        raise error.InputError(msg)
     elif change:
         repo = scmutil.unhidehashlikerevs(repo, [change], b'nowarn')
         ctx2 = scmutil.revsingle(repo, change, None)
@@ -6695,8 +6786,10 @@ def status(ui, repo, *pats, **opts):
 
     morestatus = None
     if (
-        ui.verbose or ui.configbool(b'commands', b'status.verbose')
-    ) and not ui.plain():
+        (ui.verbose or ui.configbool(b'commands', b'status.verbose'))
+        and not ui.plain()
+        and not opts.get(b'print0')
+    ):
         morestatus = cmdutil.readmorestatus(repo)
 
     ui.pager(b'status')
@@ -7092,11 +7185,11 @@ def tag(ui, repo, name1, *names, **opts):
         rev_ = b"."
         names = [t.strip() for t in (name1,) + names]
         if len(names) != len(set(names)):
-            raise error.Abort(_(b'tag names must be unique'))
+            raise error.InputError(_(b'tag names must be unique'))
         for n in names:
             scmutil.checknewlabel(repo, n, b'tag')
             if not n:
-                raise error.Abort(
+                raise error.InputError(
                     _(b'tag names cannot consist entirely of whitespace')
                 )
         if opts.get(b'rev'):
@@ -7112,16 +7205,20 @@ def tag(ui, repo, name1, *names, **opts):
                 if repo.tagtype(n) == b'global':
                     alltags = tagsmod.findglobaltags(ui, repo)
                     if alltags[n][0] == nullid:
-                        raise error.Abort(_(b"tag '%s' is already removed") % n)
+                        raise error.InputError(
+                            _(b"tag '%s' is already removed") % n
+                        )
                 if not repo.tagtype(n):
-                    raise error.Abort(_(b"tag '%s' does not exist") % n)
+                    raise error.InputError(_(b"tag '%s' does not exist") % n)
                 if repo.tagtype(n) != expectedtype:
                     if expectedtype == b'global':
-                        raise error.Abort(
+                        raise error.InputError(
                             _(b"tag '%s' is not a global tag") % n
                         )
                     else:
-                        raise error.Abort(_(b"tag '%s' is not a local tag") % n)
+                        raise error.InputError(
+                            _(b"tag '%s' is not a local tag") % n
+                        )
             rev_ = b'null'
             if not message:
                 # we don't translate commit messages
@@ -7129,16 +7226,16 @@ def tag(ui, repo, name1, *names, **opts):
         elif not opts.get(b'force'):
             for n in names:
                 if n in repo.tags():
-                    raise error.Abort(
+                    raise error.InputError(
                         _(b"tag '%s' already exists (use -f to force)") % n
                     )
         if not opts.get(b'local'):
             p1, p2 = repo.dirstate.parents()
             if p2 != nullid:
-                raise error.Abort(_(b'uncommitted merge'))
+                raise error.StateError(_(b'uncommitted merge'))
             bheads = repo.branchheads()
             if not opts.get(b'force') and bheads and p1 not in bheads:
-                raise error.Abort(
+                raise error.InputError(
                     _(
                         b'working directory is not at a branch head '
                         b'(use -f to force)'
@@ -7170,7 +7267,7 @@ def tag(ui, repo, name1, *names, **opts):
             not opts.get(b'remove')
             and scmutil.revsingle(repo, rev_).rev() == nullrev
         ):
-            raise error.Abort(_(b"cannot tag null revision"))
+            raise error.InputError(_(b"cannot tag null revision"))
 
         tagsmod.tag(
             repo,
@@ -7219,10 +7316,11 @@ def tags(ui, repo, **opts):
     for t, n in reversed(repo.tagslist()):
         hn = hexfunc(n)
         label = b'tags.normal'
-        tagtype = b''
-        if repo.tagtype(t) == b'local':
-            label = b'tags.local'
-            tagtype = b'local'
+        tagtype = repo.tagtype(t)
+        if not tagtype or tagtype == b'global':
+            tagtype = b''
+        else:
+            label = b'tags.' + tagtype
 
         fm.startitem()
         fm.context(repo=repo)
@@ -7302,7 +7400,7 @@ def unbundle(ui, repo, fname1, *fnames, **opts):
             f = hg.openpath(ui, fname)
             gen = exchange.readbundle(ui, f, fname)
             if isinstance(gen, streamclone.streamcloneapplier):
-                raise error.Abort(
+                raise error.InputError(
                     _(
                         b'packed bundles cannot be applied with '
                         b'"hg unbundle"'
@@ -7497,11 +7595,11 @@ def update(ui, repo, node=None, **opts):
     check = opts.get('check')
     merge = opts.get('merge')
     if rev and node:
-        raise error.Abort(_(b"please specify just one revision"))
+        raise error.InputError(_(b"please specify just one revision"))
 
     if ui.configbool(b'commands', b'update.requiredest'):
         if not node and not rev and not date:
-            raise error.Abort(
+            raise error.InputError(
                 _(b'you must specify a destination'),
                 hint=_(b'for example: hg update ".::"'),
             )
@@ -7510,7 +7608,7 @@ def update(ui, repo, node=None, **opts):
         rev = node
 
     if date and rev is not None:
-        raise error.Abort(_(b"you can't specify a revision and a date"))
+        raise error.InputError(_(b"you can't specify a revision and a date"))
 
     updatecheck = None
     if check:
@@ -7645,8 +7743,7 @@ def version_(ui, **opts):
 
 
 def loadcmdtable(ui, name, cmdtable):
-    """Load command functions from specified cmdtable
-    """
+    """Load command functions from specified cmdtable"""
     overrides = [cmd for cmd in cmdtable if cmd in table]
     if overrides:
         ui.warn(

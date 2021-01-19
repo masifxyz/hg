@@ -20,7 +20,7 @@ from . import (
 )
 
 
-def findcommonincoming(repo, remote, heads=None, force=False):
+def findcommonincoming(repo, remote, heads=None, force=False, audit=None):
     """Return a tuple (common, fetch, heads) used to identify the common
     subset of nodes between repo and remote.
 
@@ -40,6 +40,9 @@ def findcommonincoming(repo, remote, heads=None, force=False):
     if not heads:
         with remote.commandexecutor() as e:
             heads = e.callcommand(b'heads', {}).result()
+
+    if audit is not None:
+        audit[b'total-roundtrips'] = 1
 
     if repo.changelog.tip() == nullid:
         base.add(nullid)
@@ -117,7 +120,10 @@ def findcommonincoming(repo, remote, heads=None, force=False):
             for p in pycompat.xrange(0, len(r), 10):
                 with remote.commandexecutor() as e:
                     branches = e.callcommand(
-                        b'branches', {b'nodes': r[p : p + 10],}
+                        b'branches',
+                        {
+                            b'nodes': r[p : p + 10],
+                        },
                     ).result()
 
                 for b in branches:
@@ -178,5 +184,7 @@ def findcommonincoming(repo, remote, heads=None, force=False):
 
     progress.complete()
     repo.ui.debug(b"%d total queries\n" % reqcnt)
+    if audit is not None:
+        audit[b'total-roundtrips'] = reqcnt
 
     return base, list(fetch), heads

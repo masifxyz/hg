@@ -62,7 +62,7 @@ These fail:
 
   $ hg rebase --continue --abort
   abort: cannot specify both --abort and --continue
-  [255]
+  [10]
 
   $ hg rebase --continue --collapse
   abort: cannot use collapse with continue or abort
@@ -70,18 +70,18 @@ These fail:
 
   $ hg rebase --continue --dest 4
   abort: cannot specify both --continue and --dest
-  [255]
+  [10]
 
   $ hg rebase --base 5 --source 4
   abort: cannot specify both --source and --base
-  [255]
+  [10]
 
   $ hg rebase --rev 5 --source 4
   abort: cannot specify both --rev and --source
-  [255]
+  [10]
   $ hg rebase --base 5 --rev 4
   abort: cannot specify both --rev and --base
-  [255]
+  [10]
 
   $ hg rebase --base 6
   abort: branch 'default' has 3 heads - please rebase to an explicit rev
@@ -451,8 +451,8 @@ Test --tool parameter:
   $ cd b1
 
   $ hg rebase -s 2 -d 1 --tool internal:local
-  rebasing 2:e4e3f3546619 "c2b" (tip)
-  note: not rebasing 2:e4e3f3546619 "c2b" (tip), its destination already has all its changes
+  rebasing 2:e4e3f3546619 tip "c2b"
+  note: not rebasing 2:e4e3f3546619 tip "c2b", its destination already has all its changes
   saved backup bundle to $TESTTMP/b1/.hg/strip-backup/e4e3f3546619-b0841178-rebase.hg
 
   $ hg cat c2
@@ -465,7 +465,7 @@ Test --tool parameter:
   $ cd b2
 
   $ hg rebase -s 2 -d 1 --tool internal:other
-  rebasing 2:e4e3f3546619 "c2b" (tip)
+  rebasing 2:e4e3f3546619 tip "c2b"
   saved backup bundle to $TESTTMP/b2/.hg/strip-backup/e4e3f3546619-b0841178-rebase.hg
 
   $ hg cat c2
@@ -478,9 +478,9 @@ Test --tool parameter:
   $ cd b3
 
   $ hg rebase -s 2 -d 1 --tool internal:fail
-  rebasing 2:e4e3f3546619 "c2b" (tip)
+  rebasing 2:e4e3f3546619 tip "c2b"
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
   $ hg summary
   parent: 1:56daeba07f4b 
@@ -500,10 +500,10 @@ Test --tool parameter:
   $ hg graft --continue
   abort: no graft in progress
   (continue: hg rebase --continue)
-  [255]
+  [20]
   $ hg rebase -c --tool internal:fail
-  rebasing 2:e4e3f3546619 "c2b" (tip)
-  note: not rebasing 2:e4e3f3546619 "c2b" (tip), its destination already has all its changes
+  rebasing 2:e4e3f3546619 tip "c2b"
+  note: not rebasing 2:e4e3f3546619 tip "c2b", its destination already has all its changes
   saved backup bundle to $TESTTMP/b3/.hg/strip-backup/e4e3f3546619-b0841178-rebase.hg
 
   $ hg rebase -i

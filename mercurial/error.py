@@ -13,6 +13,8 @@ imports.
 
 from __future__ import absolute_import
 
+import difflib
+
 # Do not import anything but pycompat here, please
 from . import pycompat
 
@@ -48,7 +50,7 @@ class StorageError(Hint, Exception):
 
 
 class RevlogError(StorageError):
-    __bytes__ = _tobytes
+    pass
 
 
 class SidedataHashError(RevlogError):
@@ -130,6 +132,17 @@ class AmbiguousCommand(Exception):
     __bytes__ = _tobytes
 
 
+class WorkerError(Exception):
+    """Exception raised when a worker process dies."""
+
+    def __init__(self, status_code):
+        self.status_code = status_code
+        # Pass status code to superclass just so it becomes part of __bytes__
+        super(WorkerError, self).__init__(status_code)
+
+    __bytes__ = _tobytes
+
+
 class InterventionRequired(Hint, Exception):
     """Exception raised when a command requires human intervention."""
 
@@ -173,6 +186,43 @@ class Abort(Hint, Exception):
             # may raise another exception.
             return pycompat.sysstr(self.__bytes__())
 
+    def format(self):
+        from .i18n import _
+
+        message = _(b"abort: %s\n") % self.message
+        if self.hint:
+            message += _(b"(%s)\n") % self.hint
+        return message
+
+
+class InputError(Abort):
+    """Indicates that the user made an error in their input.
+
+    Examples: Invalid command, invalid flags, invalid revision.
+    """
+
+
+class StateError(Abort):
+    """Indicates that the operation might work if retried in a different state.
+
+    Examples: Unresolved merge conflicts, unfinished operations.
+    """
+
+
+class CanceledError(Abort):
+    """Indicates that the user canceled the operation.
+
+    Examples: Close commit editor with error status, quit chistedit.
+    """
+
+
+class SecurityError(Abort):
+    """Indicates that some aspect of security failed.
+
+    Examples: Bad server credentials, expired local credentials for network
+    filesystem, mismatched GPG signature, DoS protection.
+    """
+
 
 class HookLoadError(Abort):
     """raised when loading a hook fails, aborting an operation
@@ -188,6 +238,24 @@ class HookAbort(Abort):
 
 class ConfigError(Abort):
     """Exception raised when parsing config files"""
+
+    def __init__(self, message, location=None, hint=None):
+        super(ConfigError, self).__init__(message, hint=hint)
+        self.location = location
+
+    def format(self):
+        from .i18n import _
+
+        if self.location is not None:
+            message = _(b"config error at %s: %s\n") % (
+                pycompat.bytestr(self.location),
+                self.message,
+            )
+        else:
+            message = _(b"config error: %s\n") % self.message
+        if self.hint:
+            message += _(b"(%s)\n") % self.hint
+        return message
 
 
 class UpdateAbort(Abort):
@@ -221,14 +289,49 @@ class OutOfBandError(Hint, Exception):
     __bytes__ = _tobytes
 
 
-class ParseError(Hint, Exception):
+class ParseError(Abort):
     """Raised when parsing config files and {rev,file}sets (msg[, pos])"""
 
-    __bytes__ = _tobytes
+    def __init__(self, message, location=None, hint=None):
+        super(ParseError, self).__init__(message, hint=hint)
+        self.location = location
+
+    def format(self):
+        from .i18n import _
+
+        if self.location is not None:
+            message = _(b"hg: parse error at %s: %s\n") % (
+                pycompat.bytestr(self.location),
+                self.message,
+            )
+        else:
+            message = _(b"hg: parse error: %s\n") % self.message
+        if self.hint:
+            message += _(b"(%s)\n") % self.hint
+        return message
 
 
 class PatchError(Exception):
     __bytes__ = _tobytes
+
+
+def getsimilar(symbols, value):
+    sim = lambda x: difflib.SequenceMatcher(None, value, x).ratio()
+    # The cutoff for similarity here is pretty arbitrary. It should
+    # probably be investigated and tweaked.
+    return [s for s in symbols if sim(s) > 0.6]
+
+
+def similarity_hint(similar):
+    from .i18n import _
+
+    if len(similar) == 1:
+        return _(b"did you mean %s?") % similar[0]
+    elif similar:
+        ss = b", ".join(sorted(similar))
+        return _(b"did you mean one of %s?") % ss
+    else:
+        return None
 
 
 class UnknownIdentifier(ParseError):
@@ -237,9 +340,12 @@ class UnknownIdentifier(ParseError):
     def __init__(self, function, symbols):
         from .i18n import _
 
-        ParseError.__init__(self, _(b"unknown identifier: %s") % function)
-        self.function = function
-        self.symbols = symbols
+        similar = getsimilar(symbols, function)
+        hint = similarity_hint(similar)
+
+        ParseError.__init__(
+            self, _(b"unknown identifier: %s") % function, hint=hint
+        )
 
 
 class RepoError(Hint, Exception):
@@ -288,8 +394,7 @@ class UnsupportedMergeRecords(Abort):
 
 
 class UnknownVersion(Abort):
-    """generic exception for aborting from an encounter with an unknown version
-    """
+    """generic exception for aborting from an encounter with an unknown version"""
 
     def __init__(self, msg, hint=None, version=None):
         self.version = version

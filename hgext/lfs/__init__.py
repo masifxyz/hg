@@ -125,19 +125,19 @@ from __future__ import absolute_import
 import sys
 
 from mercurial.i18n import _
+from mercurial.node import bin
 
 from mercurial import (
+    bundlecaches,
     config,
     context,
     error,
-    exchange,
     extensions,
     exthelper,
     filelog,
     filesetlang,
     localrepo,
     minifileset,
-    node,
     pycompat,
     revlog,
     scmutil,
@@ -172,33 +172,51 @@ reposetup = eh.finalreposetup
 templatekeyword = eh.templatekeyword
 
 eh.configitem(
-    b'experimental', b'lfs.serve', default=True,
+    b'experimental',
+    b'lfs.serve',
+    default=True,
 )
 eh.configitem(
-    b'experimental', b'lfs.user-agent', default=None,
+    b'experimental',
+    b'lfs.user-agent',
+    default=None,
 )
 eh.configitem(
-    b'experimental', b'lfs.disableusercache', default=False,
+    b'experimental',
+    b'lfs.disableusercache',
+    default=False,
 )
 eh.configitem(
-    b'experimental', b'lfs.worker-enable', default=True,
+    b'experimental',
+    b'lfs.worker-enable',
+    default=True,
 )
 
 eh.configitem(
-    b'lfs', b'url', default=None,
+    b'lfs',
+    b'url',
+    default=None,
 )
 eh.configitem(
-    b'lfs', b'usercache', default=None,
+    b'lfs',
+    b'usercache',
+    default=None,
 )
 # Deprecated
 eh.configitem(
-    b'lfs', b'threshold', default=None,
+    b'lfs',
+    b'threshold',
+    default=None,
 )
 eh.configitem(
-    b'lfs', b'track', default=b'none()',
+    b'lfs',
+    b'track',
+    default=b'none()',
 )
 eh.configitem(
-    b'lfs', b'retry', default=5,
+    b'lfs',
+    b'retry',
+    default=5,
 )
 
 lfsprocessor = (
@@ -242,11 +260,10 @@ def _reposetup(ui, repo):
                 return 0
 
             last = kwargs.get('node_last')
-            _bin = node.bin
             if last:
-                s = repo.set(b'%n:%n', _bin(kwargs['node']), _bin(last))
+                s = repo.set(b'%n:%n', bin(kwargs['node']), bin(last))
             else:
-                s = repo.set(b'%n', _bin(kwargs['node']))
+                s = repo.set(b'%n', bin(kwargs['node']))
             match = repo._storenarrowmatch
             for ctx in s:
                 # TODO: is there a way to just walk the files in the commit?
@@ -351,7 +368,7 @@ def _extsetup(ui):
     # Make bundle choose changegroup3 instead of changegroup2. This affects
     # "hg bundle" command. Note: it does not cover all bundle formats like
     # "packed1". Using "packed1" with lfs will likely cause trouble.
-    exchange._bundlespeccontentopts[b"v2"][b"cg.version"] = b"03"
+    bundlecaches._bundlespeccontentopts[b"v2"][b"cg.version"] = b"03"
 
 
 @eh.filesetpredicate(b'lfs()')

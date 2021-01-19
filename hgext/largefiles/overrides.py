@@ -37,9 +37,12 @@ from mercurial import (
     scmutil,
     smartset,
     subrepo,
-    upgrade,
     url as urlmod,
     util,
+)
+
+from mercurial.upgrade_utils import (
+    actions as upgrade_actions,
 )
 
 from . import (
@@ -58,8 +61,8 @@ MERGE_ACTION_LARGEFILE_MARK_REMOVED = b'lfmr'
 
 
 def composelargefilematcher(match, manifest):
-    '''create a matcher that matches only the largefiles in the original
-    matcher'''
+    """create a matcher that matches only the largefiles in the original
+    matcher"""
     m = copy.copy(match)
     lfile = lambda f: lfutil.standin(f) in manifest
     m._files = [lf for lf in m._files if lfile(lf)]
@@ -586,11 +589,17 @@ def overridecalculateupdates(
                 mresult.addfile(lfile, b'k', None, b'replaces standin')
                 if branchmerge:
                     mresult.addfile(
-                        standin, b'k', None, b'replaced by non-standin',
+                        standin,
+                        b'k',
+                        None,
+                        b'replaced by non-standin',
                     )
                 else:
                     mresult.addfile(
-                        standin, b'r', None, b'replaced by non-standin',
+                        standin,
+                        b'r',
+                        None,
+                        b'replaced by non-standin',
                     )
         elif lm in (b'g', b'dc') and sm != b'r':
             if lm == b'dc':
@@ -610,7 +619,10 @@ def overridecalculateupdates(
                 if branchmerge:
                     # largefile can be restored from standin safely
                     mresult.addfile(
-                        lfile, b'k', None, b'replaced by standin',
+                        lfile,
+                        b'k',
+                        None,
+                        b'replaced by standin',
                     )
                     mresult.addfile(standin, b'k', None, b'replaces standin')
                 else:
@@ -628,7 +640,10 @@ def overridecalculateupdates(
             else:  # pick remote normal file
                 mresult.addfile(lfile, b'g', largs, b'replaces standin')
                 mresult.addfile(
-                    standin, b'r', None, b'replaced by non-standin',
+                    standin,
+                    b'r',
+                    None,
+                    b'replaced by non-standin',
                 )
 
     return mresult
@@ -1825,8 +1840,8 @@ def scmutilmarktouched(orig, repo, files, *args, **kwargs):
     return result
 
 
-@eh.wrapfunction(upgrade, b'preservedrequirements')
-@eh.wrapfunction(upgrade, b'supporteddestrequirements')
+@eh.wrapfunction(upgrade_actions, b'preservedrequirements')
+@eh.wrapfunction(upgrade_actions, b'supporteddestrequirements')
 def upgraderequirements(orig, repo):
     reqs = orig(repo)
     if b'largefiles' in repo.requirements:

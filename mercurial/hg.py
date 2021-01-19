@@ -14,7 +14,12 @@ import shutil
 import stat
 
 from .i18n import _
-from .node import nullid
+from .node import (
+    hex,
+    nullhex,
+    nullid,
+    short,
+)
 from .pycompat import getattr
 
 from . import (
@@ -35,7 +40,6 @@ from . import (
     merge as mergemod,
     mergestate as mergestatemod,
     narrowspec,
-    node,
     phases,
     pycompat,
     requirements,
@@ -108,7 +112,7 @@ def addbranchrevs(lrepo, other, branches, revs):
                 raise error.Abort(_(b"dirstate branch not accessible"))
             branch = lrepo.dirstate.branch()
         if branch in branchmap:
-            revs.extend(node.hex(r) for r in reversed(branchmap[branch]))
+            revs.extend(hex(r) for r in reversed(branchmap[branch]))
             return True
         else:
             return False
@@ -243,7 +247,7 @@ def peer(uiorrepo, opts, path, create=False, intents=None, createopts=None):
 
 
 def defaultdest(source):
-    '''return default destination of clone if none is given
+    """return default destination of clone if none is given
 
     >>> defaultdest(b'foo')
     'foo'
@@ -257,7 +261,7 @@ def defaultdest(source):
     ''
     >>> defaultdest(b'http://example.org/foo/')
     'foo'
-    '''
+    """
     path = util.url(source).path
     if not path:
         return b''
@@ -333,7 +337,7 @@ def share(
 
 
 def _prependsourcehgrc(repo):
-    """ copies the source repo config and prepend it in current repo .hg/hgrc
+    """copies the source repo config and prepend it in current repo .hg/hgrc
     on unshare. This is only done if the share was perfomed using share safe
     method where we share config of source in shares"""
     srcvfs = vfsmod.vfs(repo.sharedpath)
@@ -443,10 +447,10 @@ def _postshareupdate(repo, update, checkout=None):
 
 
 def copystore(ui, srcrepo, destpath):
-    '''copy files from store of srcrepo in destpath
+    """copy files from store of srcrepo in destpath
 
     returns destlock
-    '''
+    """
     destlock = None
     try:
         hardlink = None
@@ -517,7 +521,12 @@ def clonewithshare(
         for r in rev:
             with srcpeer.commandexecutor() as e:
                 remoterevs.append(
-                    e.callcommand(b'lookup', {b'key': r,}).result()
+                    e.callcommand(
+                        b'lookup',
+                        {
+                            b'key': r,
+                        },
+                    ).result()
                 )
         revs = remoterevs
 
@@ -585,16 +594,15 @@ def clonewithshare(
     return srcpeer, peer(ui, peeropts, dest)
 
 
-# Recomputing branch cache might be slow on big repos,
-# so just copy it
+# Recomputing caches is often slow on big repos, so copy them.
 def _copycache(srcrepo, dstcachedir, fname):
     """copy a cache from srcrepo to destcachedir (if it exists)"""
-    srcbranchcache = srcrepo.vfs.join(b'cache/%s' % fname)
-    dstbranchcache = os.path.join(dstcachedir, fname)
-    if os.path.exists(srcbranchcache):
+    srcfname = srcrepo.cachevfs.join(fname)
+    dstfname = os.path.join(dstcachedir, fname)
+    if os.path.exists(srcfname):
         if not os.path.exists(dstcachedir):
             os.mkdir(dstcachedir)
-        util.copyfile(srcbranchcache, dstbranchcache)
+        util.copyfile(srcfname, dstfname)
 
 
 def clone(
@@ -683,14 +691,14 @@ def clone(
     source = util.urllocalpath(source)
 
     if not dest:
-        raise error.Abort(_(b"empty destination path is not valid"))
+        raise error.InputError(_(b"empty destination path is not valid"))
 
     destvfs = vfsmod.vfs(dest, expandpath=True)
     if destvfs.lexists():
         if not destvfs.isdir():
-            raise error.Abort(_(b"destination '%s' already exists") % dest)
+            raise error.InputError(_(b"destination '%s' already exists") % dest)
         elif destvfs.listdir():
-            raise error.Abort(_(b"destination '%s' is not empty") % dest)
+            raise error.InputError(_(b"destination '%s' is not empty") % dest)
 
     createopts = {}
     narrow = False
@@ -751,11 +759,14 @@ def clone(
             try:
                 with srcpeer.commandexecutor() as e:
                     rootnode = e.callcommand(
-                        b'lookup', {b'key': b'0',}
+                        b'lookup',
+                        {
+                            b'key': b'0',
+                        },
                     ).result()
 
-                if rootnode != node.nullid:
-                    sharepath = os.path.join(sharepool, node.hex(rootnode))
+                if rootnode != nullid:
+                    sharepath = os.path.join(sharepool, hex(rootnode))
                 else:
                     ui.status(
                         _(
@@ -772,7 +783,7 @@ def clone(
                 )
         elif sharenamemode == b'remote':
             sharepath = os.path.join(
-                sharepool, node.hex(hashutil.sha1(source).digest())
+                sharepool, hex(hashutil.sha1(source).digest())
             )
         else:
             raise error.Abort(
@@ -864,9 +875,7 @@ def clone(
             # we need to re-init the repo after manually copying the data
             # into it
             destpeer = peer(srcrepo, peeropts, dest)
-            srcrepo.hook(
-                b'outgoing', source=b'clone', node=node.hex(node.nullid)
-            )
+            srcrepo.hook(b'outgoing', source=b'clone', node=nullhex)
         else:
             try:
                 # only pass ui when no srcrepo
@@ -900,7 +909,12 @@ def clone(
                 for rev in revs:
                     with srcpeer.commandexecutor() as e:
                         remoterevs.append(
-                            e.callcommand(b'lookup', {b'key': rev,}).result()
+                            e.callcommand(
+                                b'lookup',
+                                {
+                                    b'key': rev,
+                                },
+                            ).result()
                         )
                 revs = remoterevs
 
@@ -974,7 +988,10 @@ def clone(
                 if update is not True:
                     with srcpeer.commandexecutor() as e:
                         checkout = e.callcommand(
-                            b'lookup', {b'key': update,}
+                            b'lookup',
+                            {
+                                b'key': update,
+                            },
                         ).result()
 
                 uprev = None
@@ -996,15 +1013,19 @@ def clone(
                                 pass
                 if uprev is None:
                     try:
-                        uprev = destrepo._bookmarks[b'@']
-                        update = b'@'
+                        if destrepo._activebookmark:
+                            uprev = destrepo.lookup(destrepo._activebookmark)
+                            update = destrepo._activebookmark
+                        else:
+                            uprev = destrepo._bookmarks[b'@']
+                            update = b'@'
                         bn = destrepo[uprev].branch()
                         if bn == b'default':
-                            status = _(b"updating to bookmark @\n")
+                            status = _(b"updating to bookmark %s\n" % update)
                         else:
                             status = (
-                                _(b"updating to bookmark @ on branch %s\n") % bn
-                            )
+                                _(b"updating to bookmark %s on branch %s\n")
+                            ) % (update, bn)
                     except KeyError:
                         try:
                             uprev = destrepo.branchtip(b'default')
@@ -1017,6 +1038,14 @@ def clone(
                 _update(destrepo, uprev)
                 if update in destrepo._bookmarks:
                     bookmarks.activate(destrepo, update)
+            if destlock is not None:
+                release(destlock)
+            # here is a tiny windows were someone could end up writing the
+            # repository before the cache are sure to be warm. This is "fine"
+            # as the only "bad" outcome would be some slowness. That potential
+            # slowness already affect reader.
+            with destrepo.lock():
+                destrepo.updatecaches(full=True)
     finally:
         release(srclock, destlock)
         if cleandir is not None:
@@ -1176,7 +1205,10 @@ def updatetotally(ui, repo, checkout, brev, clean=False, updatecheck=None):
 
 
 def merge(
-    ctx, force=False, remind=True, labels=None,
+    ctx,
+    force=False,
+    remind=True,
+    labels=None,
 ):
     """Branch merge with node, resolving changes. Return true if any
     unresolved conflicts."""
@@ -1360,7 +1392,7 @@ def verify(repo, level=None):
             except Exception:
                 repo.ui.warn(
                     _(b'.hgsubstate is corrupt in revision %s\n')
-                    % node.short(ctx.node())
+                    % short(ctx.node())
                 )
 
     return ret

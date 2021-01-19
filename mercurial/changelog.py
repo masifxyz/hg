@@ -91,8 +91,8 @@ def stripdesc(desc):
 
 
 class appender(object):
-    '''the changelog index must be updated last on disk, so we use this class
-    to delay writes to it'''
+    """the changelog index must be updated last on disk, so we use this class
+    to delay writes to it"""
 
     def __init__(self, vfs, name, mode, buf):
         self.data = buf
@@ -601,7 +601,7 @@ class changelog(revlog.revlog):
 
         This function exists because creating a changectx object
         just to access this is costly."""
-        extra = self.read(rev)[5]
+        extra = self.changelogrevision(rev).extra
         return encoding.tolocal(extra.get(b"branch")), b'close' in extra
 
     def _nodeduplicatecallback(self, transaction, node):

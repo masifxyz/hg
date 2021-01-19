@@ -23,6 +23,7 @@ from mercurial.i18n import _
 from mercurial.node import (
     nullrev,
     short,
+    wdirrev,
 )
 from mercurial.pycompat import open
 from mercurial import (
@@ -37,7 +38,6 @@ from mercurial import (
     merge as mergemod,
     mergestate as mergestatemod,
     mergeutil,
-    node as nodemod,
     obsolete,
     obsutil,
     patch,
@@ -146,20 +146,9 @@ def _revsetdestautoorphanrebase(repo, subset, x):
 
 def _ctxdesc(ctx):
     """short description for a context"""
-    desc = b'%d:%s "%s"' % (
-        ctx.rev(),
-        ctx,
-        ctx.description().split(b'\n', 1)[0],
+    return cmdutil.format_changeset_summary(
+        ctx.repo().ui, ctx, command=b'rebase'
     )
-    repo = ctx.repo()
-    names = []
-    for nsname, ns in pycompat.iteritems(repo.names):
-        if nsname == b'branches':
-            continue
-        names.extend(ns.names(repo, ctx.node()))
-    if names:
-        desc += b' (%s)' % b' '.join(names)
-    return desc
 
 
 class rebaseruntime(object):
@@ -518,14 +507,29 @@ class rebaseruntime(object):
         ui.note(_(b'rebase merging completed\n'))
 
     def _concludenode(self, rev, editor, commitmsg=None):
-        '''Commit the wd changes with parents p1 and p2.
+        """Commit the wd changes with parents p1 and p2.
 
         Reuse commit info from rev but also store useful information in extra.
-        Return node of committed revision.'''
+        Return node of committed revision."""
         repo = self.repo
         ctx = repo[rev]
         if commitmsg is None:
             commitmsg = ctx.description()
+
+        # Skip replacement if collapsing, as that degenerates to p1 for all
+        # nodes.
+        if not self.collapsef:
+            cl = repo.changelog
+            commitmsg = rewriteutil.update_hash_refs(
+                repo,
+                commitmsg,
+                {
+                    cl.node(oldrev): [cl.node(newrev)]
+                    for oldrev, newrev in self.state.items()
+                    if newrev != revtodo
+                },
+            )
+
         date = self.date
         if date is None:
             date = ctx.date()
@@ -1135,9 +1139,16 @@ def _dryrunrebase(ui, repo, action, opts):
         try:
             overrides = {(b'rebase', b'singletransaction'): True}
             with ui.configoverride(overrides, b'rebase'):
-                _origrebase(
-                    ui, repo, action, opts, rbsrt,
+                res = _origrebase(
+                    ui,
+                    repo,
+                    action,
+                    opts,
+                    rbsrt,
                 )
+                if res == _nothingtorebase():
+                    needsabort = False
+                    return res
         except error.ConflictResolutionRequired:
             ui.status(_(b'hit a merge conflict\n'))
             return 1
@@ -1366,7 +1377,7 @@ def _definedestmap(ui, repo, inmemory, destf, srcf, basef, revf, destspace):
                 )
             return None
 
-    if nodemod.wdirrev in rebaseset:
+    if wdirrev in rebaseset:
         raise error.Abort(_(b'cannot rebase the working copy'))
     rebasingwcp = repo[b'.'].rev() in rebaseset
     ui.log(
@@ -1448,8 +1459,8 @@ def externalparent(repo, state, destancestors):
 
 
 def commitmemorynode(repo, wctx, editor, extra, user, date, commitmsg):
-    '''Commit the memory changes with parents p1 and p2.
-    Return node of committed revision.'''
+    """Commit the memory changes with parents p1 and p2.
+    Return node of committed revision."""
     # By convention, ``extra['branch']`` (set by extrafn) clobbers
     # ``branch`` (used when passing ``--keepbranches``).
     branch = None
@@ -1476,8 +1487,8 @@ def commitmemorynode(repo, wctx, editor, extra, user, date, commitmsg):
 
 
 def commitnode(repo, editor, extra, user, date, commitmsg):
-    '''Commit the wd changes with parents p1 and p2.
-    Return node of committed revision.'''
+    """Commit the wd changes with parents p1 and p2.
+    Return node of committed revision."""
     dsguard = util.nullcontextmanager()
     if not repo.ui.configbool(b'rebase', b'singletransaction'):
         dsguard = dirstateguard.dirstateguard(repo, b'rebase')
@@ -1966,11 +1977,11 @@ def sortsource(destmap):
 
 
 def buildstate(repo, destmap, collapse):
-    '''Define which revisions are going to be rebased and where
+    """Define which revisions are going to be rebased and where
 
     repo: repo
     destmap: {srcrev: destrev}
-    '''
+    """
     rebaseset = destmap.keys()
     originalwd = repo[b'.'].rev()
 

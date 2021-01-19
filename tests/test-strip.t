@@ -10,7 +10,7 @@
   >     hg up -C $1
   >     echo % before update $1, strip $2
   >     hg log -G -T '{rev}:{node}'
-  >     hg --traceback strip $2
+  >     hg --traceback debugstrip $2
   >     echo % after update $1, strip $2
   >     hg log -G -T '{rev}:{node}'
   >     restore
@@ -317,7 +317,7 @@ before strip of merge parent
   $ hg strip 4
   abort: outstanding uncommitted merge
   (use 'hg commit' or 'hg merge --abort')
-  [255]
+  [20]
 ##strip allowed --force with merge in progress
   $ hg strip 4 --force
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -606,7 +606,7 @@ Verify strip protects against stripping wc parent when there are uncommitted mod
   $ echo c > b
   $ hg strip tip
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg strip tip --keep
   saved backup bundle to $TESTTMP/test/.hg/strip-backup/*-backup.hg (glob)
   $ hg log --graph
@@ -708,7 +708,7 @@ test hg strip -B bookmark
   saved backup bundle to $TESTTMP/bookmarks/.hg/strip-backup/*-backup.hg (glob)
   bookmark 'todelete' deleted
   $ hg id -ir dcbb326fdec2
-  abort: unknown revision 'dcbb326fdec2'!
+  abort: unknown revision 'dcbb326fdec2'
   [255]
   $ hg id -ir d62d843c9a01
   d62d843c9a01
@@ -724,17 +724,17 @@ test hg strip -B bookmark
   bookmark 'multipledelete1' deleted
   bookmark 'multipledelete2' deleted
   $ hg id -ir e46a4836065c
-  abort: unknown revision 'e46a4836065c'!
+  abort: unknown revision 'e46a4836065c'
   [255]
   $ hg id -ir b4594d867745
-  abort: unknown revision 'b4594d867745'!
+  abort: unknown revision 'b4594d867745'
   [255]
   $ hg strip -B singlenode1 -B singlenode2
   saved backup bundle to $TESTTMP/bookmarks/.hg/strip-backup/43227190fef8-8da858f2-backup.hg
   bookmark 'singlenode1' deleted
   bookmark 'singlenode2' deleted
   $ hg id -ir 43227190fef8
-  abort: unknown revision '43227190fef8'!
+  abort: unknown revision '43227190fef8'
   [255]
   $ hg strip -B unknownbookmark
   abort: bookmark 'unknownbookmark' not found
@@ -749,7 +749,7 @@ test hg strip -B bookmark
   saved backup bundle to $TESTTMP/bookmarks/.hg/strip-backup/*-backup.hg (glob)
   bookmark 'delete' deleted
   $ hg id -ir 6:2702dd0c91e7
-  abort: unknown revision '2702dd0c91e7'!
+  abort: unknown revision '2702dd0c91e7'
   [255]
   $ hg update B
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -758,19 +758,17 @@ test hg strip -B bookmark
   $ hg add a
   $ hg strip -B B
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg bookmarks
    * B                         6:ff43616e5d0f
 
 Make sure no one adds back a -b option:
 
   $ hg strip -b tip
-  hg strip: option -b not recognized
-  hg strip [-k] [-f] [-B bookmark] [-r] REV...
+  hg debugstrip: option -b not recognized
+  hg debugstrip [-k] [-f] [-B bookmark] [-r] REV...
   
   strip changesets and all their descendants from the repository
-  
-  (use 'hg help -e strip' to show help for the strip extension)
   
   options ([+] can be repeated):
   
@@ -783,8 +781,8 @@ Make sure no one adds back a -b option:
    -B --bookmark BOOKMARK [+] remove revs only reachable from given bookmark
       --mq                    operate on patch repository
   
-  (use 'hg strip -h' to show more help)
-  [255]
+  (use 'hg debugstrip -h' to show more help)
+  [10]
 
   $ cd ..
 

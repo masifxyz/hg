@@ -340,11 +340,11 @@ SEC: check for unsafe ssh url
   [255]
   $ hg -R test-revflag push 'ssh://fakehost|touch${IFS}owned/path'
   pushing to ssh://fakehost%7Ctouch%24%7BIFS%7Downed/path
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ hg -R test-revflag push 'ssh://fakehost%7Ctouch%20owned/path'
   pushing to ssh://fakehost%7Ctouch%20owned/path
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
   $ [ ! -f owned ] || echo 'you got owned'
@@ -365,7 +365,7 @@ Test `commands.push.require-revs`
   pushing to $TESTTMP/test-require-revs-dest
   abort: no revisions specified to push
   (did you mean "hg push -r ."?)
-  [255]
+  [10]
   $ hg push -r 0
   pushing to $TESTTMP/test-require-revs-dest
   searching for changes
@@ -385,16 +385,16 @@ Test `commands.push.require-revs`
   $ hg push -b default
   pushing to $TESTTMP/test-require-revs-dest
   searching for changes
-  abort: push creates new remote head [0-9a-f]+! (re)
+  abort: push creates new remote head [0-9a-f]+ (re)
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 (demonstrate that even though we don't have anything to exchange, we're still
 showing the error)
   $ hg push
   pushing to $TESTTMP/test-require-revs-dest
   abort: no revisions specified to push
   (did you mean "hg push -r ."?)
-  [255]
+  [10]
   $ hg push --config paths.default:pushrev=0
   pushing to $TESTTMP/test-require-revs-dest
   searching for changes

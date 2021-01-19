@@ -44,6 +44,7 @@ Small superset:
   searching for changes
   unpruned common: 01241442b3c2 66f7d451a68b b5714e113bc0
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          2
       also local heads:          2
@@ -57,7 +58,16 @@ Small superset:
       unknown:                   2
   local changesets:              7
     common:                      7
+      heads:                     2
+      roots:                     1
     missing:                     0
+      heads:                     0
+      roots:                     0
+    first undecided set:         3
+      heads:                     1
+      roots:                     1
+      common:                    3
+      missing:                   0
   common heads: 01241442b3c2 b5714e113bc0
   
   % -- a -> b set
@@ -66,6 +76,7 @@ Small superset:
   searching for changes
   all local changesets known remotely
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          2
       also local heads:          2
@@ -79,7 +90,16 @@ Small superset:
       unknown:                   2
   local changesets:              7
     common:                      7
+      heads:                     2
+      roots:                     1
     missing:                     0
+      heads:                     0
+      roots:                     0
+    first undecided set:         3
+      heads:                     1
+      roots:                     1
+      common:                    3
+      missing:                   0
   common heads: 01241442b3c2 b5714e113bc0
   
   % -- a -> b set (tip only)
@@ -88,6 +108,7 @@ Small superset:
   searching for changes
   all local changesets known remotely
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -101,7 +122,16 @@ Small superset:
       unknown:                   3
   local changesets:              7
     common:                      6
+      heads:                     1
+      roots:                     1
     missing:                     1
+      heads:                     1
+      roots:                     1
+    first undecided set:         6
+      heads:                     2
+      roots:                     1
+      common:                    5
+      missing:                   1
   common heads: b5714e113bc0
   
   % -- b -> a tree
@@ -109,6 +139,7 @@ Small superset:
   searching for changes
   unpruned common: 01241442b3c2 b5714e113bc0
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          2
       also local heads:          1
@@ -122,7 +153,16 @@ Small superset:
       unknown:                   0
   local changesets:             15
     common:                      7
+      heads:                     2
+      roots:                     1
     missing:                     8
+      heads:                     2
+      roots:                     2
+    first undecided set:         8
+      heads:                     2
+      roots:                     2
+      common:                    0
+      missing:                   8
   common heads: 01241442b3c2 b5714e113bc0
   
   % -- b -> a set
@@ -131,6 +171,7 @@ Small superset:
   searching for changes
   all remote heads known locally
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          2
       also local heads:          1
@@ -144,7 +185,16 @@ Small superset:
       unknown:                   0
   local changesets:             15
     common:                      7
+      heads:                     2
+      roots:                     1
     missing:                     8
+      heads:                     2
+      roots:                     2
+    first undecided set:         8
+      heads:                     2
+      roots:                     2
+      common:                    0
+      missing:                   8
   common heads: 01241442b3c2 b5714e113bc0
   
   % -- b -> a set (tip only)
@@ -153,6 +203,7 @@ Small superset:
   searching for changes
   all remote heads known locally
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          2
       also local heads:          1
@@ -166,7 +217,16 @@ Small superset:
       unknown:                   0
   local changesets:             15
     common:                      7
+      heads:                     2
+      roots:                     1
     missing:                     8
+      heads:                     2
+      roots:                     2
+    first undecided set:         8
+      heads:                     2
+      roots:                     2
+      common:                    0
+      missing:                   8
   common heads: 01241442b3c2 b5714e113bc0
 
 
@@ -181,6 +241,7 @@ Many new:
   searching for changes
   unpruned common: bebd167eb94d
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -194,7 +255,16 @@ Many new:
       unknown:                   1
   local changesets:             35
     common:                      5
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        34
+      heads:                     2
+      roots:                     1
+      common:                    4
+      missing:                  30
   common heads: bebd167eb94d
   
   % -- a -> b set
@@ -206,6 +276,7 @@ Many new:
   query 2; still undecided: 29, sample size is: 29
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -219,7 +290,16 @@ Many new:
       unknown:                   1
   local changesets:             35
     common:                      5
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        34
+      heads:                     2
+      roots:                     1
+      common:                    4
+      missing:                  30
   common heads: bebd167eb94d
   
   % -- a -> b set (tip only)
@@ -231,6 +311,7 @@ Many new:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -244,7 +325,16 @@ Many new:
       unknown:                   1
   local changesets:             35
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    33
+      heads:                     2
+      roots:                     2
+    first undecided set:        35
+      heads:                     2
+      roots:                     1
+      common:                    2
+      missing:                  33
   common heads: 66f7d451a68b
   
   % -- b -> a tree
@@ -252,6 +342,7 @@ Many new:
   searching for changes
   unpruned common: 66f7d451a68b bebd167eb94d
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -265,7 +356,16 @@ Many new:
       unknown:                   1
   local changesets:              8
     common:                      5
+      heads:                     1
+      roots:                     1
     missing:                     3
+      heads:                     1
+      roots:                     1
+    first undecided set:         3
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                   3
   common heads: bebd167eb94d
   
   % -- b -> a set
@@ -277,6 +377,7 @@ Many new:
   query 2; still undecided: 2, sample size is: 2
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -290,7 +391,16 @@ Many new:
       unknown:                   1
   local changesets:              8
     common:                      5
+      heads:                     1
+      roots:                     1
     missing:                     3
+      heads:                     1
+      roots:                     1
+    first undecided set:         3
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                   3
   common heads: bebd167eb94d
   
   % -- b -> a set (tip only)
@@ -302,6 +412,7 @@ Many new:
   query 2; still undecided: 2, sample size is: 2
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -315,7 +426,16 @@ Many new:
       unknown:                   1
   local changesets:              8
     common:                      5
+      heads:                     1
+      roots:                     1
     missing:                     3
+      heads:                     1
+      roots:                     1
+    first undecided set:         3
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                   3
   common heads: bebd167eb94d
 
 Both sides many new with stub:
@@ -329,6 +449,7 @@ Both sides many new with stub:
   searching for changes
   unpruned common: 2dc09a01254d
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -342,7 +463,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      4
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        33
+      heads:                     2
+      roots:                     1
+      common:                    3
+      missing:                  30
   common heads: 2dc09a01254d
   
   % -- a -> b set
@@ -354,6 +484,7 @@ Both sides many new with stub:
   query 2; still undecided: 29, sample size is: 29
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -367,7 +498,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      4
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        33
+      heads:                     2
+      roots:                     1
+      common:                    3
+      missing:                  30
   common heads: 2dc09a01254d
   
   % -- a -> b set (tip only)
@@ -379,6 +519,7 @@ Both sides many new with stub:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -392,7 +533,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    32
+      heads:                     2
+      roots:                     2
+    first undecided set:        34
+      heads:                     2
+      roots:                     1
+      common:                    2
+      missing:                  32
   common heads: 66f7d451a68b
   
   % -- b -> a tree
@@ -400,6 +550,7 @@ Both sides many new with stub:
   searching for changes
   unpruned common: 2dc09a01254d 66f7d451a68b
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -413,7 +564,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      4
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        30
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                  30
   common heads: 2dc09a01254d
   
   % -- b -> a set
@@ -425,6 +585,7 @@ Both sides many new with stub:
   query 2; still undecided: 29, sample size is: 29
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -438,7 +599,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      4
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        30
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                  30
   common heads: 2dc09a01254d
   
   % -- b -> a set (tip only)
@@ -450,6 +620,7 @@ Both sides many new with stub:
   query 2; still undecided: 29, sample size is: 29
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -463,7 +634,16 @@ Both sides many new with stub:
       unknown:                   1
   local changesets:             34
     common:                      4
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        30
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                  30
   common heads: 2dc09a01254d
 
 
@@ -478,6 +658,7 @@ Both many new:
   searching for changes
   unpruned common: 66f7d451a68b
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -491,7 +672,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- a -> b set
@@ -503,6 +693,7 @@ Both many new:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -516,7 +707,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- a -> b set (tip only)
@@ -528,6 +728,7 @@ Both many new:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -541,7 +742,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- b -> a tree
@@ -549,6 +759,7 @@ Both many new:
   searching for changes
   unpruned common: 66f7d451a68b
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -562,7 +773,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- b -> a set
@@ -574,6 +794,7 @@ Both many new:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -587,7 +808,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- b -> a set (tip only)
@@ -599,6 +829,7 @@ Both many new:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -612,7 +843,16 @@ Both many new:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
 
 
@@ -627,6 +867,7 @@ Both many new skewed:
   searching for changes
   unpruned common: 66f7d451a68b
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -640,7 +881,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             52
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:        52
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  50
   common heads: 66f7d451a68b
   
   % -- a -> b set
@@ -652,6 +902,7 @@ Both many new skewed:
   query 2; still undecided: 51, sample size is: 51
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -665,7 +916,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             52
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:        52
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  50
   common heads: 66f7d451a68b
   
   % -- a -> b set (tip only)
@@ -677,6 +937,7 @@ Both many new skewed:
   query 2; still undecided: 51, sample size is: 51
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -690,7 +951,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             52
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:        52
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  50
   common heads: 66f7d451a68b
   
   % -- b -> a tree
@@ -698,6 +968,7 @@ Both many new skewed:
   searching for changes
   unpruned common: 66f7d451a68b
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -711,7 +982,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- b -> a set
@@ -723,6 +1003,7 @@ Both many new skewed:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -736,7 +1017,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
   
   % -- b -> a set (tip only)
@@ -748,6 +1038,7 @@ Both many new skewed:
   query 2; still undecided: 31, sample size is: 31
   2 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   2
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -761,7 +1052,16 @@ Both many new skewed:
       unknown:                   1
   local changesets:             32
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:        32
+      heads:                     1
+      roots:                     1
+      common:                    2
+      missing:                  30
   common heads: 66f7d451a68b
 
 
@@ -776,6 +1076,7 @@ Both many new on top of long history:
   searching for changes
   unpruned common: 7ead0cba2838
   elapsed time:  * seconds (glob)
+  round-trips:                   4
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -789,7 +1090,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1050
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:      1050
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  50
   common heads: 7ead0cba2838
   
   % -- a -> b set
@@ -804,6 +1114,7 @@ Both many new on top of long history:
   query 3; still undecided: 31, sample size is: 31
   3 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -817,7 +1128,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1050
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:      1050
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  50
   common heads: 7ead0cba2838
   
   % -- a -> b set (tip only)
@@ -832,6 +1152,7 @@ Both many new on top of long history:
   query 3; still undecided: 31, sample size is: 31
   3 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -845,7 +1166,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1050
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    50
+      heads:                     1
+      roots:                     1
+    first undecided set:      1050
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  50
   common heads: 7ead0cba2838
   
   % -- b -> a tree
@@ -853,6 +1183,7 @@ Both many new on top of long history:
   searching for changes
   unpruned common: 7ead0cba2838
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -866,7 +1197,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1030
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:      1030
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  30
   common heads: 7ead0cba2838
   
   % -- b -> a set
@@ -881,6 +1221,7 @@ Both many new on top of long history:
   query 3; still undecided: 15, sample size is: 15
   3 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -894,7 +1235,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1030
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:      1030
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  30
   common heads: 7ead0cba2838
   
   % -- b -> a set (tip only)
@@ -909,6 +1259,7 @@ Both many new on top of long history:
   query 3; still undecided: 15, sample size is: 15
   3 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -922,7 +1273,16 @@ Both many new on top of long history:
       unknown:                   1
   local changesets:           1030
     common:                   1000
+      heads:                     1
+      roots:                     1
     missing:                    30
+      heads:                     1
+      roots:                     1
+    first undecided set:      1030
+      heads:                     1
+      roots:                     1
+      common:                 1000
+      missing:                  30
   common heads: 7ead0cba2838
 
 
@@ -989,6 +1349,7 @@ One with >200 heads. We now switch to send them all in the initial roundtrip, bu
   query 6; still undecided: 63, sample size is: 63
   6 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   6
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -1002,7 +1363,16 @@ One with >200 heads. We now switch to send them all in the initial roundtrip, bu
       unknown:                   1
   local changesets:           1340
     common:                    300
+      heads:                     1
+      roots:                     1
     missing:                  1040
+      heads:                   260
+      roots:                   260
+    first undecided set:      1340
+      heads:                   260
+      roots:                     1
+      common:                  300
+      missing:                1040
   common heads: 3ee37d65064a
   $ hg -R a debugdiscovery b --debug --verbose --config progress.debug=true --rev tip
   comparing with b
@@ -1016,6 +1386,7 @@ One with >200 heads. We now switch to send them all in the initial roundtrip, bu
   query 3; still undecided: 3, sample size is: 3
   3 total queries in *.????s (glob)
   elapsed time:  * seconds (glob)
+  round-trips:                   3
   heads summary:
     total common heads:          1
       also local heads:          0
@@ -1029,7 +1400,57 @@ One with >200 heads. We now switch to send them all in the initial roundtrip, bu
       unknown:                   1
   local changesets:           1340
     common:                    300
+      heads:                     1
+      roots:                     1
     missing:                  1040
+      heads:                   260
+      roots:                   260
+    first undecided set:      1340
+      heads:                   260
+      roots:                     1
+      common:                  300
+      missing:                1040
+  common heads: 3ee37d65064a
+
+  $ hg -R a debugdiscovery b --debug --config devel.discovery.exchange-heads=false --config devel.discovery.randomize=false --config devel.discovery.grow-sample.rate=1.01
+  comparing with b
+  searching for changes
+  sampling from both directions
+  query 1; still undecided: 1340, sample size is: 200
+  sampling from both directions
+  query 2; still undecided: 795, sample size is: 202
+  sampling from both directions
+  query 3; still undecided: 525, sample size is: 204
+  sampling from both directions
+  query 4; still undecided: 252, sample size is: 206
+  sampling from both directions
+  query 5; still undecided: 44, sample size is: 44
+  5 total queries in *s (glob)
+  elapsed time: * seconds (glob)
+  round-trips:                   5
+  heads summary:
+    total common heads:          1
+      also local heads:          0
+      also remote heads:         0
+      both:                      0
+    local heads:               260
+      common:                    0
+      missing:                 260
+    remote heads:                1
+      common:                    0
+      unknown:                   1
+  local changesets:           1340
+    common:                    300
+      heads:                     1
+      roots:                     1
+    missing:                  1040
+      heads:                   260
+      roots:                   260
+    first undecided set:      1340
+      heads:                   260
+      roots:                     1
+      common:                  300
+      missing:                1040
   common heads: 3ee37d65064a
 
 Test actual protocol when pulling one new head in addition to common heads
@@ -1134,6 +1555,7 @@ returned as common heads.
   comparing with $TESTTMP/ancestorsof/a
   searching for changes
   elapsed time:  * seconds (glob)
+  round-trips:                   1
   heads summary:
     total common heads:          1
       also local heads:          1
@@ -1147,5 +1569,14 @@ returned as common heads.
       unknown:                   0
   local changesets:              3
     common:                      2
+      heads:                     1
+      roots:                     1
     missing:                     1
+      heads:                     1
+      roots:                     1
+    first undecided set:         1
+      heads:                     1
+      roots:                     1
+      common:                    0
+      missing:                   1
   common heads: 66f7d451a68b

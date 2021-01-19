@@ -30,7 +30,8 @@ enable obsolescence
   > bundle2-output-capture=True
   > [ui]
   > ssh="$PYTHON" "$TESTDIR/dummyssh"
-  > logtemplate={rev}:{node|short} {phase} {author} {bookmarks} {desc|firstline}
+  > [command-templates]
+  > log={rev}:{node|short} {phase} {author} {bookmarks} {desc|firstline}
   > [web]
   > push_ssl = false
   > allow_push = *
@@ -986,7 +987,7 @@ Servers can disable bundle1 for clone/pull operations
   abort: remote error:
   incompatible Mercurial client; bundle2 required
   (see https://www.mercurial-scm.org/wiki/IncompatibleClient)
-  [255]
+  [100]
   $ killdaemons.py
   $ cd ..
 
@@ -1031,7 +1032,7 @@ bundle1 pull can be disabled for generaldelta repos only
   abort: remote error:
   incompatible Mercurial client; bundle2 required
   (see https://www.mercurial-scm.org/wiki/IncompatibleClient)
-  [255]
+  [100]
 
   $ killdaemons.py
 
@@ -1049,7 +1050,7 @@ Verify the global server.bundle1 option works
   abort: remote error:
   incompatible Mercurial client; bundle2 required
   (see https://www.mercurial-scm.org/wiki/IncompatibleClient)
-  [255]
+  [100]
   $ killdaemons.py
 
   $ hg --config devel.legacy.exchange=bundle1 clone ssh://user@dummy/bundle2onlyserver not-bundle2-ssh
@@ -1074,7 +1075,7 @@ Verify the global server.bundle1 option works
   abort: remote error:
   incompatible Mercurial client; bundle2 required
   (see https://www.mercurial-scm.org/wiki/IncompatibleClient)
-  [255]
+  [100]
 
   $ killdaemons.py
 
@@ -1131,7 +1132,7 @@ Verify bundle1 pushes can be disabled
   abort: remote error:
   incompatible Mercurial client; bundle2 required
   (see https://www.mercurial-scm.org/wiki/IncompatibleClient)
-  [255]
+  [100]
 
 (also check with ssh)
 

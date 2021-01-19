@@ -111,9 +111,7 @@ from mercurial import (
     extensions,
     exthelper,
     hg,
-    httppeer,
     localrepo,
-    sshpeer,
     wireprotov1server,
 )
 
@@ -136,13 +134,19 @@ eh.merge(overrides.eh)
 eh.merge(proto.eh)
 
 eh.configitem(
-    b'largefiles', b'minsize', default=eh.configitem.dynamicdefault,
+    b'largefiles',
+    b'minsize',
+    default=eh.configitem.dynamicdefault,
 )
 eh.configitem(
-    b'largefiles', b'patterns', default=list,
+    b'largefiles',
+    b'patterns',
+    default=list,
 )
 eh.configitem(
-    b'largefiles', b'usercache', default=None,
+    b'largefiles',
+    b'usercache',
+    default=None,
 )
 
 cmdtable = eh.cmdtable
@@ -183,13 +187,6 @@ def _uisetup(ui):
         wireprotov1server.commands[b'heads'], b'func', proto.heads
     )
     # TODO also wrap wireproto.commandsv2 once heads is implemented there.
-
-    # can't do this in reposetup because it needs to have happened before
-    # wirerepo.__init__ is called
-    proto.ssholdcallstream = sshpeer.sshv1peer._callstream
-    proto.httpoldcallstream = httppeer.httppeer._callstream
-    sshpeer.sshv1peer._callstream = proto.sshrepocallstream
-    httppeer.httppeer._callstream = proto.httprepocallstream
 
     # override some extensions' stuff as well
     for name, module in extensions.extensions():

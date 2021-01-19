@@ -130,7 +130,10 @@ import os
 import time
 import traceback
 
-from mercurial.node import hex
+from mercurial.node import (
+    hex,
+    wdirrev,
+)
 from mercurial.i18n import _
 from mercurial.pycompat import open
 from mercurial import (
@@ -150,7 +153,6 @@ from mercurial import (
     match as matchmod,
     merge,
     mergestate as mergestatemod,
-    node as nodemod,
     patch,
     pycompat,
     registrar,
@@ -758,10 +760,10 @@ def getrenamedfn(orig, repo, endrev=None):
     rcache = {}
 
     def getrenamed(fn, rev):
-        '''looks up all renames for a file (up to endrev) the first
+        """looks up all renames for a file (up to endrev) the first
         time the file is given. It indexes on the changerev and only
         parses the manifest if linkrev != changerev.
-        Returns rename info for fn at changerev rev.'''
+        Returns rename info for fn at changerev rev."""
         if rev in rcache.setdefault(fn, {}):
             return rcache[fn][rev]
 
@@ -822,8 +824,7 @@ def filelogrevset(orig, repo, subset, x):
 
 @command(b'gc', [], _(b'hg gc [REPO...]'), norepo=True)
 def gc(ui, *args, **opts):
-    '''garbage collect the client and server filelog caches
-    '''
+    """garbage collect the client and server filelog caches"""
     cachepaths = set()
 
     # get the system client cache
@@ -1092,7 +1093,7 @@ def _fileprefetchhook(repo, revmatches):
     if isenabled(repo):
         allfiles = []
         for rev, match in revmatches:
-            if rev == nodemod.wdirrev or rev is None:
+            if rev == wdirrev or rev is None:
                 continue
             ctx = repo[rev]
             mf = ctx.manifest()
@@ -1105,7 +1106,9 @@ def _fileprefetchhook(repo, revmatches):
 
 @command(
     b'debugremotefilelog',
-    [(b'd', b'decompress', None, _(b'decompress the filelog first')),],
+    [
+        (b'd', b'decompress', None, _(b'decompress the filelog first')),
+    ],
     _(b'hg debugremotefilelog <path>'),
     norepo=True,
 )
@@ -1115,7 +1118,9 @@ def debugremotefilelog(ui, path, **opts):
 
 @command(
     b'verifyremotefilelog',
-    [(b'd', b'decompress', None, _(b'decompress the filelogs first')),],
+    [
+        (b'd', b'decompress', None, _(b'decompress the filelogs first')),
+    ],
     _(b'hg verifyremotefilelogs <directory>'),
     norepo=True,
 )

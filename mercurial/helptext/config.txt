@@ -54,6 +54,7 @@ ones.
 
   On Unix, the following files are consulted:
 
+  - ``<repo>/.hg/hgrc-not-shared`` (per-repository)
   - ``<repo>/.hg/hgrc`` (per-repository)
   - ``$HOME/.hgrc`` (per-user)
   - ``${XDG_CONFIG_HOME:-$HOME/.config}/hg/hgrc`` (per-user)
@@ -67,6 +68,7 @@ ones.
 
   On Windows, the following files are consulted:
 
+  - ``<repo>/.hg/hgrc-not-shared`` (per-repository)
   - ``<repo>/.hg/hgrc`` (per-repository)
   - ``%USERPROFILE%\.hgrc`` (per-user)
   - ``%USERPROFILE%\Mercurial.ini`` (per-user)
@@ -89,6 +91,7 @@ ones.
 
   On Plan9, the following files are consulted:
 
+  - ``<repo>/.hg/hgrc-not-shared`` (per-repository)
   - ``<repo>/.hg/hgrc`` (per-repository)
   - ``$home/lib/hgrc`` (per-user)
   - ``<install-root>/lib/mercurial/hgrc`` (per-installation)
@@ -143,6 +146,15 @@ configuration files should never be edited by users or administrators but can
 be overridden in other configuration files. So far the directory only contains
 merge tool configuration but packagers can also put other default configuration
 there.
+
+.. container:: verbose
+
+    On versions 5.7 and later, if share-safe functionality is enabled,
+    shares will read config file of share source too.
+    `<share-source/.hg/hgrc>` is read before reading `<repo/.hg/hgrc>`.
+
+    For configs which should not be shared, `<repo/.hg/hgrc-not-shared>`
+    should be used.
 
 Syntax
 ======
@@ -882,6 +894,32 @@ https://www.mercurial-scm.org/wiki/MissingRequirement
 
     Enabled by default.
 
+``use-persistent-nodemap``
+    Enable or disable the "persistent-nodemap" feature which improves
+    performance if the rust extensions are available.
+
+    The "persistence-nodemap" persist the "node -> rev" on disk removing the
+    need to dynamically build that mapping for each Mercurial invocation. This
+    significantly reduce the startup cost of various local and server-side
+    operation for larger repository.
+
+    The performance improving version of this feature is currently only
+    implemented in Rust, so people not using a version of Mercurial compiled
+    with the Rust part  might actually suffer some slowdown. For this reason,
+    Such version will by default refuse to access such repositories. That
+    behavior can be controlled by configuration. Check
+    :hg:`help config.storage.revlog.persistent-nodemap.slowpath` for details.
+
+    Repository with this on-disk format require Mercurial version 5.4 or above.
+
+    Disabled by default.
+
+``use-share-safe``
+    Enable or disable the "share-safe" functionality, which enables shares
+    to read requirements and configuration of its source repository.
+
+    Disabled by default.
+
 ``usestore``
     Enable or disable the "store" repository format which improves
     compatibility with systems that fold case or otherwise mangle
@@ -1509,12 +1547,13 @@ Supported arguments:
 
 ``premerge``
   Attempt to run internal non-interactive 3-way merge tool before
-  launching external tool.  Options are ``true``, ``false``, ``keep`` or
-  ``keep-merge3``. The ``keep`` option will leave markers in the file if the
-  premerge fails. The ``keep-merge3`` will do the same but include information
-  about the base of the merge in the marker (see internal :merge3 in
-  :hg:`help merge-tools`).
-  (default: True)
+  launching external tool.  Options are ``true``, ``false``, ``keep``,
+  ``keep-merge3``, or ``keep-mergediff`` (experimental). The ``keep`` option
+  will leave markers in the file if the premerge fails. The ``keep-merge3``
+  will do the same but include information about the base of the merge in the
+  marker (see internal :merge3 in :hg:`help merge-tools`). The
+  ``keep-mergediff`` option is similar but uses a different marker style
+  (see internal :merge3 in :hg:`help merge-tools`). (default: True)
 
 ``binary``
   This tool can merge binary files. (default: False, unless tool
@@ -1549,11 +1588,11 @@ Supported arguments:
   (default: ``basic``)
 
 ``mergemarkertemplate``
-  This setting can be used to override ``mergemarkertemplate`` from the ``[ui]``
-  section on a per-tool basis; this applies to the ``$label``-prefixed variables
-  and to the conflict markers that are generated if ``premerge`` is ``keep` or
-  ``keep-merge3``. See the corresponding variable in ``[ui]`` for more
-  information.
+  This setting can be used to override ``mergemarker`` from the
+  ``[command-templates]`` section on a per-tool basis; this applies to the
+  ``$label``-prefixed variables and to the conflict markers that are generated
+  if ``premerge`` is ``keep` or ``keep-merge3``. See the corresponding variable
+  in ``[ui]`` for more information.
 
 .. container:: windows
 
@@ -1899,6 +1938,56 @@ Alias definitions for revsets. See :hg:`help revsets` for details.
     Currently, only the rebase and absorb commands consider this configuration.
     (EXPERIMENTAL)
 
+``share``
+---------
+
+``safe-mismatch.source-safe``
+
+    Controls what happens when the shared repository does not use the
+    share-safe mechanism but its source repository does.
+
+    Possible values are `abort` (default), `allow`, `upgrade-abort` and
+    `upgrade-abort`.
+
+    ``abort``
+    Disallows running any command and aborts
+    ``allow``
+    Respects the feature presence in the share source
+    ``upgrade-abort``
+    tries to upgrade the share to use share-safe; if it fails, aborts
+    ``upgrade-allow``
+    tries to upgrade the share; if it fails, continue by
+    respecting the share source setting
+
+``safe-mismatch.source-not-safe``
+
+    Controls what happens when the shared repository uses the share-safe
+    mechanism but its source does not.
+
+    Possible values are `abort` (default), `allow`, `downgrade-abort` and
+    `downgrade-abort`.
+
+    ``abort``
+    Disallows running any command and aborts
+    ``allow``
+    Respects the feature presence in the share source
+    ``downgrade-abort``
+    tries to downgrade the share to not use share-safe; if it fails, aborts
+    ``downgrade-allow``
+    tries to downgrade the share to not use share-safe;
+    if it fails, continue by respecting the shared source setting
+
+
+``safe-mismatch.source-safe.warn``
+    Shows a warning on operations if the shared repository does not use
+    share-safe, but the source repository does.
+    (default: True)
+
+``safe-mismatch.source-not-safe.warn``
+    Shows a warning on operations if the shared repository uses share-safe,
+    but the source repository does not.
+    (default: True)
+
 ``storage``
 -----------
 
@@ -1912,6 +2001,28 @@ category impact performance and repository size.
 
     Turning this option off can result in large increase of repository size for
     repository with many merges.
+
+``revlog.persistent-nodemap.mmap``
+    Whether to use the Operating System "memory mapping" feature (when
+    possible) to access the persistent nodemap data. This improve performance
+    and reduce memory pressure.
+
+    Default to True.
+
+    For details on the "persistent-nodemap" feature, see:
+    :hg:`help config format.use-persistent-nodemap`.
+
+``revlog.persistent-nodemap.slow-path``
+    Control the behavior of Merucrial when using a repository with "persistent"
+    nodemap with an installation of Mercurial without a fast implementation for
+    the feature:
+
+    ``allow``: Silently use the slower implementation to access the repository.
+    ``warn``: Warn, but use the slower implementation to access the repository.
+    ``abort``: Prevent access to such repositories. (This is the default)
+
+    For details on the "persistent-nodemap" feature, see:
+    :hg:`help config format.use-persistent-nodemap`.
 
 ``revlog.reuse-external-delta-parent``
     Control the order in which delta parents are considered when adding new
@@ -2334,8 +2445,7 @@ User interface controls.
     UTF-8. (default: ISO-8859-1)
 
 ``graphnodetemplate``
-    The template used to print changeset nodes in an ASCII revision graph.
-    (default: ``{graphnode}``)
+    (DEPRECATED) Use ``command-templates.graphnode`` instead.
 
 ``ignore``
     A file to read per-user ignore patterns from. This file should be
@@ -2363,7 +2473,7 @@ User interface controls.
     (default: 10000000)
 
 ``logtemplate``
-    Template string for commands that print changesets.
+    (DEPRECATED) Use ``command-templates.log`` instead.
 
 ``merge``
     The conflict resolution program to use during a manual merge.
@@ -2371,29 +2481,14 @@ User interface controls.
     For configuring merge tools see the ``[merge-tools]`` section.
 
 ``mergemarkers``
-    Sets the merge conflict marker label styling. The ``detailed``
-    style uses the ``mergemarkertemplate`` setting to style the labels.
+    Sets the merge conflict marker label styling. The ``detailed`` style
+    uses the ``command-templates.mergemarker`` setting to style the labels.
     The ``basic`` style just uses 'local' and 'other' as the marker label.
     One of ``basic`` or ``detailed``.
     (default: ``basic``)
 
 ``mergemarkertemplate``
-    The template used to print the commit description next to each conflict
-    marker during merge conflicts. See :hg:`help templates` for the template
-    format.
-
-    Defaults to showing the hash, tags, branches, bookmarks, author, and
-    the first line of the commit description.
-
-    If you use non-ASCII characters in names for tags, branches, bookmarks,
-    authors, and/or commit descriptions, you must pay attention to encodings of
-    managed files. At template expansion, non-ASCII characters use the encoding
-    specified by the ``--encoding`` global option, ``HGENCODING`` or other
-    environment variables that govern your locale. If the encoding of the merge
-    markers is different from the encoding of the merged files,
-    serious problems may occur.
-
-    Can be overridden per-merge-tool, see the ``[merge-tools]`` section.
+    (DEPRECATED) Use ``command-templates.mergemarker`` instead.
 
 ``message-output``
     Where to write status and error messages. (default: ``stdio``)
@@ -2456,14 +2551,7 @@ User interface controls.
       On Windows, this configuration option is ignored and the command aborted.
 
 ``pre-merge-tool-output-template``
-    A template that is printed before executing an external merge tool. This can
-    be used to print out additional context that might be useful to have during
-    the conflict resolution, such as the description of the various commits
-    involved or bookmarks/tags.
-
-    Additional information is available in the ``local`, ``base``, and ``other``
-    dicts. For example: ``{local.label}``, ``{base.name}``, or
-    ``{other.islink}``.
+    (DEPRECATED) Use ``command-template.pre-merge-tool-output`` instead.
 
 ``quiet``
     Reduce the amount of output printed.
@@ -2559,6 +2647,55 @@ User interface controls.
 
 ``verbose``
     Increase the amount of output printed. (default: False)
+
+
+``command-templates``
+---------------------
+
+Templates used for customizing the output of commands.
+
+``graphnode``
+    The template used to print changeset nodes in an ASCII revision graph.
+    (default: ``{graphnode}``)
+
+``log``
+    Template string for commands that print changesets.
+
+``mergemarker``
+    The template used to print the commit description next to each conflict
+    marker during merge conflicts. See :hg:`help templates` for the template
+    format.
+
+    Defaults to showing the hash, tags, branches, bookmarks, author, and
+    the first line of the commit description.
+
+    If you use non-ASCII characters in names for tags, branches, bookmarks,
+    authors, and/or commit descriptions, you must pay attention to encodings of
+    managed files. At template expansion, non-ASCII characters use the encoding
+    specified by the ``--encoding`` global option, ``HGENCODING`` or other
+    environment variables that govern your locale. If the encoding of the merge
+    markers is different from the encoding of the merged files,
+    serious problems may occur.
+
+    Can be overridden per-merge-tool, see the ``[merge-tools]`` section.
+
+``oneline-summary``
+    A template used by `hg rebase` and other commands for showing a one-line
+    summary of a commit. If the template configured here is longer than one
+    line, then only the first line is used.
+
+    The template can be overridden per command by defining a template in
+    `oneline-summary.<command>`, where `<command>` can be e.g. "rebase".
+
+``pre-merge-tool-output``
+    A template that is printed before executing an external merge tool. This can
+    be used to print out additional context that might be useful to have during
+    the conflict resolution, such as the description of the various commits
+    involved or bookmarks/tags.
+
+    Additional information is available in the ``local`, ``base``, and ``other``
+    dicts. For example: ``{local.label}``, ``{base.name}``, or
+    ``{other.islink}``.
 
 
 ``web``

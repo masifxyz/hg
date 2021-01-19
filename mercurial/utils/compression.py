@@ -29,7 +29,8 @@ SERVERROLE = b'server'
 CLIENTROLE = b'client'
 
 compewireprotosupport = collections.namedtuple(
-    'compenginewireprotosupport', ('name', 'serverpriority', 'clientpriority'),
+    'compenginewireprotosupport',
+    ('name', 'serverpriority', 'clientpriority'),
 )
 
 
@@ -616,8 +617,10 @@ class _noopengine(compressionengine):
     def wireprotosupport(self):
         return compewireprotosupport(b'none', 0, 10)
 
-    # We don't implement revlogheader because it is handled specially
-    # in the revlog class.
+    # revlog special cases the uncompressed case, but implementing
+    # revlogheader allows forcing uncompressed storage.
+    def revlogheader(self):
+        return b'\0'
 
     def compressstream(self, it, opts=None):
         return it

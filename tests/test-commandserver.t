@@ -90,7 +90,7 @@ typical client does not want echo-back messages, so test without it:
   *** runcommand id
   000000000000 tip
   *** runcommand id -runknown
-  abort: unknown revision 'unknown'!
+  abort: unknown revision 'unknown'
    [255]
 
   >>> from hgclient import bprint, check, readchannel
@@ -148,7 +148,7 @@ check strict parsing of early options:
   ...     runcommand(server, [b'log', b'-b', b'--config=alias.log=!echo pwned',
   ...                         b'default'])
   *** runcommand log -b --config=alias.log=!echo pwned default
-  abort: unknown revision '--config=alias.log=!echo pwned'!
+  abort: unknown revision '--config=alias.log=!echo pwned'
    [255]
 
 check that "histedit --commands=-" can read rules from the input channel:
@@ -211,8 +211,10 @@ check that local configs for the cached repo aren't inherited when -R is used:
   lfs.usercache=$TESTTMP/.cache/lfs
   ui.slash=True
   ui.interactive=False
+  ui.detailed-exit-code=True
   ui.merge=internal:merge
   ui.mergemarkers=detailed
+  ui.timeout.warn=15
   ui.foo=bar
   ui.nontty=true
   web.address=localhost
@@ -222,8 +224,10 @@ check that local configs for the cached repo aren't inherited when -R is used:
   *** runcommand -R foo showconfig ui defaults
   ui.slash=True
   ui.interactive=False
+  ui.detailed-exit-code=True
   ui.merge=internal:merge
   ui.mergemarkers=detailed
+  ui.timeout.warn=15
   ui.nontty=true
 #endif
 
@@ -712,7 +716,7 @@ start without repository:
   o, 'capabilities: getencoding runcommand\nencoding: *\npid: *' (glob)
   *** runcommand id
   abort: there is no Mercurial repository here (.hg not found)
-   [255]
+   [10]
 
   >>> from hgclient import check, readchannel, runcommand
   >>> @check
@@ -729,7 +733,7 @@ don't fall back to cwd if invalid -R path is specified (issue4805):
 
   $ cd repo
   $ hg serve --cmdserver pipe -R ../nonexistent
-  abort: repository ../nonexistent not found!
+  abort: repository ../nonexistent not found
   [255]
   $ cd ..
 
@@ -982,8 +986,8 @@ cases.
   $ cd repo3
 
   $ cat <<EOF >> $HGRCPATH
-  > [ui]
-  > logtemplate = {rev} {desc|firstline} ({files})\n
+  > [command-templates]
+  > log = {rev} {desc|firstline} ({files})\n
   > 
   > [extensions]
   > failafterfinalize = $TESTTMP/failafterfinalize.py

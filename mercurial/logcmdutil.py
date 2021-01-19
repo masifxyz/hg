@@ -417,8 +417,7 @@ class changesetprinter(object):
                 )
 
     def _exthook(self, ctx):
-        '''empty method used by extension as a hook point
-        '''
+        """empty method used by extension as a hook point"""
 
     def _showpatch(self, ctx, graphwidth=0):
         if self._includestat:
@@ -509,13 +508,13 @@ class changesetformatter(changesetprinter):
 
 
 class changesettemplater(changesetprinter):
-    '''format changeset information.
+    """format changeset information.
 
     Note: there are a variety of convenience functions to build a
     changesettemplater for common cases. See functions such as:
     maketemplater, changesetdisplayer, buildcommittemplate, or other
     functions that use changesest_templater.
-    '''
+    """
 
     # Arguments before "buffered" used to be positional. Consider not
     # adding/removing arguments before "buffered" to not break callers.
@@ -623,7 +622,7 @@ def _lookuptemplate(ui, tmpl, style):
 
     # ui settings
     if not tmpl and not style:  # template are stronger than style
-        tmpl = ui.config(b'ui', b'logtemplate')
+        tmpl = ui.config(b'command-templates', b'log')
         if tmpl:
             return formatter.literal_templatespec(templater.unquotestring(tmpl))
         else:
@@ -656,7 +655,7 @@ def changesetdisplayer(ui, repo, opts, differ=None, buffered=False):
     Display format will be the first non-empty hit of:
     1. option 'template'
     2. option 'style'
-    3. [ui] setting 'logtemplate'
+    3. [command-templates] setting 'log'
     4. [ui] setting 'style'
     If all of these values are either the unset or the empty string,
     regular display via changesetprinter() is done.
@@ -692,6 +691,7 @@ class walkopts(object):
     revspec = attr.ib()  # type: List[bytes]
 
     # miscellaneous queries to filter revisions (see "hg help log" for details)
+    bookmarks = attr.ib(default=attr.Factory(list))  # type: List[bytes]
     branches = attr.ib(default=attr.Factory(list))  # type: List[bytes]
     date = attr.ib(default=None)  # type: Optional[bytes]
     keywords = attr.ib(default=attr.Factory(list))  # type: List[bytes]
@@ -747,6 +747,7 @@ def parseopts(ui, pats, opts):
         pats=pats,
         opts=opts,
         revspec=opts.get(b'rev', []),
+        bookmarks=opts.get(b'bookmark', []),
         # branch and only_branch are really aliases and must be handled at
         # the same time
         branches=opts.get(b'branch', []) + opts.get(b'only_branch', []),
@@ -897,13 +898,13 @@ _opt2logrevset = {
 def _makerevset(repo, wopts, slowpath):
     """Return a revset string built from log options and file patterns"""
     opts = {
-        b'branch': [repo.lookupbranch(b) for b in wopts.branches],
+        b'branch': [b'literal:' + repo.lookupbranch(b) for b in wopts.branches],
         b'date': wopts.date,
         b'keyword': wopts.keywords,
         b'no_merges': wopts.no_merges,
         b'only_merges': wopts.only_merges,
         b'prune': wopts.prune_ancestors,
-        b'user': wopts.users,
+        b'user': [b'literal:' + v for v in wopts.users],
     }
 
     if wopts.filter_revisions_by_pats and slowpath:
@@ -937,6 +938,14 @@ def _makerevset(repo, wopts, slowpath):
             if revop:
                 val = [revsetlang.formatspec(revop, v) for v in val]
             expr.append(revsetlang.formatspec(listop, val))
+
+    if wopts.bookmarks:
+        expr.append(
+            revsetlang.formatspec(
+                b'%lr',
+                [scmutil.format_bookmark_revspec(v) for v in wopts.bookmarks],
+            )
+        )
 
     if expr:
         expr = b'(' + b' and '.join(expr) + b')'
@@ -1111,7 +1120,7 @@ def getlinerangerevs(repo, userrevs, opts):
 
 
 def _graphnodeformatter(ui, displayer):
-    spec = ui.config(b'ui', b'graphnodetemplate')
+    spec = ui.config(b'command-templates', b'graphnode')
     if not spec:
         return templatekw.getgraphnode  # fast path for "{graphnode}"
 

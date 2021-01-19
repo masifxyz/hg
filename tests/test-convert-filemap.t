@@ -292,9 +292,9 @@ ensure that the filemap contains duplicated slashes (issue3612)
   $ rm -rf source/.hg/store/data/dir/file4
 #endif
   $ hg -q convert --filemap renames.fmap --datesort source dummydest
-  abort: data/dir/file3.i@e96dce0bc6a2: no match found! (reporevlogstore !)
-  abort: data/dir/file3/index@e96dce0bc6a2: no node! (reposimplestore !)
-  [255]
+  abort: data/dir/file3.i@e96dce0bc6a2: no match found (reporevlogstore !)
+  abort: data/dir/file3/index@e96dce0bc6a2: no node (reposimplestore !)
+  [50]
   $ hg -q convert --filemap renames.fmap --datesort --config convert.hg.ignoreerrors=1 source renames.repo
   ignoring: data/dir/file3.i@e96dce0bc6a2: no match found (reporevlogstore !)
   ignoring: data/dir/file4.i@6edd55f559cd: no match found (reporevlogstore !)

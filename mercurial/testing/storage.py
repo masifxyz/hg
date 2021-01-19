@@ -1021,7 +1021,12 @@ class ifiledatatests(basetestcase):
     def testcensored(self):
         f = self._makefilefn()
 
-        stored1 = storageutil.packmeta({b'censored': b'tombstone',}, b'')
+        stored1 = storageutil.packmeta(
+            {
+                b'censored': b'tombstone',
+            },
+            b'',
+        )
 
         with self._maketransactionfn() as tr:
             node0 = f.add(b'foo', None, tr, 0, nullid, nullid)
@@ -1050,7 +1055,12 @@ class ifiledatatests(basetestcase):
 
         f = self._makefilefn()
 
-        stored1 = storageutil.packmeta({b'censored': b'tombstone',}, b'')
+        stored1 = storageutil.packmeta(
+            {
+                b'censored': b'tombstone',
+            },
+            b'',
+        )
 
         with self._maketransactionfn() as tr:
             node0 = f.add(b'foo', None, tr, 0, nullid, nullid)
@@ -1117,7 +1127,22 @@ class ifilemutationtests(basetestcase):
             return 0
 
         with self._maketransactionfn() as tr:
-            nodes = f.addgroup([], None, tr, addrevisioncb=cb)
+            nodes = []
+
+            def onchangeset(cl, node):
+                nodes.append(node)
+                cb(cl, node)
+
+            def ondupchangeset(cl, node):
+                nodes.append(node)
+
+            f.addgroup(
+                [],
+                None,
+                tr,
+                addrevisioncb=onchangeset,
+                duplicaterevisioncb=ondupchangeset,
+            )
 
         self.assertEqual(nodes, [])
         self.assertEqual(callbackargs, [])
@@ -1136,7 +1161,22 @@ class ifilemutationtests(basetestcase):
         ]
 
         with self._maketransactionfn() as tr:
-            nodes = f.addgroup(deltas, linkmapper, tr, addrevisioncb=cb)
+            nodes = []
+
+            def onchangeset(cl, node):
+                nodes.append(node)
+                cb(cl, node)
+
+            def ondupchangeset(cl, node):
+                nodes.append(node)
+
+            f.addgroup(
+                deltas,
+                linkmapper,
+                tr,
+                addrevisioncb=onchangeset,
+                duplicaterevisioncb=ondupchangeset,
+            )
 
         self.assertEqual(
             nodes,
@@ -1175,7 +1215,19 @@ class ifilemutationtests(basetestcase):
             deltas.append((nodes[i], nullid, nullid, nullid, nullid, delta, 0))
 
         with self._maketransactionfn() as tr:
-            self.assertEqual(f.addgroup(deltas, lambda x: 0, tr), nodes)
+            newnodes = []
+
+            def onchangeset(cl, node):
+                newnodes.append(node)
+
+            f.addgroup(
+                deltas,
+                lambda x: 0,
+                tr,
+                addrevisioncb=onchangeset,
+                duplicaterevisioncb=onchangeset,
+            )
+            self.assertEqual(newnodes, nodes)
 
         self.assertEqual(len(f), len(deltas))
         self.assertEqual(list(f.revs()), [0, 1, 2])
@@ -1190,7 +1242,12 @@ class ifilemutationtests(basetestcase):
         # Attempt to apply a delta made against a censored revision.
         f = self._makefilefn()
 
-        stored1 = storageutil.packmeta({b'censored': b'tombstone',}, b'')
+        stored1 = storageutil.packmeta(
+            {
+                b'censored': b'tombstone',
+            },
+            b'',
+        )
 
         with self._maketransactionfn() as tr:
             node0 = f.add(b'foo\n' * 30, None, tr, 0, nullid, nullid)

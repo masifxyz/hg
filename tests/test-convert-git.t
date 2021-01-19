@@ -332,8 +332,8 @@ since bar is not touched in this commit, this copy will not be detected
 
 input validation
   $ hg convert --config convert.git.similarity=foo --datesort git-repo2 fullrepo
-  abort: convert.git.similarity is not a valid integer ('foo')
-  [255]
+  config error: convert.git.similarity is not a valid integer ('foo')
+  [30]
   $ hg convert --config convert.git.similarity=-1 --datesort git-repo2 fullrepo
   abort: similarity must be between 0 and 100
   [255]

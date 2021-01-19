@@ -1412,7 +1412,7 @@ running is placed.
   > This should print the start of check-code. If this passes but the
   > previous check failed, that means we found a copy of check-code at whatever
   > RUNTESTSDIR ended up containing, even though it doesn't match TESTDIR.
-  >   $ head -n 3 "\$RUNTESTDIR"/../contrib/check-code.py | sed 's@.!.*python@#!USRBINENVPY@'
+  >   $ head -n 3 "\$RUNTESTDIR"/../contrib/check-code.py | sed 's@.!.*python3@#!USRBINENVPY@'
   >   #!USRBINENVPY
   >   #
   >   # check-code - a style and portability checker for Mercurial
@@ -1956,9 +1956,12 @@ Test automatic pattern replacement
   $ cat << EOF >> test-config-opt.t
   >   $ hg init test-config-opt
   >   $ hg -R test-config-opt purge
+  >   $ echo "HGTESTEXTRAEXTENSIONS: \$HGTESTEXTRAEXTENSIONS"
+  >   HGTESTEXTRAEXTENSIONS: purge
   > EOF
 
-  $ rt --extra-config-opt extensions.purge= test-config-opt.t
+  $ rt --extra-config-opt extensions.purge= \
+  >    --extra-config-opt not.an.extension=True test-config-opt.t
   running 1 tests using 1 parallel processes 
   .
   # Ran 1 tests, 0 skipped, 0 failed.

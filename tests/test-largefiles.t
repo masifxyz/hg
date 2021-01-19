@@ -412,7 +412,7 @@ Committing directories containing only largefiles.
   $ hg revert --quiet z
   $ hg commit -m "Empty subdir" z
   abort: z: no match under directory!
-  [255]
+  [10]
   $ rm -rf z
   $ hg ci -m "standin" .hglf
   abort: file ".hglf" is a largefile standin
@@ -1070,14 +1070,14 @@ Show computed destination directory:
 Clone URL without path:
 
   $ hg clone file://
-  abort: repository / not found!
+  abort: repository / not found
   [255]
 
 Ensure base clone command argument validation
 
   $ hg clone -U -u 0 a a-clone-failure
   abort: cannot specify both --noupdate and --updaterev
-  [255]
+  [10]
 
   $ hg clone --all-largefiles a ssh://localhost/a
   abort: --all-largefiles is incompatible with non-local destination ssh://localhost/a

@@ -154,7 +154,10 @@ Check that extensions are loaded in phases:
   > from mercurial import exthelper
   > from mercurial.utils import procutil
   > 
-  > write = procutil.stdout.write
+  > def write(msg):
+  >     procutil.stdout.write(msg)
+  >     procutil.stdout.flush()
+  > 
   > name = os.path.basename(__file__).rsplit('.', 1)[0]
   > bytesname = name.encode('utf-8')
   > write(b"1) %s imported\n" % bytesname)
@@ -194,6 +197,9 @@ Check that extensions are loaded in phases:
 
 Check normal command's load order of extensions and registration of functions
 
+ On chg server, extension should be first set up by the server. Then
+ object-level setup should follow in the worker process.
+
   $ hg log -r "foo() and bar()" -q
   1) foo imported
   1) bar imported
@@ -209,6 +215,18 @@ Check normal command's load order of extensions and registration of functions
   4) bar uipopulate
   5) foo reposetup
   5) bar reposetup
+  4) foo uipopulate (chg !)
+  4) bar uipopulate (chg !)
+  4) foo uipopulate (chg !)
+  4) bar uipopulate (chg !)
+  4) foo uipopulate (chg !)
+  4) bar uipopulate (chg !)
+  4) foo uipopulate (chg !)
+  4) bar uipopulate (chg !)
+  4) foo uipopulate (chg !)
+  4) bar uipopulate (chg !)
+  5) foo reposetup (chg !)
+  5) bar reposetup (chg !)
   0:c24b9ac61126
 
 Check hgweb's load order of extensions and registration of functions
@@ -818,10 +836,8 @@ Extension module help vs command help:
       program, use -o/--option. These will be passed before the names of the
       directories or files to compare.
   
-      When two revision arguments are given, then changes are shown between
-      those revisions. If only one revision is specified then that revision is
-      compared to the working directory, and, when no revisions are specified,
-      the working directory files are compared to its parent.
+      The --from, --to, and --change options work the same way they do for 'hg
+      diff'.
   
       The --per-file option runs the external program repeatedly on each file to
       diff, instead of once on two directories. By default, this happens one by
@@ -841,7 +857,8 @@ Extension module help vs command help:
   
    -p --program CMD         comparison program to run
    -o --option OPT [+]      pass option to comparison program
-   -r --rev REV [+]         revision
+      --from REV1           revision to diff from
+      --to REV2             revision to diff to
    -c --change REV          change made by revision
       --per-file            compare each file instead of revision snapshots
       --confirm             prompt user before each external program invocation
@@ -1001,7 +1018,7 @@ Test help topic with same name as extension
   multirevs command
   
   (use 'hg multirevs -h' to show more help)
-  [255]
+  [10]
 
 
 
@@ -1415,37 +1432,39 @@ accessed.
 
 No declared supported version, extension complains:
   $ hg --config extensions.throw=throw.py throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension throw
+  ** Unknown exception encountered with possibly-broken third-party extension "throw" 1.0.0
   ** which supports versions unknown of Mercurial.
-  ** Please disable throw and try your action again.
+  ** Please disable "throw" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM * (glob)
-  ** Extensions loaded: throw
+  ** Extensions loaded: throw 1.0.0
 
-empty declaration of supported version, extension complains:
+empty declaration of supported version, extension complains (but doesn't choke if
+the value is improperly a str instead of bytes):
   $ echo "testedwith = ''" >> throw.py
   $ hg --config extensions.throw=throw.py throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension throw
+  ** Unknown exception encountered with possibly-broken third-party extension "throw" 1.0.0
   ** which supports versions unknown of Mercurial.
-  ** Please disable throw and try your action again.
+  ** Please disable "throw" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
-  ** Extensions loaded: throw
+  ** Extensions loaded: throw 1.0.0
 
-If the extension specifies a buglink, show that:
+If the extension specifies a buglink, show that (but don't choke if the value is
+improperly a str instead of bytes):
   $ echo 'buglink = "http://example.com/bts"' >> throw.py
   $ rm -f throw.pyc throw.pyo
   $ rm -Rf __pycache__
   $ hg --config extensions.throw=throw.py throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension throw
+  ** Unknown exception encountered with possibly-broken third-party extension "throw" 1.0.0
   ** which supports versions unknown of Mercurial.
-  ** Please disable throw and try your action again.
+  ** Please disable "throw" and try your action again.
   ** If that fixes the bug please report it to http://example.com/bts
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
-  ** Extensions loaded: throw
+  ** Extensions loaded: throw 1.0.0
 
 If the extensions declare outdated versions, accuse the older extension first:
   $ echo "from mercurial import util" >> older.py
@@ -1456,13 +1475,13 @@ If the extensions declare outdated versions, accuse the older extension first:
   $ rm -Rf __pycache__
   $ hg --config extensions.throw=throw.py --config extensions.older=older.py \
   >   throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension older
+  ** Unknown exception encountered with possibly-broken third-party extension "older" (version N/A)
   ** which supports versions 1.9 of Mercurial.
-  ** Please disable older and try your action again.
+  ** Please disable "older" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM (version 2.2)
-  ** Extensions loaded: throw, older
+  ** Extensions loaded: older, throw 1.0.0
 
 One extension only tested with older, one only with newer versions:
   $ echo "util.version = lambda:b'2.1'" >> older.py
@@ -1470,13 +1489,13 @@ One extension only tested with older, one only with newer versions:
   $ rm -Rf __pycache__
   $ hg --config extensions.throw=throw.py --config extensions.older=older.py \
   >   throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension older
+  ** Unknown exception encountered with possibly-broken third-party extension "older" (version N/A)
   ** which supports versions 1.9 of Mercurial.
-  ** Please disable older and try your action again.
+  ** Please disable "older" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM (version 2.1)
-  ** Extensions loaded: throw, older
+  ** Extensions loaded: older, throw 1.0.0
 
 Older extension is tested with current version, the other only with newer:
   $ echo "util.version = lambda:b'1.9.3'" >> older.py
@@ -1484,13 +1503,13 @@ Older extension is tested with current version, the other only with newer:
   $ rm -Rf __pycache__
   $ hg --config extensions.throw=throw.py --config extensions.older=older.py \
   >   throw 2>&1 | egrep '^\*\*'
-  ** Unknown exception encountered with possibly-broken third-party extension throw
+  ** Unknown exception encountered with possibly-broken third-party extension "throw" 1.0.0
   ** which supports versions 2.1 of Mercurial.
-  ** Please disable throw and try your action again.
+  ** Please disable "throw" and try your action again.
   ** If that fixes the bug please report it to http://example.com/bts
   ** Python * (glob)
   ** Mercurial Distributed SCM (version 1.9.3)
-  ** Extensions loaded: throw, older
+  ** Extensions loaded: older, throw 1.0.0
 
 Ability to point to a different point
   $ hg --config extensions.throw=throw.py --config extensions.older=older.py \
@@ -1499,7 +1518,7 @@ Ability to point to a different point
   ** Your Local Goat Lenders
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
-  ** Extensions loaded: throw, older
+  ** Extensions loaded: older, throw 1.0.0
 
 Declare the version as supporting this hg version, show regular bts link:
   $ hgver=`hg debuginstall -T '{hgver}'`
@@ -1514,7 +1533,7 @@ Declare the version as supporting this hg version, show regular bts link:
   ** https://mercurial-scm.org/wiki/BugTracker
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
-  ** Extensions loaded: throw
+  ** Extensions loaded: throw 1.0.0
 
 Patch version is ignored during compatibility check
   $ echo "testedwith = b'3.2'" >> throw.py
@@ -1526,7 +1545,7 @@ Patch version is ignored during compatibility check
   ** https://mercurial-scm.org/wiki/BugTracker
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
-  ** Extensions loaded: throw
+  ** Extensions loaded: throw 1.0.0
 
 Test version number support in 'hg version':
   $ echo '__version__ = (1, 2, 3)' >> throw.py
@@ -1829,7 +1848,7 @@ Prohibit registration of commands that don't use @command (issue5137)
   *** (use @command decorator to register 'deprecatedcmd')
   hg: unknown command 'deprecatedcmd'
   (use 'hg help' for a list of commands)
-  [255]
+  [10]
 
  the extension shouldn't be loaded at all so the mq works:
 
@@ -1886,4 +1905,4 @@ Prohibit the use of unicode strings as the default value of options
   *** (use b'' to make it byte string)
   hg: unknown command 'dummy'
   (did you mean summary?)
-  [255]
+  [10]

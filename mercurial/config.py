@@ -165,7 +165,7 @@ class config(object):
                     include(expanded, remap=remap, sections=sections)
                 except IOError as inst:
                     if inst.errno != errno.ENOENT:
-                        raise error.ParseError(
+                        raise error.ConfigError(
                             _(b"cannot include %s (%s)")
                             % (expanded, encoding.strtolocal(inst.strerror)),
                             b"%s:%d" % (src, line),
@@ -200,14 +200,19 @@ class config(object):
                 self._unset.append((section, name))
                 continue
 
-            raise error.ParseError(l.rstrip(), (b"%s:%d" % (src, line)))
+            message = l.rstrip()
+            if l.startswith(b' '):
+                message = b"unexpected leading whitespace: %s" % message
+            raise error.ConfigError(message, (b"%s:%d" % (src, line)))
 
     def read(self, path, fp=None, sections=None, remap=None):
         if not fp:
             fp = util.posixfile(path, b'rb')
-        assert getattr(fp, 'mode', 'rb') == 'rb', (
-            b'config files must be opened in binary mode, got fp=%r mode=%r'
-            % (fp, fp.mode,)
+        assert (
+            getattr(fp, 'mode', 'rb') == 'rb'
+        ), b'config files must be opened in binary mode, got fp=%r mode=%r' % (
+            fp,
+            fp.mode,
         )
 
         dir = os.path.dirname(path)

@@ -31,6 +31,7 @@ from . import (
     bookmarks,
     branchmap,
     bundle2,
+    bundlecaches,
     changegroup,
     color,
     commit,
@@ -58,6 +59,7 @@ from . import (
     rcutil,
     repoview,
     requirements as requirementsmod,
+    revlog,
     revset,
     revsetlang,
     scmutil,
@@ -95,8 +97,7 @@ _cachedfiles = set()
 
 
 class _basefilecache(scmutil.filecache):
-    """All filecache usage on repo are done for logic that should be unfiltered
-    """
+    """All filecache usage on repo are done for logic that should be unfiltered"""
 
     def __get__(self, repo, type=None):
         if repo is None:
@@ -299,7 +300,7 @@ class localpeer(repository.peer):
         return self._caps
 
     def clonebundles(self):
-        return self._repo.tryread(b'clonebundles.manifest')
+        return self._repo.tryread(bundlecaches.CB_MANIFEST_FILE)
 
     def debugwireargs(self, one, two, three=None, four=None, five=None):
         """Used to test argument passing over the wire"""
@@ -399,8 +400,8 @@ class localpeer(repository.peer):
 
 @interfaceutil.implementer(repository.ipeerlegacycommands)
 class locallegacypeer(localpeer):
-    '''peer extension which implements legacy methods too; used for tests with
-    restricted capabilities'''
+    """peer extension which implements legacy methods too; used for tests with
+    restricted capabilities"""
 
     def __init__(self, repo):
         super(locallegacypeer, self).__init__(repo, caps=legacycaps)
@@ -439,7 +440,7 @@ featuresetupfuncs = set()
 
 
 def _getsharedvfs(hgvfs, requirements):
-    """ returns the vfs object pointing to root of shared source
+    """returns the vfs object pointing to root of shared source
     repo for a shared repository
 
     hgvfs is vfs pointing at .hg/ of current repo (shared one)
@@ -464,7 +465,7 @@ def _getsharedvfs(hgvfs, requirements):
 
 
 def _readrequires(vfs, allowmissing):
-    """ reads the require file present at root of this vfs
+    """reads the require file present at root of this vfs
     and return a set of requirements
 
     If allowmissing is True, we suppress ENOENT if raised"""
@@ -549,22 +550,114 @@ def makelocalrepository(baseui, path, intents=None):
         requirementsmod.SHARED_REQUIREMENT in requirements
         or requirementsmod.RELATIVE_SHARED_REQUIREMENT in requirements
     )
+    storevfs = None
     if shared:
+        # This is a shared repo
         sharedvfs = _getsharedvfs(hgvfs, requirements)
+        storevfs = vfsmod.vfs(sharedvfs.join(b'store'))
+    else:
+        storevfs = vfsmod.vfs(hgvfs.join(b'store'))
 
     # if .hg/requires contains the sharesafe requirement, it means
     # there exists a `.hg/store/requires` too and we should read it
     # NOTE: presence of SHARESAFE_REQUIREMENT imply that store requirement
     # is present. We never write SHARESAFE_REQUIREMENT for a repo if store
     # is not present, refer checkrequirementscompat() for that
+    #
+    # However, if SHARESAFE_REQUIREMENT is not present, it means that the
+    # repository was shared the old way. We check the share source .hg/requires
+    # for SHARESAFE_REQUIREMENT to detect whether the current repository needs
+    # to be reshared
     if requirementsmod.SHARESAFE_REQUIREMENT in requirements:
-        if shared:
-            # This is a shared repo
-            storevfs = vfsmod.vfs(sharedvfs.join(b'store'))
-        else:
-            storevfs = vfsmod.vfs(hgvfs.join(b'store'))
 
-        requirements |= _readrequires(storevfs, False)
+        if (
+            shared
+            and requirementsmod.SHARESAFE_REQUIREMENT
+            not in _readrequires(sharedvfs, True)
+        ):
+            mismatch_warn = ui.configbool(
+                b'share', b'safe-mismatch.source-not-safe.warn'
+            )
+            mismatch_config = ui.config(
+                b'share', b'safe-mismatch.source-not-safe'
+            )
+            if mismatch_config in (
+                b'downgrade-allow',
+                b'allow',
+                b'downgrade-abort',
+            ):
+                # prevent cyclic import localrepo -> upgrade -> localrepo
+                from . import upgrade
+
+                upgrade.downgrade_share_to_non_safe(
+                    ui,
+                    hgvfs,
+                    sharedvfs,
+                    requirements,
+                    mismatch_config,
+                    mismatch_warn,
+                )
+            elif mismatch_config == b'abort':
+                raise error.Abort(
+                    _(
+                        b"share source does not support exp-sharesafe requirement"
+                    )
+                )
+            else:
+                hint = _(
+                    "run `hg help config.share.safe-mismatch.source-not-safe`"
+                )
+                raise error.Abort(
+                    _(
+                        b"share-safe mismatch with source.\nUnrecognized"
+                        b" value '%s' of `share.safe-mismatch.source-not-safe`"
+                        b" set."
+                    )
+                    % mismatch_config,
+                    hint=hint,
+                )
+        else:
+            requirements |= _readrequires(storevfs, False)
+    elif shared:
+        sourcerequires = _readrequires(sharedvfs, False)
+        if requirementsmod.SHARESAFE_REQUIREMENT in sourcerequires:
+            mismatch_config = ui.config(b'share', b'safe-mismatch.source-safe')
+            mismatch_warn = ui.configbool(
+                b'share', b'safe-mismatch.source-safe.warn'
+            )
+            if mismatch_config in (
+                b'upgrade-allow',
+                b'allow',
+                b'upgrade-abort',
+            ):
+                # prevent cyclic import localrepo -> upgrade -> localrepo
+                from . import upgrade
+
+                upgrade.upgrade_share_to_safe(
+                    ui,
+                    hgvfs,
+                    storevfs,
+                    requirements,
+                    mismatch_config,
+                    mismatch_warn,
+                )
+            elif mismatch_config == b'abort':
+                raise error.Abort(
+                    _(
+                        b'version mismatch: source uses share-safe'
+                        b' functionality while the current share does not'
+                    )
+                )
+            else:
+                hint = _("run `hg help config.share.safe-mismatch.source-safe`")
+                raise error.Abort(
+                    _(
+                        b"share-safe mismatch with source.\nUnrecognized"
+                        b" value '%s' of `share.safe-mismatch.source-safe` set."
+                    )
+                    % mismatch_config,
+                    hint=hint,
+                )
 
     # The .hg/hgrc file may load extensions or contain config options
     # that influence repository construction. Attempt to load it and
@@ -715,18 +808,28 @@ def loadhgrc(ui, wdirvfs, hgvfs, requirements, sharedvfs=None):
     if not rcutil.use_repo_hgrc():
         return False
 
+    ret = False
     # first load config from shared source if we has to
     if requirementsmod.SHARESAFE_REQUIREMENT in requirements and sharedvfs:
         try:
             ui.readconfig(sharedvfs.join(b'hgrc'), root=sharedvfs.base)
+            ret = True
         except IOError:
             pass
 
     try:
         ui.readconfig(hgvfs.join(b'hgrc'), root=wdirvfs.base)
-        return True
+        ret = True
     except IOError:
-        return False
+        pass
+
+    try:
+        ui.readconfig(hgvfs.join(b'hgrc-not-shared'), root=wdirvfs.base)
+        ret = True
+    except IOError:
+        pass
+
+    return ret
 
 
 def afterhgrcload(ui, wdirvfs, hgvfs, requirements):
@@ -983,11 +1086,42 @@ def resolverevlogstorevfsoptions(ui, requirements, features):
     if ui.configbool(b'experimental', b'rust.index'):
         options[b'rust.index'] = True
     if requirementsmod.NODEMAP_REQUIREMENT in requirements:
+        slow_path = ui.config(
+            b'storage', b'revlog.persistent-nodemap.slow-path'
+        )
+        if slow_path not in (b'allow', b'warn', b'abort'):
+            default = ui.config_default(
+                b'storage', b'revlog.persistent-nodemap.slow-path'
+            )
+            msg = _(
+                b'unknown value for config '
+                b'"storage.revlog.persistent-nodemap.slow-path": "%s"\n'
+            )
+            ui.warn(msg % slow_path)
+            if not ui.quiet:
+                ui.warn(_(b'falling back to default value: %s\n') % default)
+            slow_path = default
+
+        msg = _(
+            b"accessing `persistent-nodemap` repository without associated "
+            b"fast implementation."
+        )
+        hint = _(
+            b"check `hg help config.format.use-persistent-nodemap` "
+            b"for details"
+        )
+        if not revlog.HAS_FAST_PERSISTENT_NODEMAP:
+            if slow_path == b'warn':
+                msg = b"warning: " + msg + b'\n'
+                ui.warn(msg)
+                if not ui.quiet:
+                    hint = b'(' + hint + b')\n'
+                    ui.warn(hint)
+            if slow_path == b'abort':
+                raise error.Abort(msg, hint=hint)
         options[b'persistent-nodemap'] = True
-    if ui.configbool(b'storage', b'revlog.nodemap.mmap'):
+    if ui.configbool(b'storage', b'revlog.persistent-nodemap.mmap'):
         options[b'persistent-nodemap.mmap'] = True
-    epnm = ui.config(b'storage', b'revlog.nodemap.mode')
-    options[b'persistent-nodemap.mode'] = epnm
     if ui.configbool(b'devel', b'persistent-nodemap'):
         options[b'devel-force-nodemap'] = True
 
@@ -1720,11 +1854,7 @@ class localrepository(object):
             return context.workingctx(self)
 
     def __contains__(self, changeid):
-        """True if the given changeid exists
-
-        error.AmbiguousPrefixLookupError is raised if an ambiguous node
-        specified.
-        """
+        """True if the given changeid exists"""
         try:
             self[changeid]
             return True
@@ -1745,7 +1875,7 @@ class localrepository(object):
         return iter(self.changelog)
 
     def revs(self, expr, *args):
-        '''Find revisions matching a revset.
+        """Find revisions matching a revset.
 
         The revset is specified as a string ``expr`` that may contain
         %-formatting to escape certain types. See ``revsetlang.formatspec``.
@@ -1756,30 +1886,30 @@ class localrepository(object):
 
         Returns a smartset.abstractsmartset, which is a list-like interface
         that contains integer revisions.
-        '''
+        """
         tree = revsetlang.spectree(expr, *args)
         return revset.makematcher(tree)(self)
 
     def set(self, expr, *args):
-        '''Find revisions matching a revset and emit changectx instances.
+        """Find revisions matching a revset and emit changectx instances.
 
         This is a convenience wrapper around ``revs()`` that iterates the
         result and is a generator of changectx instances.
 
         Revset aliases from the configuration are not expanded. To expand
         user aliases, consider calling ``scmutil.revrange()``.
-        '''
+        """
         for r in self.revs(expr, *args):
             yield self[r]
 
     def anyrevs(self, specs, user=False, localalias=None):
-        '''Find revisions matching one of the given revsets.
+        """Find revisions matching one of the given revsets.
 
         Revset aliases from the configuration are not expanded by default. To
         expand user aliases, specify ``user=True``. To provide some local
         definitions overriding user aliases, set ``localalias`` to
         ``{name: definitionstring}``.
-        '''
+        """
         if specs == [b'null']:
             return revset.baseset([nullrev])
         if specs == [b'.']:
@@ -1811,8 +1941,8 @@ class localrepository(object):
 
     @filteredpropertycache
     def _tagscache(self):
-        '''Returns a tagscache object that contains various tags related
-        caches.'''
+        """Returns a tagscache object that contains various tags related
+        caches."""
 
         # This simplifies its cache management by having one decorated
         # function (this one) and the rest simply fetch things from it.
@@ -1850,12 +1980,12 @@ class localrepository(object):
         return t
 
     def _findtags(self):
-        '''Do the hard work of finding tags.  Return a pair of dicts
+        """Do the hard work of finding tags.  Return a pair of dicts
         (tags, tagtypes) where tags maps tag name to node, and tagtypes
         maps tag name to a string like \'global\' or \'local\'.
         Subclasses or extensions are free to add their own tags, but
         should be aware that the returned dicts will be retained for the
-        duration of the localrepo object.'''
+        duration of the localrepo object."""
 
         # XXX what tagtype should subclasses/extensions use?  Currently
         # mq and bookmarks add tags, but do not set the tagtype at all.
@@ -1886,13 +2016,13 @@ class localrepository(object):
         return (tags, tagtypes)
 
     def tagtype(self, tagname):
-        '''
+        """
         return the type of the given tag. result can be:
 
         'local'  : a local tag
         'global' : a global tag
         None     : tag does not exist
-        '''
+        """
 
         return self._tagscache.tagtypes.get(tagname)
 
@@ -1922,8 +2052,8 @@ class localrepository(object):
         return self._bookmarks.names(node)
 
     def branchmap(self):
-        '''returns a dictionary {branch: [branchheads]} with branchheads
-        ordered by increasing revision number'''
+        """returns a dictionary {branch: [branchheads]} with branchheads
+        ordered by increasing revision number"""
         return self._branchcaches[self]
 
     @unfilteredmethod
@@ -1933,13 +2063,13 @@ class localrepository(object):
         return self._revbranchcache
 
     def branchtip(self, branch, ignoremissing=False):
-        '''return the tip node for a given branch
+        """return the tip node for a given branch
 
         If ignoremissing is True, then this method will not raise an error.
         This is helpful for callers that only expect None for a missing branch
         (e.g. namespace).
 
-        '''
+        """
         try:
             return self.branchmap().branchtip(branch)
         except KeyError:
@@ -2003,7 +2133,7 @@ class localrepository(object):
 
     def filectx(self, path, changeid=None, fileid=None, changectx=None):
         """changeid must be a changeset revision, if specified.
-           fileid can be a file revision or node."""
+        fileid can be a file revision or node."""
         return context.filectx(
             self, path, changeid, fileid, changectx=changectx
         )
@@ -2220,7 +2350,13 @@ class localrepository(object):
                 accountclosed = singleheadsub.get(
                     b"account-closed-heads", False
                 )
-                scmutil.enforcesinglehead(repo, tr2, desc, accountclosed)
+                if singleheadsub.get(b"public-changes-only", False):
+                    filtername = b"immutable"
+                else:
+                    filtername = b"visible"
+                scmutil.enforcesinglehead(
+                    repo, tr2, desc, accountclosed, filtername
+                )
             if hook.hashook(repo.ui, b'pretxnclose-bookmark'):
                 for name, (old, new) in sorted(
                     tr.changes[b'bookmarks'].items()
@@ -2300,8 +2436,7 @@ class localrepository(object):
         tr.addfinalize(b'flush-fncache', self.store.write)
 
         def txnclosehook(tr2):
-            """To be run if transaction is successful, will schedule a hook run
-            """
+            """To be run if transaction is successful, will schedule a hook run"""
             # Don't reference tr2 in hook() so we don't hold a reference.
             # This reduces memory consumption when there are multiple
             # transactions per lock. This can likely go away if issue5045
@@ -2351,8 +2486,7 @@ class localrepository(object):
         tr.addpostclose(b'-warm-cache', self._buildcacheupdater(tr))
 
         def txnaborthook(tr2):
-            """To be run if transaction is aborted
-            """
+            """To be run if transaction is aborted"""
             reporef().hook(
                 b'txnabort', throw=False, **pycompat.strkwargs(tr2.hookargs)
             )
@@ -2557,7 +2691,7 @@ class localrepository(object):
             return
 
         if tr is None or tr.changes[b'origrepolen'] < len(self):
-            # accessing the 'ser ved' branchmap should refresh all the others,
+            # accessing the 'served' branchmap should refresh all the others,
             self.ui.debug(b'updating the branch cache\n')
             self.filtered(b'served').branchmap()
             self.filtered(b'served.hidden').branchmap()
@@ -2609,14 +2743,14 @@ class localrepository(object):
         self._quick_access_changeid_invalidate()
 
     def invalidatedirstate(self):
-        '''Invalidates the dirstate, causing the next call to dirstate
+        """Invalidates the dirstate, causing the next call to dirstate
         to check if it was modified since the last time it was read,
         rereading it if it has.
 
         This is different to dirstate.invalidate() that it doesn't always
         rereads the dirstate. Use dirstate.invalidate() if you want to
         explicitly read the dirstate again (i.e. restoring it to a previous
-        known good state).'''
+        known good state)."""
         if hasunfilteredcache(self, 'dirstate'):
             for k in self.dirstate._filecache:
                 try:
@@ -2626,13 +2760,13 @@ class localrepository(object):
             delattr(self.unfiltered(), 'dirstate')
 
     def invalidate(self, clearfilecache=False):
-        '''Invalidates both store and non-store parts other than dirstate
+        """Invalidates both store and non-store parts other than dirstate
 
         If a transaction is running, invalidation of store is omitted,
         because discarding in-memory changes might cause inconsistency
         (e.g. incomplete fncache causes unintentional failure, but
         redundant one doesn't).
-        '''
+        """
         unfiltered = self.unfiltered()  # all file caches are stored unfiltered
         for k in list(self._filecache.keys()):
             # dirstate is invalidated separately in invalidatedirstate()
@@ -2662,8 +2796,8 @@ class localrepository(object):
             self.store.invalidatecaches()
 
     def invalidateall(self):
-        '''Fully invalidates both store and non-store parts, causing the
-        subsequent operation to reread any outside changes.'''
+        """Fully invalidates both store and non-store parts, causing the
+        subsequent operation to reread any outside changes."""
         # extension should hook this to invalidate its caches
         self.invalidate()
         self.invalidatedirstate()
@@ -2678,7 +2812,13 @@ class localrepository(object):
             ce.refresh()
 
     def _lock(
-        self, vfs, lockname, wait, releasefn, acquirefn, desc,
+        self,
+        vfs,
+        lockname,
+        wait,
+        releasefn,
+        acquirefn,
+        desc,
     ):
         timeout = 0
         warntimeout = 0
@@ -2715,12 +2855,12 @@ class localrepository(object):
             callback(True)
 
     def lock(self, wait=True):
-        '''Lock the repository store (.hg/store) and return a weak reference
+        """Lock the repository store (.hg/store) and return a weak reference
         to the lock. Use this before modifying the store (e.g. committing or
         stripping). If you are opening a transaction, get a lock as well.)
 
         If both 'lock' and 'wlock' must be acquired, ensure you always acquires
-        'wlock' first to avoid a dead-lock hazard.'''
+        'wlock' first to avoid a dead-lock hazard."""
         l = self._currentlock(self._lockref)
         if l is not None:
             l.lock()
@@ -2738,13 +2878,13 @@ class localrepository(object):
         return l
 
     def wlock(self, wait=True):
-        '''Lock the non-store parts of the repository (everything under
+        """Lock the non-store parts of the repository (everything under
         .hg except .hg/store) and return a weak reference to the lock.
 
         Use this before modifying files in .hg.
 
         If both 'lock' and 'wlock' must be acquired, ensure you always acquires
-        'wlock' first to avoid a dead-lock hazard.'''
+        'wlock' first to avoid a dead-lock hazard."""
         l = self._wlockref and self._wlockref()
         if l is not None and l.held:
             l.lock()
@@ -2834,7 +2974,7 @@ class localrepository(object):
             extra = {}
 
         def fail(f, msg):
-            raise error.Abort(b'%s: %s' % (f, msg))
+            raise error.InputError(b'%s: %s' % (f, msg))
 
         if not match:
             match = matchmod.always()
@@ -2952,7 +3092,7 @@ class localrepository(object):
 
     @unfilteredmethod
     def destroying(self):
-        '''Inform the repository that nodes are about to be destroyed.
+        """Inform the repository that nodes are about to be destroyed.
         Intended for use by strip and rollback, so there's a common
         place for anything that has to be done before destroying history.
 
@@ -2961,7 +3101,7 @@ class localrepository(object):
         destroyed is imminent, the repo will be invalidated causing those
         changes to stay in memory (waiting for the next unlock), or vanish
         completely.
-        '''
+        """
         # When using the same lock to commit and strip, the phasecache is left
         # dirty after committing. Then when we strip, the repo is invalidated,
         # causing those changes to disappear.
@@ -2970,10 +3110,10 @@ class localrepository(object):
 
     @unfilteredmethod
     def destroyed(self):
-        '''Inform the repository that nodes have been destroyed.
+        """Inform the repository that nodes have been destroyed.
         Intended for use by strip and rollback, so there's a common
         place for anything that has to be done after destroying history.
-        '''
+        """
         # When one tries to:
         # 1) destroy nodes thus calling this method (e.g. strip)
         # 2) use phasecache somewhere (e.g. commit)
@@ -3056,13 +3196,13 @@ class localrepository(object):
         return sorted(heads, key=self.changelog.rev, reverse=True)
 
     def branchheads(self, branch=None, start=None, closed=False):
-        '''return a (possibly filtered) list of heads for the given branch
+        """return a (possibly filtered) list of heads for the given branch
 
         Heads are returned in topological order, from newest to oldest.
         If branch is None, use the dirstate branch.
         If start is not None, return only heads reachable from start.
         If closed is True, return heads that are marked as closed as well.
-        '''
+        """
         if branch is None:
             branch = self[None].branch()
         branches = self.branchmap()
@@ -3334,17 +3474,17 @@ def newreporequirements(ui, createopts):
 
     # if share-safe is enabled, let's create the new repository with the new
     # requirement
-    if ui.configbool(b'format', b'exp-share-safe'):
+    if ui.configbool(b'format', b'use-share-safe'):
         requirements.add(requirementsmod.SHARESAFE_REQUIREMENT)
 
     return requirements
 
 
 def checkrequirementscompat(ui, requirements):
-    """ Checks compatibility of repository requirements enabled and disabled.
+    """Checks compatibility of repository requirements enabled and disabled.
 
     Returns a set of requirements which needs to be dropped because dependend
-    requirements are not enabled. Also warns users about it """
+    requirements are not enabled. Also warns users about it"""
 
     dropped = set()
 
@@ -3373,7 +3513,7 @@ def checkrequirementscompat(ui, requirements):
         if requirementsmod.SHARESAFE_REQUIREMENT in requirements:
             ui.warn(
                 _(
-                    b"ignoring enabled 'format.exp-share-safe' config because "
+                    b"ignoring enabled 'format.use-share-safe' config because "
                     b"it is incompatible with disabled 'format.usestore'"
                     b" config\n"
                 )

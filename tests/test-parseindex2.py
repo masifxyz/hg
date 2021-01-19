@@ -5,17 +5,19 @@ It also checks certain aspects of the parsers module as a whole.
 
 from __future__ import absolute_import, print_function
 
+import os
 import struct
 import subprocess
 import sys
 import unittest
 
 from mercurial.node import (
+    bin,
+    hex,
     nullid,
     nullrev,
 )
 from mercurial import (
-    node as nodemod,
     policy,
     pycompat,
 )
@@ -129,7 +131,7 @@ def importparsers(hexversion):
         "import sys; sys.hexversion=%s; "
         "import mercurial.cext.parsers" % hexversion
     )
-    cmd = "python -c \"%s\"" % code
+    cmd = "\"%s\" -c \"%s\"" % (os.environ['PYTHON'], code)
     # We need to do these tests inside a subprocess because parser.c's
     # version-checking code happens inside the module init function, and
     # when using reload() to reimport an extension module, "The init function
@@ -231,7 +233,7 @@ class parseindex2tests(unittest.TestCase):
                 self.assertEqual(
                     ix[r[7]],
                     i,
-                    'Reverse lookup inconsistent for %r' % nodemod.hex(r[7]),
+                    'Reverse lookup inconsistent for %r' % hex(r[7]),
                 )
             except TypeError:
                 # pure version doesn't support this
@@ -254,7 +256,7 @@ class parseindex2tests(unittest.TestCase):
             if rev == nullrev:
                 return b'\xff\xff\xff\xff'
             else:
-                return nodemod.bin('%08x' % rev)
+                return bin('%08x' % rev)
 
         def appendrev(p1, p2=nullrev):
             # node won't matter for this test, let's just make sure

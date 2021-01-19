@@ -48,8 +48,9 @@ Second branch starting at nullrev:
 
 Make sure user/global hgrc does not affect tests
 
+  $ echo '[command-templates]' > .hg/hgrc
+  $ echo 'log =' >> .hg/hgrc
   $ echo '[ui]' > .hg/hgrc
-  $ echo 'logtemplate =' >> .hg/hgrc
   $ echo 'style =' >> .hg/hgrc
 
 Add some simple styles to settings
@@ -138,7 +139,8 @@ Test map inheritance with directory as base
   $ mkdir somedir
   $ echo "__base__ = somedir" > map-base-dir
   $ hg log -l1 -T./map-base-dir
-  abort: Is a directory: '$TESTTMP/a/somedir'
+  abort: Is a directory: '$TESTTMP/a/somedir' (no-windows !)
+  abort: $TESTTMP/a/somedir: Access is denied (windows !)
   [255]
 
 Test including a built-in template map
@@ -1241,7 +1243,7 @@ Unparsable function-style references:
   hg: parse error at 6: not a prefix: )
   (json(-)
          ^ here)
-  [255]
+  [10]
 
 For backward compatibility, the following examples are not parsed as
 function-style references:
@@ -1278,7 +1280,8 @@ Error if no style:
 Error if style is a directory:
 
   $ hg log --style somedir
-  abort: Is a directory: 'somedir'
+  abort: Is a directory: 'somedir' (no-windows !)
+  abort: somedir: Access is denied (windows !)
   [255]
 
 Error if style is a directory whose name is a built-in style:
@@ -1300,7 +1303,7 @@ Error if style missing value:
   $ echo 'changeset =' > t
   $ hg log --style t
   hg: parse error at t:1: missing value
-  [255]
+  [10]
 
 Error if include fails:
 
@@ -1969,6 +1972,7 @@ if it is a relative path
   > EOF
 
   $ HOME=`pwd`/home; export HOME
+  $ USERPROFILE=`pwd`/home; export USERPROFILE
 
   $ cat > latesttag/.hg/hgrc <<EOF
   > [ui]

@@ -36,7 +36,7 @@ of the files in a commit we're updating to
   $ hg ci
   abort: last update was interrupted
   (use 'hg update' to get a consistent checkout)
-  [255]
+  [20]
   $ hg sum
   parent: 0:538afb845929 
    commit #0
@@ -138,8 +138,8 @@ symlinks shouldn't be followed
 
 bad config
   $ hg merge 1 --config merge.checkunknown=x
-  abort: merge.checkunknown not valid ('x' is none of 'abort', 'ignore', 'warn')
-  [255]
+  config error: merge.checkunknown not valid ('x' is none of 'abort', 'ignore', 'warn')
+  [30]
 this merge should fail
   $ hg merge 1 --config merge.checkunknown=abort
   b: untracked file differs
@@ -282,7 +282,7 @@ merge fails
   $ hg merge 2
   abort: uncommitted changes
   (use 'hg status' to list changes)
-  [255]
+  [20]
 merge expected!
   $ hg merge -f 2
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
@@ -319,7 +319,7 @@ merge of b should fail
   $ hg merge 2
   abort: uncommitted changes
   (use 'hg status' to list changes)
-  [255]
+  [20]
 merge of b expected
   $ hg merge -f 2
   merging b

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # check-translation.py - check Mercurial specific translation problems
 from __future__ import absolute_import
@@ -33,8 +33,7 @@ def levelchecker(level, msgidpat):
 
 
 def match(checker, pe):
-    """Examine whether POEntry "pe" is target of specified checker or not
-    """
+    """Examine whether POEntry "pe" is target of specified checker or not"""
     if not checker.match(pe.msgid):
         return
     # examine suppression by translator comment

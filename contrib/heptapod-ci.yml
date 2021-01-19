@@ -1,20 +1,24 @@
-image: octobus/ci-mercurial-core
+stages:
+  - tests
+  - phabricator
 
-# The runner made a clone as root.
-# We make a new clone owned by user used to run the step.
-before_script:
-    - hg clone . /tmp/mercurial-ci/ --noupdate
-    - hg -R /tmp/mercurial-ci/ update `hg log --rev '.' --template '{node}'`
-    - cd /tmp/mercurial-ci/rust/rhg
-    - cargo build
-    - cd /tmp/mercurial-ci/
-    - ls -1 tests/test-check-*.* > /tmp/check-tests.txt
+image: registry.heptapod.net/mercurial/ci-images/mercurial-core:$HG_CI_IMAGE_TAG
 
 variables:
     PYTHON: python
     TEST_HGMODULEPOLICY: "allow"
 
 .runtests_template: &runtests
+    stage: tests
+    # The runner made a clone as root.
+    # We make a new clone owned by user used to run the step.
+    before_script:
+      - hg clone . /tmp/mercurial-ci/ --noupdate --config phases.publish=no
+      - hg -R /tmp/mercurial-ci/ update `hg log --rev '.' --template '{node}'`
+      - cd /tmp/mercurial-ci/rust/rhg
+      - cargo build
+      - cd /tmp/mercurial-ci/
+      - ls -1 tests/test-check-*.* > /tmp/check-tests.txt
     script:
         - echo "python used, $PYTHON"
         - echo "$RUNTEST_ARGS"
@@ -32,20 +36,21 @@ checks-py3:
         PYTHON: python3
 
 rust-cargo-test-py2: &rust_cargo_test
+    stage: tests
     script:
         - echo "python used, $PYTHON"
         - make rust-tests
 
 rust-cargo-test-py3:
+    stage: tests
     <<: *rust_cargo_test
     variables:
         PYTHON: python3
 
-rust-cargo-test-py3-dirstate-tree:
-    <<: *rust_cargo_test
-    variables:
-        PYTHON: python3
-        HG_RUST_FEATURES: dirstate-tree
+phabricator-refresh:
+    stage: phabricator
+    script:
+      - "./contrib/phab-refresh-stack.sh --comment \":white_check_mark: refresh by Heptapod after a successful CI run (:octopus: :green_heart:)\""
 
 test-py2:
     <<: *runtests
@@ -88,17 +93,15 @@ test-py3-rust:
         PYTHON: python3
         TEST_HGMODULEPOLICY: "rust+c"
 
-test-py3-rust-dirstate-tree:
-    <<: *runtests
-    variables:
-        HGWITHRUSTEXT: cpython
-        RUNTEST_ARGS: "--rust --blacklist /tmp/check-tests.txt"
-        PYTHON: python3
-        TEST_HGMODULEPOLICY: "rust+c"
-        HG_RUST_FEATURES: "dirstate-tree"
-
 test-py2-chg:
     <<: *runtests
     variables:
+        RUNTEST_ARGS: "--blacklist /tmp/check-tests.txt --chg"
+        TEST_HGMODULEPOLICY: "c"
+
+test-py3-chg:
+    <<: *runtests
+    variables:
+        PYTHON: python3
         RUNTEST_ARGS: "--blacklist /tmp/check-tests.txt --chg"
         TEST_HGMODULEPOLICY: "c"

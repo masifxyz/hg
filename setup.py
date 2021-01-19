@@ -179,7 +179,6 @@ import stat, subprocess, time
 import re
 import shutil
 import tempfile
-from distutils import log
 
 # We have issues with setuptools on some platforms and builders. Until
 # those are resolved, setuptools is opt-in except for platforms where
@@ -199,6 +198,7 @@ from distutils.command.build_scripts import build_scripts
 from distutils.command.install import install
 from distutils.command.install_lib import install_lib
 from distutils.command.install_scripts import install_scripts
+from distutils import log
 from distutils.spawn import spawn, find_executable
 from distutils import file_util
 from distutils.errors import (
@@ -782,6 +782,9 @@ class buildhgexe(build_ext):
 
         pythonlib = None
 
+        dir = os.path.dirname(self.get_ext_fullpath('dummy'))
+        self.hgtarget = os.path.join(dir, 'hg')
+
         if getattr(sys, 'dllhandle', None):
             # Different Python installs can have different Python library
             # names. e.g. the official CPython distribution uses pythonXY.dll
@@ -807,6 +810,19 @@ class buildhgexe(build_ext):
                     )
                 pythonlib = dllbasename[:-4]
 
+                # Copy the pythonXY.dll next to the binary so that it runs
+                # without tampering with PATH.
+                fsdecode = lambda x: x
+                if sys.version_info[0] >= 3:
+                    fsdecode = os.fsdecode
+                dest = os.path.join(
+                    os.path.dirname(self.hgtarget),
+                    fsdecode(dllbasename),
+                )
+
+                if not os.path.exists(dest):
+                    shutil.copy(buf.value, dest)
+
         if not pythonlib:
             log.warn(
                 'could not determine Python DLL filename; assuming pythonXY'
@@ -829,8 +845,6 @@ class buildhgexe(build_ext):
             output_dir=self.build_temp,
             macros=macros,
         )
-        dir = os.path.dirname(self.get_ext_fullpath('dummy'))
-        self.hgtarget = os.path.join(dir, 'hg')
         self.compiler.link_executable(
             objects, self.hgtarget, libraries=[], output_dir=self.build_temp
         )
@@ -1053,7 +1067,7 @@ class hginstall(install):
 
 
 class hginstalllib(install_lib):
-    '''
+    """
     This is a specialization of install_lib that replaces the copy_file used
     there so that it supports setting the mode of files after copying them,
     instead of just preserving the mode that the files originally had.  If your
@@ -1062,7 +1076,7 @@ class hginstalllib(install_lib):
 
     Note that just passing keep_permissions=False to copy_file would be
     insufficient, as it might still be applying a umask.
-    '''
+    """
 
     def run(self):
         realcopyfile = file_util.copy_file
@@ -1090,11 +1104,11 @@ class hginstalllib(install_lib):
 
 
 class hginstallscripts(install_scripts):
-    '''
+    """
     This is a specialization of install_scripts that replaces the @LIBDIR@ with
     the configured directory for modules. If possible, the path is made relative
     to the directory for scripts.
-    '''
+    """
 
     def initialize_options(self):
         install_scripts.initialize_options(self)
@@ -1273,6 +1287,7 @@ packages = [
     'mercurial.thirdparty.attr',
     'mercurial.thirdparty.zope',
     'mercurial.thirdparty.zope.interface',
+    'mercurial.upgrade_utils',
     'mercurial.utils',
     'mercurial.revlogutils',
     'mercurial.testing',
@@ -1293,6 +1308,13 @@ packages = [
     'hgext3rd',
     'hgdemandimport',
 ]
+
+# The pygit2 dependency dropped py2 support with the 1.0 release in Dec 2019.
+# Prior releases do not build at all on Windows, because Visual Studio 2008
+# doesn't understand C 11.  Older Linux releases are buggy.
+if sys.version_info[0] == 2:
+    packages.remove('hgext.git')
+
 
 for name in os.listdir(os.path.join('mercurial', 'templates')):
     if name != '__pycache__' and os.path.isdir(
@@ -1387,8 +1409,7 @@ class RustCompilationError(CCompilerError):
 
 
 class RustExtension(Extension):
-    """Base classes for concrete Rust Extension classes.
-    """
+    """Base classes for concrete Rust Extension classes."""
 
     rusttargetdir = os.path.join('rust', 'target', 'release')
 
@@ -1534,7 +1555,10 @@ extmodules = [
         include_dirs=common_include_dirs,
         extra_compile_args=common_cflags,
         depends=common_depends
-        + ['mercurial/cext/charencode.h', 'mercurial/cext/revlog.h',],
+        + [
+            'mercurial/cext/charencode.h',
+            'mercurial/cext/revlog.h',
+        ],
     ),
     Extension(
         'mercurial.cext.osutil',
@@ -1622,10 +1646,19 @@ if os.name == 'nt':
     msvccompiler.MSVCCompiler = HackedMSVCCompiler
 
 packagedata = {
-    'mercurial': ['locale/*/LC_MESSAGES/hg.mo', 'dummycert.pem',],
-    'mercurial.defaultrc': ['*.rc',],
-    'mercurial.helptext': ['*.txt',],
-    'mercurial.helptext.internals': ['*.txt',],
+    'mercurial': [
+        'locale/*/LC_MESSAGES/hg.mo',
+        'dummycert.pem',
+    ],
+    'mercurial.defaultrc': [
+        '*.rc',
+    ],
+    'mercurial.helptext': [
+        '*.txt',
+    ],
+    'mercurial.helptext.internals': [
+        '*.txt',
+    ],
 }
 
 

@@ -57,8 +57,8 @@ Make sure update doesn't assume b1 is a repository if invoked from outside:
 
   $ cd ..
   $ hg update b1
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
   $ cd b1
 
 Test helper functions:
@@ -348,7 +348,7 @@ Try to make empty commit while there are conflicts
   $ rm a.orig
   $ hg ci -m empty
   abort: unresolved merge conflicts (see 'hg help resolve')
-  [255]
+  [20]
   $ hg resolve -m a
   (no more unresolved files)
   $ hg resolve -l
@@ -701,6 +701,6 @@ Test that boolean flags allow --no-flag specification to override [defaults]
   > EOF
   $ hg co 2
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg co --no-check 2
   0 files updated, 0 files merged, 0 files removed, 0 files unresolved

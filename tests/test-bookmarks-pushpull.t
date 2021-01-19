@@ -10,8 +10,8 @@
 #require serve
 
   $ cat << EOF >> $HGRCPATH
-  > [ui]
-  > logtemplate={rev}:{node|short} {desc|firstline}
+  > [command-templates]
+  > log={rev}:{node|short} {desc|firstline}
   > [phases]
   > publish=False
   > [experimental]
@@ -356,7 +356,7 @@ demand that one of the bookmarks is activated
   1 files updated, 0 files merged, 0 files removed, 0 files unresolved
   (leaving bookmark V)
   $ hg push -B . ../a
-  abort: no active bookmark!
+  abort: no active bookmark
   [255]
   $ hg update -r V
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
@@ -386,7 +386,7 @@ push/pull name that doesn't exist
   $ hg pull -B anotherbadname ../a
   pulling from ../a
   abort: remote bookmark anotherbadname not found!
-  [255]
+  [10]
 
 divergent bookmarks
 
@@ -740,9 +740,9 @@ diverging a remote bookmark fails
   $ hg push http://localhost:$HGPORT2/
   pushing to http://localhost:$HGPORT2/
   searching for changes
-  abort: push creates new remote head c922c0139ca0 with bookmark 'Y'!
+  abort: push creates new remote head c922c0139ca0 with bookmark 'Y'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg -R ../a book
      @                         1:0d2164f0ce0d
    * X                         1:0d2164f0ce0d
@@ -757,9 +757,9 @@ Unrelated marker does not alter the decision
   $ hg push http://localhost:$HGPORT2/
   pushing to http://localhost:$HGPORT2/
   searching for changes
-  abort: push creates new remote head c922c0139ca0 with bookmark 'Y'!
+  abort: push creates new remote head c922c0139ca0 with bookmark 'Y'
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg -R ../a book
      @                         1:0d2164f0ce0d
    * X                         1:0d2164f0ce0d
@@ -1053,9 +1053,9 @@ pushing an existing but divergent bookmark with -B still requires -f
   pushing to $TESTTMP/addmarks
   searching for changes
   remote has heads on branch 'default' that are not known locally: a2a606d9ff1b
-  abort: push creates new remote head 54694f811df9 with bookmark 'X'!
+  abort: push creates new remote head 54694f811df9 with bookmark 'X'
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ cd ../addmarks
 
 Check summary output for incoming/outgoing bookmarks
@@ -1166,7 +1166,7 @@ Local push
   searching for changes
   no changes found
   pushkey-abort: prepushkey hook exited with status 1
-  abort: exporting bookmark @ failed!
+  abort: exporting bookmark @ failed
   [255]
 
 #endif
@@ -1194,7 +1194,7 @@ Using ssh
   searching for changes
   no changes found
   remote: pushkey-abort: prepushkey hook exited with status 1
-  abort: exporting bookmark @ failed!
+  abort: exporting bookmark @ failed
   [255]
 
   $ hg -R ../issue4455-dest/ bookmarks
@@ -1205,7 +1205,7 @@ Using ssh
   searching for changes
   no changes found
   remote: pushkey-abort: prepushkey hook exited with status 1
-  exporting bookmark @ failed!
+  exporting bookmark @ failed
   [1]
 
 #endif
@@ -1233,7 +1233,7 @@ Using http
   searching for changes
   no changes found
   remote: pushkey-abort: prepushkey hook exited with status 1
-  abort: exporting bookmark @ failed!
+  abort: exporting bookmark @ failed
   [255]
 
   $ hg -R ../issue4455-dest/ bookmarks
@@ -1244,7 +1244,7 @@ Using http
   searching for changes
   no changes found
   remote: pushkey-abort: prepushkey hook exited with status 1
-  exporting bookmark @ failed!
+  exporting bookmark @ failed
   [1]
 
 #endif
@@ -1324,7 +1324,7 @@ attempt to move the bookmark is rejected
   searching for changes
   no changes found
   remote: pushkey-abort: prepushkey.no-bm-move hook exited with status 1
-  abort: updating bookmark foo failed!
+  abort: updating bookmark foo failed
   [255]
 #endif
 #if b2-binary
@@ -1364,3 +1364,33 @@ Pushing the bookmark "foo" now fails as it contains a secret changeset
   no changes found (ignored 1 secret changesets)
   abort: cannot push bookmark foo as it points to a secret changeset
   [255]
+
+Test pushing all bookmarks
+
+  $ hg init $TESTTMP/ab1
+  $ cd $TESTTMP/ab1
+  $ "$PYTHON" $TESTDIR/seq.py 1 5 | while read i; do
+  > echo $i > test && hg ci -Am test
+  > done
+  adding test
+  $ hg clone -U . ../ab2
+  $ hg book -r 1 A; hg book -r 2 B; hg book -r 3 C
+  $ hg push ../ab2
+  pushing to ../ab2
+  searching for changes
+  no changes found
+  [1]
+  $ hg push --all-bookmarks -r 1 ../ab2
+  abort: cannot specify both --all-bookmarks and --rev
+  [10]
+  $ hg push --all-bookmarks -B A ../ab2
+  abort: cannot specify both --all-bookmarks and --bookmark
+  [10]
+  $ hg push --all-bookmarks ../ab2
+  pushing to ../ab2
+  searching for changes
+  no changes found
+  exporting bookmark A
+  exporting bookmark B
+  exporting bookmark C
+  [1]

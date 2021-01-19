@@ -1,7 +1,8 @@
+use crate::repo::Repo;
 use crate::revlog::revlog::{Revlog, RevlogError};
+use crate::revlog::NodePrefixRef;
 use crate::revlog::Revision;
 use crate::utils::hg_path::HgPath;
-use std::path::PathBuf;
 
 /// A specialized `Revlog` to work with `manifest` data format.
 pub struct Manifest {
@@ -11,14 +12,16 @@ pub struct Manifest {
 
 impl Manifest {
     /// Open the `manifest` of a repository given by its root.
-    pub fn open(root: &PathBuf) -> Result<Self, RevlogError> {
-        let index_file = root.join(".hg/store/00manifest.i");
-        let revlog = Revlog::open(&index_file)?;
+    pub fn open(repo: &Repo) -> Result<Self, RevlogError> {
+        let revlog = Revlog::open(repo, "00manifest.i", None)?;
         Ok(Self { revlog })
     }
 
     /// Return the `ManifestEntry` of a given node id.
-    pub fn get_node(&self, node: &[u8]) -> Result<ManifestEntry, RevlogError> {
+    pub fn get_node(
+        &self,
+        node: NodePrefixRef,
+    ) -> Result<ManifestEntry, RevlogError> {
         let rev = self.revlog.get_node_rev(node)?;
         self.get_rev(rev)
     }

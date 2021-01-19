@@ -44,11 +44,11 @@ should fail
 #if no-windows
   $ echo foo > con.xml
   $ hg --config ui.portablefilenames=jump add con.xml
-  abort: ui.portablefilenames value is invalid ('jump')
-  [255]
+  config error: ui.portablefilenames value is invalid ('jump')
+  [30]
   $ hg --config ui.portablefilenames=abort add con.xml
   abort: filename contains 'con', which is reserved on Windows: con.xml
-  [255]
+  [10]
   $ hg st
   A a
   A b
@@ -68,7 +68,7 @@ should fail
   $ hg --config ui.portablefilenames=abort add
   adding hello:world
   abort: filename contains ':', which is reserved on Windows: 'hello:world'
-  [255]
+  [10]
   $ hg st
   A a
   A b
@@ -286,7 +286,7 @@ test --interactive mode in forget
   $ hg commit -qAm "bar"
   $ hg forget foo --dry-run -i
   abort: cannot specify both --dry-run and --interactive
-  [255]
+  [10]
 
   $ hg forget foo --config ui.interactive=True -i << EOF
   > ?

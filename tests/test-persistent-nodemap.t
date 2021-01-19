@@ -8,13 +8,36 @@ Test the persistent on-disk nodemap
   > [devel]
   > persistent-nodemap=yes
   > EOF
-  $ hg init test-repo
+
+  $ hg init test-repo --config storage.revlog.persistent-nodemap.slow-path=allow
   $ cd test-repo
+
+Check handling of the default slow-path value
+
+#if no-pure no-rust
+
+  $ hg id
+  abort: accessing `persistent-nodemap` repository without associated fast implementation.
+  (check `hg help config.format.use-persistent-nodemap` for details)
+  [255]
+
+Unlock further check (we are here to test the feature)
+
+  $ cat << EOF >> $HGRCPATH
+  > [storage]
+  > # to avoid spamming the test
+  > revlog.persistent-nodemap.slow-path=allow
+  > EOF
+
+#endif
+
+
   $ hg debugformat
   format-variant     repo
   fncache:            yes
   dotencode:          yes
   generaldelta:       yes
+  share-safe:          no
   sparserevlog:       yes
   sidedata:            no
   persistent-nodemap: yes
@@ -22,9 +45,8 @@ Test the persistent on-disk nodemap
   plain-cl-delta:     yes
   compression:        zlib
   compression-level:  default
-  $ hg debugbuilddag .+5000 --new-file --config "storage.revlog.nodemap.mode=warn"
-  persistent nodemap in strict mode without efficient method (no-rust no-pure !)
-  persistent nodemap in strict mode without efficient method (no-rust no-pure !)
+  $ hg debugbuilddag .+5000 --new-file
+
   $ hg debugnodemap --metadata
   uid: ???????????????? (glob)
   tip-rev: 5000
@@ -109,13 +131,39 @@ add a new commit
   $ echo foo > foo
   $ hg add foo
 
+
+Check slow-path config value handling
+-------------------------------------
+
 #if no-pure no-rust
 
-  $ hg ci -m 'foo' --config "storage.revlog.nodemap.mode=strict"
-  transaction abort!
-  rollback completed
-  abort: persistent nodemap in strict mode without efficient method
+  $ hg id --config "storage.revlog.persistent-nodemap.slow-path=invalid-value"
+  unknown value for config "storage.revlog.persistent-nodemap.slow-path": "invalid-value"
+  falling back to default value: abort
+  abort: accessing `persistent-nodemap` repository without associated fast implementation.
+  (check `hg help config.format.use-persistent-nodemap` for details)
   [255]
+
+  $ hg log -r . --config "storage.revlog.persistent-nodemap.slow-path=warn"
+  warning: accessing `persistent-nodemap` repository without associated fast implementation.
+  (check `hg help config.format.use-persistent-nodemap` for details)
+  changeset:   5000:6b02b8c7b966
+  tag:         tip
+  user:        debugbuilddag
+  date:        Thu Jan 01 01:23:20 1970 +0000
+  summary:     r5000
+  
+  $ hg ci -m 'foo' --config "storage.revlog.persistent-nodemap.slow-path=abort"
+  abort: accessing `persistent-nodemap` repository without associated fast implementation.
+  (check `hg help config.format.use-persistent-nodemap` for details)
+  [255]
+
+#else
+
+  $ hg id --config "storage.revlog.persistent-nodemap.slow-path=invalid-value"
+  unknown value for config "storage.revlog.persistent-nodemap.slow-path": "invalid-value"
+  falling back to default value: abort
+  6b02b8c7b966+ tip
 
 #endif
 
@@ -168,12 +216,12 @@ Test code path without mmap
 
   $ echo bar > bar
   $ hg add bar
-  $ hg ci -m 'bar' --config storage.revlog.nodemap.mmap=no
+  $ hg ci -m 'bar' --config storage.revlog.persistent-nodemap.mmap=no
 
-  $ hg debugnodemap --check --config storage.revlog.nodemap.mmap=yes
+  $ hg debugnodemap --check --config storage.revlog.persistent-nodemap.mmap=yes
   revision in index:   5003
   revision in nodemap: 5003
-  $ hg debugnodemap --check --config storage.revlog.nodemap.mmap=no
+  $ hg debugnodemap --check --config storage.revlog.persistent-nodemap.mmap=no
   revision in index:   5003
   revision in nodemap: 5003
 
@@ -326,6 +374,38 @@ the nodemap should detect the changelog have been tampered with and recover.
   $ hg log -r "$OTHERNODE" -T '{rev}\n'
   5002
 
+missing data file
+-----------------
+
+  $ UUID=`hg debugnodemap --metadata| grep 'uid:' | \
+  > sed 's/uid: //'`
+  $ FILE=.hg/store/00changelog-"${UUID}".nd
+  $ mv $FILE ../tmp-data-file
+  $ cp .hg/store/00changelog.n ../tmp-docket
+
+mercurial don't crash
+
+  $ hg log -r .
+  changeset:   5002:b355ef8adce0
+  tag:         tip
+  parent:      4998:d918ad6d18d3
+  user:        test
+  date:        Thu Jan 01 00:00:00 1970 +0000
+  summary:     babar
+  
+  $ hg debugnodemap --metadata
+
+  $ hg debugupdatecache
+  $ hg debugnodemap --metadata
+  uid: * (glob)
+  tip-rev: 5002
+  tip-node: b355ef8adce0949b8bdf6afc72ca853740d65944
+  data-length: 121088
+  data-unused: 0
+  data-unused: 0.000%
+  $ mv ../tmp-data-file $FILE
+  $ mv ../tmp-docket .hg/store/00changelog.n
+
 Check transaction related property
 ==================================
 
@@ -476,6 +556,7 @@ downgrading
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap: yes     no      no
@@ -489,6 +570,11 @@ downgrading
   requirements
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
      removed: persistent-nodemap
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   $ ls -1 .hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
   [1]
@@ -506,6 +592,7 @@ upgrading
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no    yes      no
@@ -519,6 +606,11 @@ upgrading
   requirements
      preserved: dotencode, fncache, generaldelta, revlogv1, sparserevlog, store
      added: persistent-nodemap
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
   $ ls -1 .hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
   00changelog-*.nd (glob)
@@ -544,6 +636,11 @@ Running unrelated upgrade
   
   optimisations: re-delta-all
   
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
+  
   $ ls -1 .hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
   00changelog-*.nd (glob)
   00changelog.n
@@ -551,6 +648,77 @@ Running unrelated upgrade
   00manifest.n
 
   $ hg debugnodemap --metadata
+  uid: * (glob)
+  tip-rev: 5005
+  tip-node: 90d5d3ba2fc47db50f712570487cb261a68c8ffe
+  data-length: 121088
+  data-unused: 0
+  data-unused: 0.000%
+
+Persistent nodemap and local/streaming clone
+============================================
+
+  $ cd ..
+
+standard clone
+--------------
+
+The persistent nodemap should exist after a streaming clone
+
+  $ hg clone --pull --quiet -U test-repo standard-clone
+  $ ls -1 standard-clone/.hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
+  00changelog-*.nd (glob)
+  00changelog.n
+  00manifest-*.nd (glob)
+  00manifest.n
+  $ hg -R standard-clone debugnodemap --metadata
+  uid: * (glob)
+  tip-rev: 5005
+  tip-node: 90d5d3ba2fc47db50f712570487cb261a68c8ffe
+  data-length: 121088
+  data-unused: 0
+  data-unused: 0.000%
+
+
+local clone
+------------
+
+The persistent nodemap should exist after a streaming clone
+
+  $ hg clone -U test-repo local-clone
+  $ ls -1 local-clone/.hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
+  00changelog-*.nd (glob)
+  00changelog.n
+  00manifest-*.nd (glob)
+  00manifest.n
+  $ hg -R local-clone debugnodemap --metadata
+  uid: * (glob)
+  tip-rev: 5005
+  tip-node: 90d5d3ba2fc47db50f712570487cb261a68c8ffe
+  data-length: 121088
+  data-unused: 0
+  data-unused: 0.000%
+
+stream clone
+------------
+
+The persistent nodemap should exist after a streaming clone
+
+  $ hg clone -U --stream --config ui.ssh="\"$PYTHON\" \"$TESTDIR/dummyssh\"" ssh://user@dummy/test-repo stream-clone --debug | egrep '00(changelog|manifest)'
+  adding [s] 00manifest.n (70 bytes)
+  adding [s] 00manifest.i (313 KB)
+  adding [s] 00manifest.d (452 KB)
+  adding [s] 00manifest-*.nd (118 KB) (glob)
+  adding [s] 00changelog.n (70 bytes)
+  adding [s] 00changelog.i (313 KB)
+  adding [s] 00changelog.d (360 KB)
+  adding [s] 00changelog-*.nd (118 KB) (glob)
+  $ ls -1 stream-clone/.hg/store/ | egrep '00(changelog|manifest)(\.n|-.*\.nd)'
+  00changelog-*.nd (glob)
+  00changelog.n
+  00manifest-*.nd (glob)
+  00manifest.n
+  $ hg -R stream-clone debugnodemap --metadata
   uid: * (glob)
   tip-rev: 5005
   tip-node: 90d5d3ba2fc47db50f712570487cb261a68c8ffe

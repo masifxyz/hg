@@ -28,11 +28,15 @@ import itertools
 import stat
 
 from .i18n import _
-from .pycompat import open
+from .node import (
+    bin,
+    hex,
+    nullid,
+    nullrev,
+)
 from . import (
     bookmarks,
     bundle2,
-    bundlerepo,
     changegroup,
     cmdutil,
     discovery,
@@ -43,7 +47,6 @@ from . import (
     mdiff,
     merge,
     mergestate as mergestatemod,
-    node as nodemod,
     patch,
     phases,
     pycompat,
@@ -61,97 +64,78 @@ from .utils import (
 backupdir = b'shelve-backup'
 shelvedir = b'shelved'
 shelvefileextensions = [b'hg', b'patch', b'shelve']
-# universal extension is present in all types of shelves
-patchextension = b'patch'
 
 # we never need the user, so we use a
 # generic user for all shelve operations
 shelveuser = b'shelve@localhost'
 
 
-class shelvedfile(object):
-    """Helper for the file storing a single shelve
-
-    Handles common functions on shelve files (.hg/.patch) using
-    the vfs layer"""
-
-    def __init__(self, repo, name, filetype=None):
-        self.repo = repo
-        self.name = name
-        self.vfs = vfsmod.vfs(repo.vfs.join(shelvedir))
-        self.backupvfs = vfsmod.vfs(repo.vfs.join(backupdir))
-        self.ui = self.repo.ui
-        if filetype:
-            self.fname = name + b'.' + filetype
+class ShelfDir(object):
+    def __init__(self, repo, for_backups=False):
+        if for_backups:
+            self.vfs = vfsmod.vfs(repo.vfs.join(backupdir))
         else:
-            self.fname = name
+            self.vfs = vfsmod.vfs(repo.vfs.join(shelvedir))
 
-    def exists(self):
-        return self.vfs.exists(self.fname)
+    def get(self, name):
+        return Shelf(self.vfs, name)
 
-    def filename(self):
-        return self.vfs.join(self.fname)
-
-    def backupfilename(self):
-        def gennames(base):
-            yield base
-            base, ext = base.rsplit(b'.', 1)
-            for i in itertools.count(1):
-                yield b'%s-%d.%s' % (base, i, ext)
-
-        name = self.backupvfs.join(self.fname)
-        for n in gennames(name):
-            if not self.backupvfs.exists(n):
-                return n
-
-    def movetobackup(self):
-        if not self.backupvfs.isdir():
-            self.backupvfs.makedir()
-        util.rename(self.filename(), self.backupfilename())
-
-    def stat(self):
-        return self.vfs.stat(self.fname)
-
-    def opener(self, mode=b'rb'):
+    def listshelves(self):
+        """return all shelves in repo as list of (time, name)"""
         try:
-            return self.vfs(self.fname, mode)
-        except IOError as err:
+            names = self.vfs.listdir()
+        except OSError as err:
             if err.errno != errno.ENOENT:
                 raise
-            raise error.Abort(_(b"shelved change '%s' not found") % self.name)
+            return []
+        info = []
+        seen = set()
+        for filename in names:
+            name = filename.rsplit(b'.', 1)[0]
+            if name in seen:
+                continue
+            seen.add(name)
+            shelf = self.get(name)
+            if not shelf.exists():
+                continue
+            mtime = shelf.mtime()
+            info.append((mtime, name))
+        return sorted(info, reverse=True)
 
-    def applybundle(self, tr):
-        fp = self.opener()
-        try:
-            targetphase = phases.internal
-            if not phases.supportinternal(self.repo):
-                targetphase = phases.secret
-            gen = exchange.readbundle(self.repo.ui, fp, self.fname, self.vfs)
-            pretip = self.repo[b'tip']
-            bundle2.applybundle(
-                self.repo,
-                gen,
-                tr,
-                source=b'unshelve',
-                url=b'bundle:' + self.vfs.join(self.fname),
-                targetphase=targetphase,
-            )
-            shelvectx = self.repo[b'tip']
-            if pretip == shelvectx:
-                shelverev = tr.changes[b'revduplicates'][-1]
-                shelvectx = self.repo[shelverev]
-            return shelvectx
-        finally:
-            fp.close()
 
-    def bundlerepo(self):
-        path = self.vfs.join(self.fname)
-        return bundlerepo.instance(
-            self.repo.baseui, b'bundle://%s+%s' % (self.repo.root, path), False
+class Shelf(object):
+    """Represents a shelf, including possibly multiple files storing it.
+
+    Old shelves will have a .patch and a .hg file. Newer shelves will
+    also have a .shelve file. This class abstracts away some of the
+    differences and lets you work with the shelf as a whole.
+    """
+
+    def __init__(self, vfs, name):
+        self.vfs = vfs
+        self.name = name
+
+    def exists(self):
+        return self.vfs.exists(self.name + b'.patch') and self.vfs.exists(
+            self.name + b'.hg'
         )
 
-    def writebundle(self, bases, node):
-        cgversion = changegroup.safeversion(self.repo)
+    def mtime(self):
+        return self.vfs.stat(self.name + b'.patch')[stat.ST_MTIME]
+
+    def writeinfo(self, info):
+        scmutil.simplekeyvaluefile(self.vfs, self.name + b'.shelve').write(info)
+
+    def hasinfo(self):
+        return self.vfs.exists(self.name + b'.shelve')
+
+    def readinfo(self):
+        return scmutil.simplekeyvaluefile(
+            self.vfs, self.name + b'.shelve'
+        ).read()
+
+    def writebundle(self, repo, bases, node):
+        cgversion = changegroup.safeversion(repo)
         if cgversion == b'01':
             btype = b'HG10BZ'
             compression = None
@@ -159,22 +143,76 @@ class shelvedfile(object):
             btype = b'HG20'
             compression = b'BZ'
 
-        repo = self.repo.unfiltered()
+        repo = repo.unfiltered()
 
         outgoing = discovery.outgoing(
             repo, missingroots=bases, ancestorsof=[node]
         )
         cg = changegroup.makechangegroup(repo, outgoing, cgversion, b'shelve')
 
+        bundle_filename = self.vfs.join(self.name + b'.hg')
         bundle2.writebundle(
-            self.ui, cg, self.fname, btype, self.vfs, compression=compression
+            repo.ui,
+            cg,
+            bundle_filename,
+            btype,
+            self.vfs,
+            compression=compression,
         )
 
-    def writeinfo(self, info):
-        scmutil.simplekeyvaluefile(self.vfs, self.fname).write(info)
+    def applybundle(self, repo, tr):
+        filename = self.name + b'.hg'
+        fp = self.vfs(filename)
+        try:
+            targetphase = phases.internal
+            if not phases.supportinternal(repo):
+                targetphase = phases.secret
+            gen = exchange.readbundle(repo.ui, fp, filename, self.vfs)
+            pretip = repo[b'tip']
+            bundle2.applybundle(
+                repo,
+                gen,
+                tr,
+                source=b'unshelve',
+                url=b'bundle:' + self.vfs.join(filename),
+                targetphase=targetphase,
+            )
+            shelvectx = repo[b'tip']
+            if pretip == shelvectx:
+                shelverev = tr.changes[b'revduplicates'][-1]
+                shelvectx = repo[shelverev]
+            return shelvectx
+        finally:
+            fp.close()
 
-    def readinfo(self):
-        return scmutil.simplekeyvaluefile(self.vfs, self.fname).read()
+    def open_patch(self, mode=b'rb'):
+        return self.vfs(self.name + b'.patch', mode)
+
+    def _backupfilename(self, backupvfs, filename):
+        def gennames(base):
+            yield base
+            base, ext = base.rsplit(b'.', 1)
+            for i in itertools.count(1):
+                yield b'%s-%d.%s' % (base, i, ext)
+
+        for n in gennames(filename):
+            if not backupvfs.exists(n):
+                return backupvfs.join(n)
+
+    def movetobackup(self, backupvfs):
+        if not backupvfs.isdir():
+            backupvfs.makedir()
+        for suffix in shelvefileextensions:
+            filename = self.name + b'.' + suffix
+            if self.vfs.exists(filename):
+                util.rename(
+                    self.vfs.join(filename),
+                    self._backupfilename(backupvfs, filename),
+                )
+
+    def delete(self):
+        for ext in shelvefileextensions:
+            self.vfs.tryunlink(self.name + b'.' + ext)
 
 
 class shelvedstate(object):
@@ -196,11 +234,11 @@ class shelvedstate(object):
     def _verifyandtransform(cls, d):
         """Some basic shelvestate syntactic verification and transformation"""
         try:
-            d[b'originalwctx'] = nodemod.bin(d[b'originalwctx'])
-            d[b'pendingctx'] = nodemod.bin(d[b'pendingctx'])
-            d[b'parents'] = [nodemod.bin(h) for h in d[b'parents'].split(b' ')]
+            d[b'originalwctx'] = bin(d[b'originalwctx'])
+            d[b'pendingctx'] = bin(d[b'pendingctx'])
+            d[b'parents'] = [bin(h) for h in d[b'parents'].split(b' ')]
             d[b'nodestoremove'] = [
-                nodemod.bin(h) for h in d[b'nodestoremove'].split(b' ')
+                bin(h) for h in d[b'nodestoremove'].split(b' ')
             ]
         except (ValueError, TypeError, KeyError) as err:
             raise error.CorruptedState(pycompat.bytestr(err))
@@ -296,14 +334,10 @@ class shelvedstate(object):
     ):
         info = {
             b"name": name,
-            b"originalwctx": nodemod.hex(originalwctx.node()),
-            b"pendingctx": nodemod.hex(pendingctx.node()),
-            b"parents": b' '.join(
-                [nodemod.hex(p) for p in repo.dirstate.parents()]
-            ),
-            b"nodestoremove": b' '.join(
-                [nodemod.hex(n) for n in nodestoremove]
-            ),
+            b"originalwctx": hex(originalwctx.node()),
+            b"pendingctx": hex(pendingctx.node()),
+            b"parents": b' '.join([hex(p) for p in repo.dirstate.parents()]),
+            b"nodestoremove": b' '.join([hex(n) for n in nodestoremove]),
             b"branchtorestore": branchtorestore,
             b"keep": cls._keep if keep else cls._nokeep,
             b"activebook": activebook or cls._noactivebook,
@@ -320,21 +354,18 @@ class shelvedstate(object):
 
 
 def cleanupoldbackups(repo):
-    vfs = vfsmod.vfs(repo.vfs.join(backupdir))
     maxbackups = repo.ui.configint(b'shelve', b'maxbackups')
-    hgfiles = [f for f in vfs.listdir() if f.endswith(b'.' + patchextension)]
-    hgfiles = sorted([(vfs.stat(f)[stat.ST_MTIME], f) for f in hgfiles])
+    backup_dir = ShelfDir(repo, for_backups=True)
+    hgfiles = backup_dir.listshelves()
     if maxbackups > 0 and maxbackups < len(hgfiles):
-        bordermtime = hgfiles[-maxbackups][0]
+        bordermtime = hgfiles[maxbackups - 1][0]
     else:
         bordermtime = None
-    for mtime, f in hgfiles[: len(hgfiles) - maxbackups]:
+    for mtime, name in hgfiles[maxbackups:]:
         if mtime == bordermtime:
             # keep it, because timestamp can't decide exact order of backups
             continue
-        base = f[: -(1 + len(patchextension))]
-        for ext in shelvefileextensions:
-            vfs.tryunlink(base + b'.' + ext)
+        backup_dir.get(name).delete()
 
 
 def _backupactivebookmark(repo):
@@ -350,8 +381,7 @@ def _restoreactivebookmark(repo, mark):
 
 
 def _aborttransaction(repo, tr):
-    '''Abort current transaction for shelve/unshelve, but keep dirstate
-    '''
+    """Abort current transaction for shelve/unshelve, but keep dirstate"""
     dirstatebackupname = b'dirstate.shelve'
     repo.dirstate.savebackup(tr, dirstatebackupname)
     tr.abort()
@@ -376,7 +406,7 @@ def getshelvename(repo, parent, opts):
         label = label.replace(b'.', b'_', 1)
 
     if name:
-        if shelvedfile(repo, name, patchextension).exists():
+        if ShelfDir(repo).get(name).exists():
             e = _(b"a shelved change named '%s' already exists") % name
             raise error.Abort(e)
 
@@ -389,8 +419,9 @@ def getshelvename(repo, parent, opts):
             raise error.Abort(_(b"shelved change names can not start with '.'"))
 
     else:
+        shelf_dir = ShelfDir(repo)
         for n in gennames():
-            if not shelvedfile(repo, n, patchextension).exists():
+            if not shelf_dir.get(n).exists():
                 name = n
                 break
 
@@ -401,7 +432,7 @@ def mutableancestors(ctx):
     """return all mutable ancestors for ctx (included)
 
     Much faster than the revset ancestors(ctx) & draft()"""
-    seen = {nodemod.nullrev}
+    seen = {nullrev}
     visit = collections.deque()
     visit.append(ctx)
     while visit:
@@ -465,11 +496,12 @@ def _nothingtoshelvemessaging(ui, repo, pats, opts):
 
 
 def _shelvecreatedcommit(repo, node, name, match):
-    info = {b'node': nodemod.hex(node)}
-    shelvedfile(repo, name, b'shelve').writeinfo(info)
+    info = {b'node': hex(node)}
+    shelf = ShelfDir(repo).get(name)
+    shelf.writeinfo(info)
     bases = list(mutableancestors(repo[node]))
-    shelvedfile(repo, name, b'hg').writebundle(bases, node)
-    with shelvedfile(repo, name, patchextension).opener(b'wb') as fp:
+    shelf.writebundle(repo, bases, node)
+    with shelf.open_patch(b'wb') as fp:
         cmdutil.exportfile(
             repo, [node], fp, opts=mdiff.diffopts(git=True), match=match
         )
@@ -502,7 +534,7 @@ def _docreatecmd(ui, repo, pats, opts):
     parent = parents[0]
     origbranch = wctx.branch()
 
-    if parent.node() != nodemod.nullid:
+    if parent.node() != nullid:
         desc = b"changes to: %s" % parent.description().split(b'\n', 1)[0]
     else:
         desc = b'(changes in empty repository)'
@@ -564,6 +596,10 @@ def _docreatecmd(ui, repo, pats, opts):
                 scmutil.movedirstate(repo, parent, match)
         else:
             hg.update(repo, parent.node())
+            ms = mergestatemod.mergestate.read(repo)
+            if not ms.unresolvedcount():
+                ms.reset()
+
         if origbranch != repo[b'.'].branch() and not _isbareshelve(pats, opts):
             repo.dirstate.setbranch(origbranch)
 
@@ -590,52 +626,27 @@ def cleanupcmd(ui, repo):
     """subcommand that deletes all shelves"""
 
     with repo.wlock():
-        for (name, _type) in repo.vfs.readdir(shelvedir):
-            suffix = name.rsplit(b'.', 1)[-1]
-            if suffix in shelvefileextensions:
-                shelvedfile(repo, name).movetobackup()
+        shelf_dir = ShelfDir(repo)
+        backupvfs = vfsmod.vfs(repo.vfs.join(backupdir))
+        for _mtime, name in shelf_dir.listshelves():
+            shelf_dir.get(name).movetobackup(backupvfs)
             cleanupoldbackups(repo)
 
 
 def deletecmd(ui, repo, pats):
     """subcommand that deletes a specific shelve"""
     if not pats:
-        raise error.Abort(_(b'no shelved changes specified!'))
+        raise error.InputError(_(b'no shelved changes specified!'))
     with repo.wlock():
+        backupvfs = vfsmod.vfs(repo.vfs.join(backupdir))
         for name in pats:
-            try:
-                for suffix in shelvefileextensions:
-                    shfile = shelvedfile(repo, name, suffix)
-                    # patch file is necessary, as it should
-                    # be present for any kind of shelve,
-                    # but the .hg file is optional as in future we
-                    # will add obsolete shelve with does not create a
-                    # bundle
-                    if shfile.exists() or suffix == patchextension:
-                        shfile.movetobackup()
-            except OSError as err:
-                if err.errno != errno.ENOENT:
-                    raise
-                raise error.Abort(_(b"shelved change '%s' not found") % name)
+            shelf = ShelfDir(repo).get(name)
+            if not shelf.exists():
+                raise error.InputError(
+                    _(b"shelved change '%s' not found") % name
+                )
+            shelf.movetobackup(backupvfs)
             cleanupoldbackups(repo)
-
-
-def listshelves(repo):
-    """return all shelves in repo as list of (time, filename)"""
-    try:
-        names = repo.vfs.readdir(shelvedir)
-    except OSError as err:
-        if err.errno != errno.ENOENT:
-            raise
-        return []
-    info = []
-    for (name, _type) in names:
-        pfx, sfx = name.rsplit(b'.', 1)
-        if not pfx or sfx != patchextension:
-            continue
-        st = shelvedfile(repo, name).stat()
-        info.append((st[stat.ST_MTIME], shelvedfile(repo, pfx).filename()))
-    return sorted(info, reverse=True)
 
 
 def listcmd(ui, repo, pats, opts):
@@ -646,23 +657,23 @@ def listcmd(ui, repo, pats, opts):
         width = ui.termwidth()
     namelabel = b'shelve.newest'
     ui.pager(b'shelve')
-    for mtime, name in listshelves(repo):
-        sname = util.split(name)[1]
-        if pats and sname not in pats:
+    shelf_dir = ShelfDir(repo)
+    for mtime, name in shelf_dir.listshelves():
+        if pats and name not in pats:
             continue
-        ui.write(sname, label=namelabel)
+        ui.write(name, label=namelabel)
         namelabel = b'shelve.name'
         if ui.quiet:
             ui.write(b'\n')
             continue
-        ui.write(b' ' * (16 - len(sname)))
+        ui.write(b' ' * (16 - len(name)))
         used = 16
         date = dateutil.makedate(mtime)
         age = b'(%s)' % templatefilters.age(date, abbrev=True)
         ui.write(age, label=b'shelve.age')
         ui.write(b' ' * (12 - len(age)))
         used += 12
-        with open(name + b'.' + patchextension, b'rb') as fp:
+        with shelf_dir.get(name).open_patch() as fp:
             while True:
                 line = fp.readline()
                 if not line:
@@ -687,16 +698,16 @@ def listcmd(ui, repo, pats, opts):
 
 def patchcmds(ui, repo, pats, opts):
     """subcommand that displays shelves"""
+    shelf_dir = ShelfDir(repo)
     if len(pats) == 0:
-        shelves = listshelves(repo)
+        shelves = shelf_dir.listshelves()
         if not shelves:
             raise error.Abort(_(b"there are no shelves to show"))
         mtime, name = shelves[0]
-        sname = util.split(name)[1]
-        pats = [sname]
+        pats = [name]
 
     for shelfname in pats:
-        if not shelvedfile(repo, shelfname, patchextension).exists():
+        if not shelf_dir.get(shelfname).exists():
             raise error.Abort(_(b"cannot find shelf %s") % shelfname)
 
     listcmd(ui, repo, pats, opts)
@@ -787,10 +798,8 @@ def restorebranch(ui, repo, branchtorestore):
 def unshelvecleanup(ui, repo, name, opts):
     """remove related files after an unshelve"""
     if not opts.get(b'keep'):
-        for filetype in shelvefileextensions:
-            shfile = shelvedfile(repo, name, filetype)
-            if shfile.exists():
-                shfile.movetobackup()
+        backupvfs = vfsmod.vfs(repo.vfs.join(backupdir))
+        ShelfDir(repo).get(name).movetobackup(backupvfs)
         cleanupoldbackups(repo)
 
 
@@ -813,7 +822,7 @@ def unshelvecontinue(ui, repo, state, opts):
         pendingctx = state.pendingctx
 
         with repo.dirstate.parentchange():
-            repo.setparents(state.pendingctx.node(), nodemod.nullid)
+            repo.setparents(state.pendingctx.node(), nullid)
             repo.dirstate.write(repo.currenttransaction())
 
         targetphase = phases.internal
@@ -822,7 +831,7 @@ def unshelvecontinue(ui, repo, state, opts):
         overrides = {(b'phases', b'new-commit'): targetphase}
         with repo.ui.configoverride(overrides, b'unshelve'):
             with repo.dirstate.parentchange():
-                repo.setparents(state.parents[0], nodemod.nullid)
+                repo.setparents(state.parents[0], nullid)
                 newnode, ispartialunshelve = _createunshelvectx(
                     ui, repo, shelvectx, basename, interactive, opts
                 )
@@ -890,16 +899,17 @@ def _unshelverestorecommit(ui, repo, tr, basename):
     """Recreate commit in the repository during the unshelve"""
     repo = repo.unfiltered()
     node = None
-    if shelvedfile(repo, basename, b'shelve').exists():
-        node = shelvedfile(repo, basename, b'shelve').readinfo()[b'node']
+    shelf = ShelfDir(repo).get(basename)
+    if shelf.hasinfo():
+        node = shelf.readinfo()[b'node']
     if node is None or node not in repo:
         with ui.configoverride({(b'ui', b'quiet'): True}):
-            shelvectx = shelvedfile(repo, basename, b'hg').applybundle(tr)
+            shelvectx = shelf.applybundle(repo, tr)
         # We might not strip the unbundled changeset, so we should keep track of
         # the unshelve node in case we need to reuse it (eg: unshelve --keep)
         if node is None:
-            info = {b'node': nodemod.hex(shelvectx.node())}
-            shelvedfile(repo, basename, b'shelve').writeinfo(info)
+            info = {b'node': hex(shelvectx.node())}
+            shelf.writeinfo(info)
     else:
         shelvectx = repo[node]
 
@@ -1017,7 +1027,7 @@ def _rebaserestoredcommit(
             raise error.ConflictResolutionRequired(b'unshelve')
 
         with repo.dirstate.parentchange():
-            repo.setparents(tmpwctx.node(), nodemod.nullid)
+            repo.setparents(tmpwctx.node(), nullid)
             newnode, ispartialunshelve = _createunshelvectx(
                 ui, repo, shelvectx, basename, interactive, opts
             )
@@ -1082,12 +1092,14 @@ def unshelvecmd(ui, repo, *shelved, **opts):
         shelved.append(opts[b"name"])
 
     if interactive and opts.get(b'keep'):
-        raise error.Abort(_(b'--keep on --interactive is not yet supported'))
+        raise error.InputError(
+            _(b'--keep on --interactive is not yet supported')
+        )
     if abortf or continuef:
         if abortf and continuef:
-            raise error.Abort(_(b'cannot use both abort and continue'))
+            raise error.InputError(_(b'cannot use both abort and continue'))
         if shelved:
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b'cannot combine abort/continue with '
                     b'naming a shelved change'
@@ -1100,22 +1112,24 @@ def unshelvecmd(ui, repo, *shelved, **opts):
         if abortf:
             return unshelveabort(ui, repo, state)
         elif continuef and interactive:
-            raise error.Abort(_(b'cannot use both continue and interactive'))
+            raise error.InputError(
+                _(b'cannot use both continue and interactive')
+            )
         elif continuef:
             return unshelvecontinue(ui, repo, state, opts)
     elif len(shelved) > 1:
-        raise error.Abort(_(b'can only unshelve one change at a time'))
+        raise error.InputError(_(b'can only unshelve one change at a time'))
     elif not shelved:
-        shelved = listshelves(repo)
+        shelved = ShelfDir(repo).listshelves()
         if not shelved:
-            raise error.Abort(_(b'no shelved changes to apply!'))
-        basename = util.split(shelved[0][1])[1]
+            raise error.StateError(_(b'no shelved changes to apply!'))
+        basename = shelved[0][1]
         ui.status(_(b"unshelving change '%s'\n") % basename)
     else:
         basename = shelved[0]
 
-    if not shelvedfile(repo, basename, patchextension).exists():
-        raise error.Abort(_(b"shelved change '%s' not found") % basename)
+    if not ShelfDir(repo).get(basename).exists():
+        raise error.InputError(_(b"shelved change '%s' not found") % basename)
 
     return _dounshelve(ui, repo, basename, opts)
 

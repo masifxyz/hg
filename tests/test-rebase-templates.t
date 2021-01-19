@@ -82,3 +82,42 @@ Getting the JSON output for nodechanges
   o  0:18d04c59bb5d Added a
   
 
+Respects command-templates.oneline-summary
+
+  $ hg rebase -r 7 -d 8 -n --config command-templates.oneline-summary='rev: {rev}'
+  starting dry-run rebase; repository will not be changed
+  rebasing rev: 7
+  note: not rebasing rev: 7, its destination already has all its changes
+  dry-run rebase completed successfully; run without -n/--dry-run to perform this rebase
+
+
+command-templates.oneline-summary.rebase overrides
+
+  $ hg rebase -r 7 -d 8 -n \
+  > --config command-templates.oneline-summary='global: {rev}' \
+  > --config command-templates.oneline-summary.rebase='override: {rev}'
+  starting dry-run rebase; repository will not be changed
+  rebasing override: 7
+  note: not rebasing override: 7, its destination already has all its changes
+  dry-run rebase completed successfully; run without -n/--dry-run to perform this rebase
+
+
+check namespaces and coloring (labels)
+
+  $ hg tag -l -r 7 my-tag
+  $ hg rebase -r 7 -d 8 -n
+  starting dry-run rebase; repository will not be changed
+  rebasing 7:f48cd65c6dc3 my-tag "Added b"
+  note: not rebasing 7:f48cd65c6dc3 my-tag "Added b", its destination already has all its changes
+  dry-run rebase completed successfully; run without -n/--dry-run to perform this rebase
+  $ hg bookmark -r 7 my-bookmark
+  $ hg rebase -r 7 -d 8 -n
+  starting dry-run rebase; repository will not be changed
+  rebasing 7:f48cd65c6dc3 my-bookmark my-tag "Added b"
+  note: not rebasing 7:f48cd65c6dc3 my-bookmark my-tag "Added b", its destination already has all its changes
+  dry-run rebase completed successfully; run without -n/--dry-run to perform this rebase
+  $ hg rebase -r 7 -d 8 -n --color=debug
+  [ ui.status|starting dry-run rebase; repository will not be changed]
+  [ ui.status|rebasing [oneline-summary.changeset|7:f48cd65c6dc3] [oneline-summary.bookmarks|my-bookmark] [oneline-summary.tags|my-tag] "[oneline-summary.desc|Added b]"]
+  [ ui.warning|note: not rebasing [oneline-summary.changeset|7:f48cd65c6dc3] [oneline-summary.bookmarks|my-bookmark] [oneline-summary.tags|my-tag] "[oneline-summary.desc|Added b]", its destination already has all its changes]
+  [ ui.status|dry-run rebase completed successfully; run without -n/--dry-run to perform this rebase]

@@ -3,8 +3,8 @@ Tests discovery against servers without getbundle support:
   $ CAP="getbundle bundle2"
   $ . "$TESTDIR/notcapable"
   $ cat >> $HGRCPATH <<EOF
-  > [ui]
-  > logtemplate="{rev} {node|short}: {desc} {branches}\n"
+  > [command-templates]
+  > log="{rev} {node|short}: {desc} {branches}\n"
   > EOF
 
 Setup HTTP server control:
@@ -269,9 +269,9 @@ Local is superset:
   $ hg push $remote
   pushing to http://localhost:$HGPORT/
   searching for changes
-  abort: push creates new remote branches: both, name1!
+  abort: push creates new remote branches: both, name1
   (use 'hg push --new-branch' to create new remote branches)
-  [255]
+  [20]
   $ hg push $remote --new-branch
   pushing to http://localhost:$HGPORT/
   searching for changes

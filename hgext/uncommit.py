@@ -20,6 +20,7 @@ added and removed in the working directory.
 from __future__ import absolute_import
 
 from mercurial.i18n import _
+from mercurial.node import nullid
 
 from mercurial import (
     cmdutil,
@@ -27,7 +28,6 @@ from mercurial import (
     context,
     copies as copiesmod,
     error,
-    node,
     obsutil,
     pathutil,
     pycompat,
@@ -43,10 +43,14 @@ configtable = {}
 configitem = registrar.configitem(configtable)
 
 configitem(
-    b'experimental', b'uncommitondirtywdir', default=False,
+    b'experimental',
+    b'uncommitondirtywdir',
+    default=False,
 )
 configitem(
-    b'experimental', b'uncommit.keep', default=False,
+    b'experimental',
+    b'uncommit.keep',
+    default=False,
 )
 
 # Note for extension authors: ONLY specify testedwith = 'ships-with-hg-core' for
@@ -109,7 +113,7 @@ def _commitfiltered(
 
     new = context.memctx(
         repo,
-        parents=[base.node(), node.nullid],
+        parents=[base.node(), nullid],
         text=message,
         files=files,
         filectxfn=filectxfn,

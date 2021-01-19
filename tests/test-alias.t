@@ -208,8 +208,8 @@ help
 unknown
 
   $ hg unknown
-  abort: alias 'unknown' resolves to unknown command 'bargle'
-  [255]
+  config error: alias 'unknown' resolves to unknown command 'bargle'
+  [30]
   $ hg help unknown
   alias 'unknown' resolves to unknown command 'bargle'
 
@@ -217,8 +217,8 @@ unknown
 ambiguous
 
   $ hg ambiguous
-  abort: alias 'ambiguous' resolves to ambiguous command 's'
-  [255]
+  config error: alias 'ambiguous' resolves to ambiguous command 's'
+  [30]
   $ hg help ambiguous
   alias 'ambiguous' resolves to ambiguous command 's'
 
@@ -226,8 +226,8 @@ ambiguous
 recursive
 
   $ hg recursive
-  abort: alias 'recursive' resolves to unknown command 'recursive'
-  [255]
+  config error: alias 'recursive' resolves to unknown command 'recursive'
+  [30]
   $ hg help recursive
   alias 'recursive' resolves to unknown command 'recursive'
 
@@ -235,9 +235,9 @@ recursive
 disabled
 
   $ hg disabled
-  abort: alias 'disabled' resolves to unknown command 'email'
+  config error: alias 'disabled' resolves to unknown command 'email'
   ('email' is provided by 'patchbomb' extension)
-  [255]
+  [30]
   $ hg help disabled
   alias 'disabled' resolves to unknown command 'email'
   
@@ -251,8 +251,8 @@ disabled
 no definition
 
   $ hg nodef
-  abort: no definition for alias 'nodefinition'
-  [255]
+  config error: no definition for alias 'nodefinition'
+  [30]
   $ hg help nodef
   no definition for alias 'nodefinition'
 
@@ -260,8 +260,8 @@ no definition
 no closing quotation
 
   $ hg noclosing
-  abort: error in definition for alias 'noclosingquotation': No closing quotation
-  [255]
+  config error: error in definition for alias 'noclosingquotation': No closing quotation
+  [30]
   $ hg help noclosing
   error in definition for alias 'noclosingquotation': No closing quotation
 
@@ -275,37 +275,37 @@ no closing quotation
 invalid options
 
   $ hg no--cwd
-  abort: error in definition for alias 'no--cwd': --cwd may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no--cwd': --cwd may only be given on the command line
+  [30]
   $ hg help no--cwd
   error in definition for alias 'no--cwd': --cwd may only be given on the
   command line
   $ hg no-R
-  abort: error in definition for alias 'no-R': -R may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no-R': -R may only be given on the command line
+  [30]
   $ hg help no-R
   error in definition for alias 'no-R': -R may only be given on the command line
   $ hg no--repo
-  abort: error in definition for alias 'no--repo': --repo may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no--repo': --repo may only be given on the command line
+  [30]
   $ hg help no--repo
   error in definition for alias 'no--repo': --repo may only be given on the
   command line
   $ hg no--repository
-  abort: error in definition for alias 'no--repository': --repository may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no--repository': --repository may only be given on the command line
+  [30]
   $ hg help no--repository
   error in definition for alias 'no--repository': --repository may only be given
   on the command line
   $ hg no--config
-  abort: error in definition for alias 'no--config': --config may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no--config': --config may only be given on the command line
+  [30]
   $ hg no --config alias.no='--repo elsewhere --cwd elsewhere status'
-  abort: error in definition for alias 'no': --repo/--cwd may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no': --repo/--cwd may only be given on the command line
+  [30]
   $ hg no --config alias.no='--repo elsewhere'
-  abort: error in definition for alias 'no': --repo may only be given on the command line
-  [255]
+  config error: error in definition for alias 'no': --repo may only be given on the command line
+  [30]
 
 optional repository
 
@@ -357,10 +357,10 @@ positional arguments
 
   $ hg positional
   abort: too few arguments for command alias
-  [255]
+  [10]
   $ hg positional a
   abort: too few arguments for command alias
-  [255]
+  [10]
   $ hg positional 'node|short' rev
   0 e63c23eaa88a | 1970-01-01 00:00 +0000
 
@@ -468,13 +468,13 @@ shadowing
   $ hg i
   hg: command 'i' is ambiguous:
       idalias idaliaslong idaliasshell identify import incoming init
-  [255]
+  [10]
   $ hg id
   042423737847 tip
   $ hg ida
   hg: command 'ida' is ambiguous:
       idalias idaliaslong idaliasshell
-  [255]
+  [10]
   $ hg idalias
   042423737847 tip
   $ hg idaliasl
@@ -484,7 +484,7 @@ shadowing
   $ hg parentsshell
   hg: command 'parentsshell' is ambiguous:
       parentsshell1 parentsshell2
-  [255]
+  [10]
   $ hg parentsshell1
   one
   $ hg parentsshell2
@@ -496,13 +496,13 @@ shell aliases with global options
   $ hg init sub
   $ cd sub
   $ hg count 'branch(default)'
-  abort: unknown revision 'default'!
+  abort: unknown revision 'default'
   0
   $ hg -v count 'branch(default)'
-  abort: unknown revision 'default'!
+  abort: unknown revision 'default'
   0
   $ hg -R .. count 'branch(default)'
-  abort: unknown revision 'default'!
+  abort: unknown revision 'default'
   0
   $ hg --cwd .. count 'branch(default)'
   2
@@ -533,11 +533,11 @@ shell alias defined in current repo
   $ hg --cwd .. subalias > /dev/null
   hg: unknown command 'subalias'
   (did you mean idalias?)
-  [255]
+  [10]
   $ hg -R .. subalias > /dev/null
   hg: unknown command 'subalias'
   (did you mean idalias?)
-  [255]
+  [10]
 
 
 shell alias defined in other repo
@@ -545,7 +545,7 @@ shell alias defined in other repo
   $ hg mainalias > /dev/null
   hg: unknown command 'mainalias'
   (did you mean idalias?)
-  [255]
+  [10]
   $ hg -R .. mainalias
   main
   $ hg --cwd .. mainalias
@@ -555,7 +555,7 @@ typos get useful suggestions
   $ hg --cwd .. manalias
   hg: unknown command 'manalias'
   (did you mean one of idalias, mainalias, manifest?)
-  [255]
+  [10]
 
 shell aliases with escaped $ chars
 
@@ -593,7 +593,7 @@ command provided extension, should be aborted.
   $ hg reba
   hg: command 'reba' is ambiguous:
       rebase rebate
-  [255]
+  [10]
   $ hg rebat
   this is rebate
   $ hg rebat --foo-bar
@@ -631,11 +631,11 @@ invalid character in user-specified help
   $ hg help invalidhelp
   non-ASCII character in alias definition 'invalidhelp:help'
   $ hg invaliddoc
-  abort: non-ASCII character in alias definition 'invaliddoc:doc'
-  [255]
+  config error: non-ASCII character in alias definition 'invaliddoc:doc'
+  [30]
   $ hg invalidhelp
-  abort: non-ASCII character in alias definition 'invalidhelp:help'
-  [255]
+  config error: non-ASCII character in alias definition 'invalidhelp:help'
+  [30]
 
 invalid arguments
 
@@ -650,22 +650,22 @@ invalid arguments
    -T --template TEMPLATE display with template
   
   (use 'hg rt -h' to show more help)
-  [255]
+  [10]
 
 invalid global arguments for normal commands, aliases, and shell aliases
 
   $ hg --invalid root
   hg: option --invalid not recognized
   (use 'hg help -v' for a list of global options)
-  [255]
+  [10]
   $ hg --invalid mylog
   hg: option --invalid not recognized
   (use 'hg help -v' for a list of global options)
-  [255]
+  [10]
   $ hg --invalid blank
   hg: option --invalid not recognized
   (use 'hg help -v' for a list of global options)
-  [255]
+  [10]
 
 environment variable changes in alias commands
 
@@ -714,9 +714,9 @@ return code of command and shell aliases:
 
 #if no-outer-repo
   $ hg root
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
   $ hg --config alias.hgroot='!hg root' hgroot
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
 #endif

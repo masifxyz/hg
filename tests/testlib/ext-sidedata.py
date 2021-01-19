@@ -10,13 +10,17 @@ from __future__ import absolute_import
 import hashlib
 import struct
 
+from mercurial.node import (
+    nullid,
+    nullrev,
+)
 from mercurial import (
     extensions,
-    node,
     requirements,
     revlog,
-    upgrade,
 )
+
+from mercurial.upgrade_utils import engine as upgrade_engine
 
 from mercurial.revlogutils import sidedata
 
@@ -40,7 +44,7 @@ def wraprevision(orig, self, nodeorrev, *args, **kwargs):
     text = orig(self, nodeorrev, *args, **kwargs)
     if getattr(self, 'sidedatanocheck', False):
         return text
-    if nodeorrev != node.nullrev and nodeorrev != node.nullid:
+    if nodeorrev != nullrev and nodeorrev != nullid:
         sd = self.sidedata(nodeorrev)
         if len(text) != struct.unpack('>I', sd[sidedata.SD_TEST1])[0]:
             raise RuntimeError('text size mismatch')
@@ -79,5 +83,5 @@ def extsetup(ui):
     extensions.wrapfunction(revlog.revlog, 'addrevision', wrapaddrevision)
     extensions.wrapfunction(revlog.revlog, 'revision', wraprevision)
     extensions.wrapfunction(
-        upgrade, 'getsidedatacompanion', wrapgetsidedatacompanion
+        upgrade_engine, 'getsidedatacompanion', wrapgetsidedatacompanion
     )

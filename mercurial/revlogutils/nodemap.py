@@ -13,11 +13,10 @@ import os
 import re
 import struct
 
-from ..i18n import _
+from ..node import hex
 
 from .. import (
     error,
-    node as nodemod,
     util,
 )
 
@@ -57,8 +56,10 @@ def persisted_data(revlog):
                 data = util.buffer(util.mmapread(fd, data_length))
             else:
                 data = fd.read(data_length)
-    except OSError as e:
-        if e.errno != errno.ENOENT:
+    except (IOError, OSError) as e:
+        if e.errno == errno.ENOENT:
+            return None
+        else:
             raise
     if len(data) < data_length:
         return None
@@ -86,8 +87,7 @@ def setup_persistent_nodemap(tr, revlog):
 
 
 class _NoTransaction(object):
-    """transaction like object to update the nodemap outside a transaction
-    """
+    """transaction like object to update the nodemap outside a transaction"""
 
     def __init__(self):
         self._postclose = {}
@@ -129,8 +129,7 @@ def update_persistent_nodemap(revlog):
 
 
 def _persist_nodemap(tr, revlog, pending=False):
-    """Write nodemap data on disk for a given revlog
-    """
+    """Write nodemap data on disk for a given revlog"""
     if getattr(revlog, 'filteredrevs', ()):
         raise error.ProgrammingError(
             "cannot persist nodemap of a filtered changelog"
@@ -143,13 +142,6 @@ def _persist_nodemap(tr, revlog, pending=False):
     ondisk_docket = revlog._nodemap_docket
     feed_data = util.safehasattr(revlog.index, "update_nodemap_data")
     use_mmap = revlog.opener.options.get(b"persistent-nodemap.mmap")
-    mode = revlog.opener.options.get(b"persistent-nodemap.mode")
-    if not can_incremental:
-        msg = _(b"persistent nodemap in strict mode without efficient method")
-        if mode == b'warn':
-            tr._report(b"%s\n" % msg)
-        elif mode == b'strict':
-            raise error.Abort(msg)
 
     data = None
     # first attemp an incremental update of the data
@@ -278,7 +270,7 @@ def _make_uid():
     """return a new unique identifier.
 
     The identifier is random and composed of ascii characters."""
-    return nodemod.hex(os.urandom(ID_SIZE))
+    return hex(os.urandom(ID_SIZE))
 
 
 class NodeMapDocket(object):
@@ -391,7 +383,9 @@ def _other_rawdata_filepath(revlog, docket):
 #
 #  * value >=  0 -> index of sub-block
 #  * value == -1 -> no value
-#  * value <  -1 -> a revision value: rev = -(value+10)
+#  * value <  -1 -> encoded revision: rev = -(value+2)
+#
+# See REV_OFFSET and _transform_rev below.
 #
 # The implementation focus on simplicity, not on performance. A Rust
 # implementation should provide a efficient version of the same binary
@@ -400,15 +394,13 @@ def _other_rawdata_filepath(revlog, docket):
 
 
 def persistent_data(index):
-    """return the persistent binary form for a nodemap for a given index
-    """
+    """return the persistent binary form for a nodemap for a given index"""
     trie = _build_trie(index)
     return _persist_trie(trie)
 
 
 def update_persistent_data(index, root, max_idx, last_rev):
-    """return the incremental update for persistent nodemap from a given index
-    """
+    """return the incremental update for persistent nodemap from a given index"""
     changed_block, trie = _update_trie(index, root, last_rev)
     return (
         changed_block * S_BLOCK.size,
@@ -463,8 +455,8 @@ def _build_trie(index):
     """
     root = Block()
     for rev in range(len(index)):
-        hex = nodemod.hex(index[rev][7])
-        _insert_into_block(index, 0, root, rev, hex)
+        current_hex = hex(index[rev][7])
+        _insert_into_block(index, 0, root, rev, current_hex)
     return root
 
 
@@ -472,8 +464,8 @@ def _update_trie(index, root, last_rev):
     """consume"""
     changed = 0
     for rev in range(last_rev + 1, len(index)):
-        hex = nodemod.hex(index[rev][7])
-        changed += _insert_into_block(index, 0, root, rev, hex)
+        current_hex = hex(index[rev][7])
+        changed += _insert_into_block(index, 0, root, rev, current_hex)
     return changed, root
 
 
@@ -502,7 +494,7 @@ def _insert_into_block(index, level, block, current_rev, current_hex):
     else:
         # collision with a previously unique prefix, inserting new
         # vertices to fit both entry.
-        other_hex = nodemod.hex(index[entry][7])
+        other_hex = hex(index[entry][7])
         other_rev = entry
         new = Block()
         block[hex_digit] = new
@@ -606,7 +598,7 @@ def check_data(ui, index, data):
             ret = 1
         else:
             all_revs.remove(r)
-        nm_rev = _find_node(root, nodemod.hex(index[r][7]))
+        nm_rev = _find_node(root, hex(index[r][7]))
         if nm_rev is None:
             msg = b"  revision node does not match any entries: %d\n" % r
             ui.write_err(msg)

@@ -85,14 +85,14 @@ Can't continue without starting:
   $ hg rm -q e
   $ hg graft --continue
   abort: no graft in progress
-  [255]
+  [20]
   $ hg revert -r . -q e
 
 Need to specify a rev:
 
   $ hg graft
   abort: no revisions specified
-  [255]
+  [10]
 
 Can't graft ancestor:
 
@@ -119,10 +119,10 @@ Conflicting date/user options:
   $ hg up -q 0
   $ hg graft -U --user foo 2
   abort: cannot specify both --user and --currentuser
-  [255]
+  [10]
   $ hg graft -D --date '0 0' 2
   abort: cannot specify both --date and --currentdate
-  [255]
+  [10]
 
 Can't graft with dirty wd:
 
@@ -130,7 +130,7 @@ Can't graft with dirty wd:
   $ echo foo > a
   $ hg graft 1
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg revert a
 
 Graft a rename:
@@ -210,8 +210,8 @@ Graft out of order, skipping a merge and a duplicate
   resolving manifests
    branchmerge: True, force: True, partial: False
    ancestor: 68795b066622, local: ef0ef43d49e7+, remote: 5d205f8b35b6
-   preserving b for resolve of b
   starting 4 threads for background file closing (?)
+   preserving b for resolve of b
    b: local copied/moved from a -> m (premerge)
   picked tool ':merge' for b (binary False symlink False changedelete False)
   merging b and a to b
@@ -292,7 +292,7 @@ Commit while interrupted should fail:
   $ hg ci -m 'commit interrupted graft'
   abort: graft in progress
   (use 'hg graft --continue' or 'hg graft --stop' to stop)
-  [255]
+  [20]
 
 Abort the graft and try committing:
 
@@ -324,7 +324,7 @@ Continue without resolve should fail:
   $ hg graft -c
   grafting 4:9c233e8e184d "4"
   abort: unresolved merge conflicts (see 'hg help resolve')
-  [255]
+  [20]
 
 Fix up:
 
@@ -337,11 +337,11 @@ Continue with a revision should fail:
 
   $ hg graft -c 6
   abort: can't specify --continue and revisions
-  [255]
+  [10]
 
   $ hg graft -c -r 6
   abort: can't specify --continue and revisions
-  [255]
+  [10]
 
 Continue for real, clobber usernames
 

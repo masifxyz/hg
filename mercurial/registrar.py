@@ -37,7 +37,7 @@ class _funcregistrarbase(object):
 
         keyword = registrar.keyword()
 
-        @keyword('bar')
+        @keyword(b'bar')
         def barfunc(*args, **kwargs):
             '''Explanation of bar keyword ....
             '''
@@ -95,8 +95,7 @@ class _funcregistrarbase(object):
         self._table.update(registrarbase._table)
 
     def _parsefuncdecl(self, decl):
-        """Parse function declaration and return the name of function in it
-        """
+        """Parse function declaration and return the name of function in it"""
         i = decl.find(b'(')
         if i >= 0:
             return decl[:i]
@@ -121,8 +120,7 @@ class _funcregistrarbase(object):
         return self._docformat % (decl, doc)
 
     def _extrasetup(self, name, func):
-        """Execute extra setup for registered function, if needed
-        """
+        """Execute extra setup for registered function, if needed"""
 
 
 class command(_funcregistrarbase):
@@ -234,6 +232,12 @@ class command(_funcregistrarbase):
             self._table[name] = func, list(options)
         return func
 
+    def rename(self, old, new):
+        """rename a command. Used to add aliases, debugstrip ->
+        debugstrip|strip
+        """
+        self._table[new] = self._table.pop(old)
+
 
 INTENT_READONLY = b'readonly'
 
@@ -245,7 +249,7 @@ class revsetpredicate(_funcregistrarbase):
 
         revsetpredicate = registrar.revsetpredicate()
 
-        @revsetpredicate('mypredicate(arg1, arg2[, arg3])')
+        @revsetpredicate(b'mypredicate(arg1, arg2[, arg3])')
         def mypredicatefunc(repo, subset, x):
             '''Explanation of this revset predicate ....
             '''
@@ -295,7 +299,7 @@ class filesetpredicate(_funcregistrarbase):
 
         filesetpredicate = registrar.filesetpredicate()
 
-        @filesetpredicate('mypredicate()')
+        @filesetpredicate(b'mypredicate()')
         def mypredicatefunc(mctx, x):
             '''Explanation of this fileset predicate ....
             '''
@@ -339,8 +343,7 @@ class filesetpredicate(_funcregistrarbase):
 
 
 class _templateregistrarbase(_funcregistrarbase):
-    """Base of decorator to register functions as template specific one
-    """
+    """Base of decorator to register functions as template specific one"""
 
     _docformat = b":%s: %s"
 
@@ -353,7 +356,7 @@ class templatekeyword(_templateregistrarbase):
         templatekeyword = registrar.templatekeyword()
 
         # new API (since Mercurial 4.6)
-        @templatekeyword('mykeyword', requires={'repo', 'ctx'})
+        @templatekeyword(b'mykeyword', requires={b'repo', b'ctx'})
         def mykeywordfunc(context, mapping):
             '''Explanation of this template keyword ....
             '''
@@ -385,7 +388,7 @@ class templatefilter(_templateregistrarbase):
 
         templatefilter = registrar.templatefilter()
 
-        @templatefilter('myfilter', intype=bytes)
+        @templatefilter(b'myfilter', intype=bytes)
         def myfilterfunc(text):
             '''Explanation of this template filter ....
             '''
@@ -417,8 +420,8 @@ class templatefunc(_templateregistrarbase):
 
         templatefunc = registrar.templatefunc()
 
-        @templatefunc('myfunc(arg1, arg2[, arg3])', argspec='arg1 arg2 arg3',
-                      requires={'ctx'})
+        @templatefunc(b'myfunc(arg1, arg2[, arg3])', argspec=b'arg1 arg2 arg3',
+                      requires={b'ctx'})
         def myfuncfunc(context, mapping, args):
             '''Explanation of this template function ....
             '''
@@ -457,7 +460,7 @@ class internalmerge(_funcregistrarbase):
 
         internalmerge = registrar.internalmerge()
 
-        @internalmerge('mymerge', internalmerge.mergeonly,
+        @internalmerge(b'mymerge', internalmerge.mergeonly,
                        onfailure=None, precheck=None,
                        binary=False, symlink=False):
         def mymergefunc(repo, mynode, orig, fcd, fco, fca,

@@ -189,8 +189,7 @@ class bmstore(object):
         return self._nodemap.get(node, [])
 
     def applychanges(self, repo, tr, changes):
-        """Apply a list of changes to bookmarks
-        """
+        """Apply a list of changes to bookmarks"""
         bmchanges = tr.changes.get(b'bookmarks')
         for name, node in changes:
             old = self._refmap.get(name)
@@ -422,8 +421,8 @@ def headsforactive(repo):
 
 
 def calculateupdate(ui, repo):
-    '''Return a tuple (activemark, movemarkfrom) indicating the active bookmark
-    and where to move the active bookmark from, if needed.'''
+    """Return a tuple (activemark, movemarkfrom) indicating the active bookmark
+    and where to move the active bookmark from, if needed."""
     checkout, movemarkfrom = None, None
     activemark = repo._activebookmark
     if isactivewdirparent(repo):
@@ -509,7 +508,7 @@ def pushbookmark(repo, key, old, new):
 
 
 def comparebookmarks(repo, srcmarks, dstmarks, targets=None):
-    '''Compare bookmarks between srcmarks and dstmarks
+    """Compare bookmarks between srcmarks and dstmarks
 
     This returns tuple "(addsrc, adddst, advsrc, advdst, diverge,
     differ, invalid)", each are list of bookmarks below:
@@ -532,7 +531,7 @@ def comparebookmarks(repo, srcmarks, dstmarks, targets=None):
 
     If "targets" is specified, only bookmarks listed in it are
     examined.
-    '''
+    """
 
     if targets:
         bset = set(targets)
@@ -585,14 +584,14 @@ def comparebookmarks(repo, srcmarks, dstmarks, targets=None):
 
 
 def _diverge(ui, b, path, localmarks, remotenode):
-    '''Return appropriate diverged bookmark for specified ``path``
+    """Return appropriate diverged bookmark for specified ``path``
 
     This returns None, if it is failed to assign any divergent
     bookmark name.
 
     This reuses already existing one with "@number" suffix, if it
     refers ``remotenode``.
-    '''
+    """
     if b == b'@':
         b = b''
     # try to use an @pathalias suffix
@@ -762,13 +761,17 @@ def updatefromremote(ui, repo, remotemarks, path, trfunc, explicit=()):
 
 
 def incoming(ui, repo, peer):
-    '''Show bookmarks incoming from other to repo
-    '''
+    """Show bookmarks incoming from other to repo"""
     ui.status(_(b"searching for changed bookmarks\n"))
 
     with peer.commandexecutor() as e:
         remotemarks = unhexlifybookmarks(
-            e.callcommand(b'listkeys', {b'namespace': b'bookmarks',}).result()
+            e.callcommand(
+                b'listkeys',
+                {
+                    b'namespace': b'bookmarks',
+                },
+            ).result()
         )
 
     r = comparebookmarks(repo, remotemarks, repo._bookmarks)
@@ -813,8 +816,7 @@ def incoming(ui, repo, peer):
 
 
 def outgoing(ui, repo, other):
-    '''Show bookmarks outgoing from repo to other
-    '''
+    """Show bookmarks outgoing from repo to other"""
     ui.status(_(b"searching for changed bookmarks\n"))
 
     remotemarks = unhexlifybookmarks(other.listkeys(b'bookmarks'))
@@ -863,13 +865,18 @@ def outgoing(ui, repo, other):
 
 
 def summary(repo, peer):
-    '''Compare bookmarks between repo and other for "hg summary" output
+    """Compare bookmarks between repo and other for "hg summary" output
 
     This returns "(# of incoming, # of outgoing)" tuple.
-    '''
+    """
     with peer.commandexecutor() as e:
         remotemarks = unhexlifybookmarks(
-            e.callcommand(b'listkeys', {b'namespace': b'bookmarks',}).result()
+            e.callcommand(
+                b'listkeys',
+                {
+                    b'namespace': b'bookmarks',
+                },
+            ).result()
         )
 
     r = comparebookmarks(repo, remotemarks, repo._bookmarks)
@@ -901,7 +908,7 @@ def checkformat(repo, mark):
     """
     mark = mark.strip()
     if not mark:
-        raise error.Abort(
+        raise error.InputError(
             _(b"bookmark names cannot consist entirely of whitespace")
         )
     scmutil.checknewlabel(repo, mark, b'bookmark')
@@ -917,7 +924,7 @@ def delete(repo, tr, names):
     changes = []
     for mark in names:
         if mark not in marks:
-            raise error.Abort(_(b"bookmark '%s' does not exist") % mark)
+            raise error.InputError(_(b"bookmark '%s' does not exist") % mark)
         if mark == repo._activebookmark:
             deactivate(repo)
         changes.append((mark, None))
@@ -937,7 +944,7 @@ def rename(repo, tr, old, new, force=False, inactive=False):
     marks = repo._bookmarks
     mark = checkformat(repo, new)
     if old not in marks:
-        raise error.Abort(_(b"bookmark '%s' does not exist") % old)
+        raise error.InputError(_(b"bookmark '%s' does not exist") % old)
     changes = []
     for bm in marks.checkconflict(mark, force):
         changes.append((bm, None))
@@ -1041,7 +1048,7 @@ def printbookmarks(ui, repo, fm, names=None):
     bmarks = {}
     for bmark in names or marks:
         if bmark not in marks:
-            raise error.Abort(_(b"bookmark '%s' does not exist") % bmark)
+            raise error.InputError(_(b"bookmark '%s' does not exist") % bmark)
         active = repo._activebookmark
         if bmark == active:
             prefix, label = b'*', activebookmarklabel

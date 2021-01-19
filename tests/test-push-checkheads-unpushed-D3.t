@@ -91,15 +91,15 @@ Actual testing
   $ hg push --rev 'desc(A1)'
   pushing to $TESTTMP/D3/server
   searching for changes
-  abort: push creates new remote head f6082bc4ffef!
+  abort: push creates new remote head f6082bc4ffef
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
   $ hg push --rev 'desc(B1)'
   pushing to $TESTTMP/D3/server
   searching for changes
-  abort: push creates new remote head 25c56d33e4c4!
+  abort: push creates new remote head 25c56d33e4c4
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 Extra testing
 -------------
@@ -109,8 +109,8 @@ In this case, even a bare push is creating more heads
   $ hg push
   pushing to $TESTTMP/D3/server
   searching for changes
-  abort: push creates new remote head 25c56d33e4c4!
+  abort: push creates new remote head 25c56d33e4c4
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
   $ cd ../..

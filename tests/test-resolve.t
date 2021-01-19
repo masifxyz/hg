@@ -132,13 +132,13 @@ resolve --all should abort when no merge in progress
 
   $ hg resolve --all
   abort: resolve command not applicable when not merging
-  [255]
+  [20]
 
 resolve -m should abort when no merge in progress
 
   $ hg resolve -m
   abort: resolve command not applicable when not merging
-  [255]
+  [20]
 
 can not update or merge when there are unresolved conflicts
 
@@ -191,7 +191,7 @@ resolve without arguments should suggest --all
   $ hg resolve
   abort: no files or directories specified
   (use --all to re-merge all unresolved files)
-  [255]
+  [10]
 
 resolve --all should re-merge all unresolved files
   $ hg resolve --all
@@ -332,7 +332,7 @@ resolve -m can be configured to look for remaining conflict markers
     file2
   abort: conflict markers detected
   (use --all to mark anyway)
-  [255]
+  [20]
   $ hg resolve -l
   U file1
   U file2
@@ -406,7 +406,7 @@ Testing the --re-merge flag
   R file2
   $ hg resolve --mark --re-merge
   abort: too many actions specified
-  [255]
+  [10]
   $ hg resolve --re-merge --all
   merging file1
   warning: conflicts while merging file1! (edit, then use 'hg resolve --mark')
@@ -416,7 +416,7 @@ Explicit re-merge
   $ hg resolve --config commands.resolve.explicit-re-merge=1 --all
   abort: no action specified
   (use --mark, --unmark, --list or --re-merge)
-  [255]
+  [10]
   $ hg resolve --config commands.resolve.explicit-re-merge=1 --re-merge --all
   merging file1
   warning: conflicts while merging file1! (edit, then use 'hg resolve --mark')
@@ -464,7 +464,7 @@ Test 'hg resolve' confirm config option functionality |
   warning: conflicts while merging emp2! (edit, then use 'hg resolve --mark')
   warning: conflicts while merging emp3! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
 Test when commands.resolve.confirm config option is not set:
 ===========================================================
@@ -489,13 +489,13 @@ Test when config option is set:
   $ hg resolve
   abort: no files or directories specified
   (use --all to re-merge all unresolved files)
-  [255]
+  [10]
   $ hg resolve --all << EOF
   > n
   > EOF
   re-merge all unresolved files (yn)? n
   abort: user quit
-  [255]
+  [250]
 
   $ hg resolve --all << EOF
   > y
@@ -523,7 +523,7 @@ Test that commands.resolve.confirm respect --mark option (only when no patterns 
   > EOF
   mark all unresolved files as resolved (yn)? n
   abort: user quit
-  [255]
+  [250]
 
   $ hg resolve -m << EOF
   > y
@@ -551,7 +551,7 @@ Test that commands.resolve.confirm respect --unmark option (only when no pattern
   > EOF
   mark all resolved files as unresolved (yn)? n
   abort: user quit
-  [255]
+  [250]
 
   $ hg resolve -m << EOF
   > y

@@ -246,15 +246,15 @@ There is no default behavior in the absence of --rev and --working-dir.
 
   $ hg fix
   abort: no changesets specified
-  (use --rev or --working-dir)
+  (use --source or --working-dir)
   [255]
   $ hg fix --whole
   abort: no changesets specified
-  (use --rev or --working-dir)
+  (use --source or --working-dir)
   [255]
   $ hg fix --base 0
   abort: no changesets specified
-  (use --rev or --working-dir)
+  (use --source or --working-dir)
   [255]
 
 Fixing a public revision isn't allowed. It should abort early enough that
@@ -266,11 +266,11 @@ nothing happens, even to the working directory.
   $ hg fix -r 0
   abort: cannot fix public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
   $ hg fix -r 0 --working-dir
   abort: cannot fix public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
   $ hg cat -r tip hello.whole
   hello
   $ cat hello.whole
@@ -865,11 +865,11 @@ fixing the working directory if there are unresolved merge conflicts.
   $ hg commit -Aqm "foo 2"
 
   $ hg --config extensions.rebase= rebase -r 1 -d 0
-  rebasing 1:c3b6dc0e177a "foo 2" (tip)
+  rebasing 1:c3b6dc0e177a tip "foo 2"
   merging foo.whole
   warning: conflicts while merging foo.whole! (edit, then use 'hg resolve --mark')
   unresolved conflicts (see 'hg resolve', then 'hg rebase --continue')
-  [1]
+  [240]
 
   $ hg --config extensions.rebase= fix --working-dir
   abort: unresolved conflicts
@@ -879,7 +879,7 @@ fixing the working directory if there are unresolved merge conflicts.
   $ hg --config extensions.rebase= fix -r .
   abort: rebase in progress
   (use 'hg rebase --continue', 'hg rebase --abort', or 'hg rebase --stop')
-  [255]
+  [20]
 
   $ cd ..
 
@@ -1174,7 +1174,7 @@ an orphan. We must respect experimental.evolution.allowunstable.
   $ hg commit -m "second"
   $ hg --config experimental.evolution.allowunstable=False fix -r '.^'
   abort: cannot fix changeset with children
-  [255]
+  [10]
   $ hg fix -r '.^'
   1 new orphan changesets
   $ hg cat -r 2 foo.whole

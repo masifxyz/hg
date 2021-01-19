@@ -14,6 +14,8 @@ tempprefix = 'hg-hghave-'
 checks = {
     "true": (lambda: True, "yak shaving"),
     "false": (lambda: False, "nail clipper"),
+    "known-bad-output": (lambda: True, "use for currently known bad output"),
+    "missing-correct-output": (lambda: False, "use for missing good output"),
 }
 
 try:
@@ -586,14 +588,14 @@ def has_pyflakes():
 
 @check("pylint", "Pylint python linter")
 def has_pylint():
-    return matchoutput("pylint --help", br"Usage:  pylint", True)
+    return matchoutput("pylint --help", br"Usage:[ ]+pylint", True)
 
 
 @check("clang-format", "clang-format C code formatter")
 def has_clang_format():
     m = matchoutput('clang-format --version', br'clang-format version (\d+)')
-    # style changed somewhere between 4.x and 6.x
-    return m and int(m.group(1)) >= 6
+    # style changed somewhere between 10.x and 11.x
+    return m and int(m.group(1)) >= 11
 
 
 @check("jshint", "JSHint static code analysis tool")
@@ -700,15 +702,27 @@ def has_test_repo():
     return os.path.isdir(os.path.join(t, "..", ".hg"))
 
 
-@check("tic", "terminfo compiler and curses module")
-def has_tic():
+@check("curses", "terminfo compiler and curses module")
+def has_curses():
     try:
         import curses
 
         curses.COLOR_BLUE
-        return matchoutput('test -x "`which tic`"', br'')
+
+        # Windows doesn't have a `tic` executable, but the windows_curses
+        # package is sufficient to run the tests without it.
+        if os.name == 'nt':
+            return True
+
+        return has_tic()
+
     except (ImportError, AttributeError):
         return False
+
+
+@check("tic", "terminfo compiler")
+def has_tic():
+    return matchoutput('test -x "`which tic`"', br'')
 
 
 @check("xz", "xz compression utility")
@@ -886,17 +900,16 @@ def has_ensurepip():
         return False
 
 
-@check("py2virtualenv", "Python2 virtualenv support")
-def has_py2virtualenv():
-    if sys.version_info[0] != 2:
-        return False
-
+@check("virtualenv", "virtualenv support")
+def has_virtualenv():
     try:
         import virtualenv
 
-        virtualenv.ACTIVATE_SH
-        return True
-    except ImportError:
+        # --no-site-package became the default in 1.7 (Nov 2011), and the
+        # argument was removed in 20.0 (Feb 2020).  Rather than make the
+        # script complicated, just ignore ancient versions.
+        return int(virtualenv.__version__.split('.')[0]) > 1
+    except (AttributeError, ImportError, IndexError):
         return False
 
 
@@ -1005,7 +1018,7 @@ def has_repofncache():
     return 'fncache' in getrepofeatures()
 
 
-@check('sqlite', 'sqlite3 module is available')
+@check('sqlite', 'sqlite3 module and matching cli is available')
 def has_sqlite():
     try:
         import sqlite3
@@ -1047,7 +1060,7 @@ def has_black():
     version_regex = b'black, version ([0-9a-b.]+)'
     version = matchoutput(blackcmd, version_regex)
     sv = distutils.version.StrictVersion
-    return version and sv(_bytes2sys(version.group(1))) >= sv('19.10b0')
+    return version and sv(_bytes2sys(version.group(1))) >= sv('20.8b1')
 
 
 @check('pytype', 'the pytype type checker')
@@ -1058,11 +1071,12 @@ def has_pytype():
     return version and sv(_bytes2sys(version.group(0))) >= sv('2019.10.17')
 
 
-@check("rustfmt", "rustfmt tool")
+@check("rustfmt", "rustfmt tool at version nightly-2020-10-04")
 def has_rustfmt():
     # We use Nightly's rustfmt due to current unstable config options.
     return matchoutput(
-        '`rustup which --toolchain nightly rustfmt` --version', b'rustfmt'
+        '`rustup which --toolchain nightly-2020-10-04 rustfmt` --version',
+        b'rustfmt',
     )
 
 

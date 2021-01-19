@@ -25,13 +25,13 @@ invalid revset syntax
 
   $ hg log -r 'diffcontains()'
   hg: parse error: diffcontains takes at least 1 argument
-  [255]
+  [10]
   $ hg log -r 'diffcontains(:)'
   hg: parse error: diffcontains requires a string pattern
-  [255]
+  [10]
   $ hg log -r 'diffcontains("re:**test**")'
   hg: parse error: invalid regular expression: nothing to repeat* (glob)
-  [255]
+  [10]
 
 simple
 
@@ -851,8 +851,8 @@ unmodified changes.
   $ cd follow
 
   $ cat <<'EOF' >> .hg/hgrc
-  > [ui]
-  > logtemplate = '{rev}: {join(files % "{status} {path}", ", ")}\n'
+  > [command-templates]
+  > log = '{rev}: {join(files % "{status} {path}", ", ")}\n'
   > EOF
 
   $ for f in add0 add0-mod1 add0-rm1 add0-mod2 add0-rm2 add0-mod3 add0-mod4 add0-rm4; do
@@ -1018,8 +1018,8 @@ follow revision history from wdir:
   $ hg grep --diff -fr'wdir()' data
   add0-cp4-mod4:2147483647:+:data4
   add0-mod4:2147483647:+:data4
-  add0-rm4:2147483647:-:abort: add0-rm4@None: not found in manifest!
-  [255]
+  add0-rm4:2147483647:-:abort: add0-rm4@None: not found in manifest
+  [50]
 
   $ hg grep -fr'wdir()' data
   add0:2147483647:data0

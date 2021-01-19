@@ -17,8 +17,8 @@ use git diff to see rename
   $ cat << EOF >> $HGRCPATH
   > [diff]
   > git=yes
-  > [ui]
-  > logtemplate={rev} {desc}\n
+  > [command-templates]
+  > log={rev} {desc}\n
   > EOF
 
 #if compatibility
@@ -585,6 +585,97 @@ copy tracing chain.
 
   $ hg up null --quiet
 
+Merging a branch where a rename was deleted with a branch where the same file was renamed
+------------------------------------------------------------------------------------------
+
+Create a "conflicting" merge where `d` get removed on one branch before its
+rename information actually conflict with the other branch.
+
+(the copy information from the branch that was not deleted should win).
+
+  $ hg up 'desc("i-0")'
+  3 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ hg mv b d
+  $ hg ci -m "h-1: b -(move)-> d"
+  created new head
+
+  $ hg up 'desc("c-1")'
+  1 files updated, 0 files merged, 2 files removed, 0 files unresolved
+  $ hg merge 'desc("h-1")'
+  1 files updated, 0 files merged, 1 files removed, 0 files unresolved
+  (branch merge, don't forget to commit)
+  $ hg ci -m "mCH-delete-before-conflict-m-0"
+
+  $ hg up 'desc("h-1")'
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ hg merge 'desc("c-1")'
+  0 files updated, 0 files merged, 1 files removed, 0 files unresolved
+  (branch merge, don't forget to commit)
+  $ hg ci -m "mHC-delete-before-conflict-m-0"
+  created new head
+  $ hg log -G --rev '::(desc("mCH-delete-before-conflict-m")+desc("mHC-delete-before-conflict-m"))'
+  @    36 mHC-delete-before-conflict-m-0
+  |\
+  +---o  35 mCH-delete-before-conflict-m-0
+  | |/
+  | o  34 h-1: b -(move)-> d
+  | |
+  o |  6 c-1 delete d
+  | |
+  o |  2 i-2: c -move-> d
+  | |
+  o |  1 i-1: a -move-> c
+  |/
+  o  0 i-0 initial commit: a b h
+  
+
+
+Summary of all created cases
+----------------------------
+
+  $ hg up --quiet null
+
+(This exists to help keeping a compact list of the various cases we have built)
+
+  $ hg log -T '{desc|firstline}\n'| sort
+  a-1: d -move-> e
+  a-2: e -move-> f
+  b-1: b update
+  c-1 delete d
+  d-1 delete d
+  d-2 re-add d
+  e-1 b -move-> g
+  e-2 g -move-> f
+  f-1: rename h -> i
+  f-2: rename i -> d
+  g-1: update d
+  h-1: b -(move)-> d
+  i-0 initial commit: a b h
+  i-1: a -move-> c
+  i-2: c -move-> d
+  mABm-0 simple merge - the other way
+  mAEm-0 simple merge - one way
+  mBAm-0 simple merge - one way
+  mBC-revert-m-0
+  mBCm-0 simple merge - one way
+  mBCm-1 re-add d
+  mBDm-0 simple merge - one way
+  mBFm-0 simple merge - one way
+  mCB-revert-m-0
+  mCBm-0 simple merge - the other way
+  mCBm-1 re-add d
+  mCGm-0
+  mCH-delete-before-conflict-m-0
+  mDBm-0 simple merge - the other way
+  mDGm-0 simple merge - one way
+  mEAm-0 simple merge - the other way
+  mFBm-0 simple merge - the other way
+  mFGm-0 simple merge - one way
+  mGCm-0
+  mGDm-0 simple merge - the other way
+  mGFm-0 simple merge - the other way
+  mHC-delete-before-conflict-m-0
+
 
 Test that sidedata computations during upgrades are correct
 ===========================================================
@@ -605,6 +696,7 @@ We upgrade a repository that is not using sidedata (the filelog case) and
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no    yes      no
   persistent-nodemap:  no     no      no
@@ -618,6 +710,11 @@ We upgrade a repository that is not using sidedata (the filelog case) and
   requirements
      preserved: * (glob)
      added: exp-copies-sidedata-changeset, exp-sidedata-flag
+  
+  processed revlogs:
+    - all-filelogs
+    - changelog
+    - manifest
   
 #endif
 
@@ -801,12 +898,39 @@ We upgrade a repository that is not using sidedata (the filelog case) and
    entry-0014 size 14
     '\x00\x00\x00\x01\x10\x00\x00\x00\x01\x00\x00\x00\x00d'
   salvaged   : d, ;
+  ##### revision 34 #####
+  1 sidedata entries
+   entry-0014 size 24
+    '\x00\x00\x00\x02\x0c\x00\x00\x00\x01\x00\x00\x00\x00\x06\x00\x00\x00\x02\x00\x00\x00\x00bd'
+  removed    : b, ;
+  added    p1: d, b;
+  ##### revision 35 #####
+  1 sidedata entries
+   entry-0014 size 4
+    '\x00\x00\x00\x00'
+  ##### revision 36 #####
+  1 sidedata entries
+   entry-0014 size 4
+    '\x00\x00\x00\x00'
 
 #endif
 
 
 Test copy information chaining
 ==============================
+
+Check that matching only affect the destination and not intermediate path
+-------------------------------------------------------------------------
+
+The two status call should give the same value for f
+
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("a-2")'
+  A f
+    a
+  R a
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("a-2")' f
+  A f
+    a (no-changeset no-compatibility !)
 
 merging with unrelated change does not interfere with the renames
 ---------------------------------------------------------------
@@ -1003,29 +1127,15 @@ The bugs makes recorded copy is different depending of where we started the merg
 
 Log output should not include a merge commit as it did not happen
 
-#if no-changeset
   $ hg log -Gfr 'desc("mBDm-0")' d
   o  8 d-2 re-add d
   |
   ~
-#else
-  $ hg log -Gfr 'desc("mBDm-0")' d
-  o  8 d-2 re-add d
-  |
-  ~
-#endif
 
-#if no-changeset
   $ hg log -Gfr 'desc("mDBm-0")' d
   o  8 d-2 re-add d
   |
   ~
-#else
-  $ hg log -Gfr 'desc("mDBm-0")' d
-  o  8 d-2 re-add d
-  |
-  ~
-#endif
 
   $ hg status --copies --rev 'desc("i-0")' --rev 'desc("mBDm-0")'
   M b
@@ -1228,6 +1338,7 @@ Merge:
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mBFm-0")' d
   o  22 f-2: rename i -> d
   |
@@ -1243,6 +1354,7 @@ Merge:
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mFBm-0")' d
   o  22 f-2: rename i -> d
   |
@@ -1312,6 +1424,7 @@ revision numbers)
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mDGm-0")' d
   o    26 mDGm-0 simple merge - one way
   |\
@@ -1340,6 +1453,7 @@ revision numbers)
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mDGm-0")' d
   o    26 mDGm-0 simple merge - one way
   |\
@@ -1360,11 +1474,6 @@ Merge:
 This case is similar to BF/FB, but an actual merge happens, so both side of the
 history are relevant.
 
-Note:
-| In this case, the merge get conflicting information since on one side we have
-| "a -> c -> d". and one the other one we have "h -> i -> d".
-|
-| The current code arbitrarily pick one side
 
   $ hg log -G --rev '::(desc("mGFm")+desc("mFGm"))'
   o    29 mGFm-0 simple merge - the other way
@@ -1383,6 +1492,33 @@ Note:
   |
   o  0 i-0 initial commit: a b h
   
+
+Note:
+| In this case, the merge get conflicting information since on one side we have
+| "a -> c -> d". and one the other one we have "h -> i -> d".
+|
+| The current code arbitrarily pick one side depending the ordering of the merged hash:
+
+In this case, the file hash from "f-2" is lower, so it will be `p1` of the resulting filenode its copy tracing information will win (and trace back to "h"):
+
+Details on this hash ordering pick:
+
+  $ hg manifest --debug 'desc("g-1")' | egrep 'd$'
+  f2b277c39e0d2bbac99d8aae075c0d8b5304d266 644   d (no-changeset !)
+  4ff57b4e8dceedb487e70e6965ea188a7c042cca 644   d (changeset !)
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("g-1")' d
+  A d
+    a (no-changeset no-compatibility !)
+
+  $ hg manifest --debug 'desc("f-2")' | egrep 'd$'
+  4a067cf8965d1bfff130057ade26b44f580231be 644   d (no-changeset !)
+  fe6f8b4f507fe3eb524c527192a84920a4288dac 644   d (changeset !)
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("f-2")' d
+  A d
+    h (no-changeset no-compatibility !)
+
+Copy tracing data on the resulting merge:
+
   $ hg status --copies --rev 'desc("i-0")' --rev 'desc("mFGm-0")'
   A d
     h
@@ -1432,6 +1568,7 @@ Note:
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mFGm-0")' d
   o    28 mFGm-0 simple merge - one way
   |\
@@ -1461,6 +1598,7 @@ Note:
   o  0 i-0 initial commit: a b h
   
 #else
+BROKEN: `hg log --follow <file>` relies on filelog metadata to work
   $ hg log -Gfr 'desc("mGFm-0")' d
   o    29 mGFm-0 simple merge - the other way
   |\
@@ -1566,3 +1704,51 @@ copy tracing chain.
   A d
   $ hg status --copies --rev 'desc("b-1")' --rev 'desc("mCB-revert-m-0")'
   $ hg status --copies --rev 'desc("b-1")' --rev 'desc("mBC-revert-m-0")'
+
+
+Merging a branch where a rename was deleted with a branch where the same file was renamed
+------------------------------------------------------------------------------------------
+
+Create a "conflicting" merge where `d` get removed on one branch before its
+rename information actually conflict with the other branch.
+
+(the copy information from the branch that was not deleted should win).
+
+  $ hg log -G --rev '::(desc("mCH-delete-before-conflict-m")+desc("mHC-delete-before-conflict-m"))'
+  o    36 mHC-delete-before-conflict-m-0
+  |\
+  +---o  35 mCH-delete-before-conflict-m-0
+  | |/
+  | o  34 h-1: b -(move)-> d
+  | |
+  o |  6 c-1 delete d
+  | |
+  o |  2 i-2: c -move-> d
+  | |
+  o |  1 i-1: a -move-> c
+  |/
+  o  0 i-0 initial commit: a b h
+  
+
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("mCH-delete-before-conflict-m")'
+  A d
+    b (no-compatibility no-changeset !)
+  R a
+  R b
+  $ hg status --copies --rev 'desc("i-0")' --rev 'desc("mHC-delete-before-conflict-m")'
+  A d
+    b
+  R a
+  R b
+  $ hg status --copies --rev 'desc("c-1")' --rev 'desc("mCH-delete-before-conflict-m")'
+  A d
+    b
+  R b
+  $ hg status --copies --rev 'desc("c-1")' --rev 'desc("mHC-delete-before-conflict-m")'
+  A d
+    b
+  R b
+  $ hg status --copies --rev 'desc("h-1")' --rev 'desc("mCH-delete-before-conflict-m")'
+  R a
+  $ hg status --copies --rev 'desc("h-1")' --rev 'desc("mHC-delete-before-conflict-m")'
+  R a

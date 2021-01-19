@@ -80,6 +80,8 @@
    }
   ]
 
+  $ hg status -0
+  M a\x00? a.orig\x00 (no-eol) (esc)
   $ cat a
   Small Mathematical Series.
   1
@@ -99,6 +101,35 @@
   ? a.orig
 
 Verify custom conflict markers
+
+  $ hg up -q --clean .
+  $ cat <<EOF >> .hg/hgrc
+  > [command-templates]
+  > mergemarker = '{author} {rev}'
+  > EOF
+
+  $ hg merge 1
+  merging a
+  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  0 files updated, 0 files merged, 0 files removed, 1 files unresolved
+  use 'hg resolve' to retry unresolved file merges or 'hg merge --abort' to abandon
+  [1]
+
+  $ cat a
+  Small Mathematical Series.
+  1
+  2
+  3
+  <<<<<<< working copy: test 2
+  6
+  8
+  =======
+  4
+  5
+  >>>>>>> merge rev:    test 1
+  Hop we are done.
+
+Verify custom conflict markers with legacy config name
 
   $ hg up -q --clean .
   $ cat <<EOF >> .hg/hgrc
@@ -131,8 +162,8 @@ Verify line splitting of custom conflict marker which causes multiple lines
 
   $ hg up -q --clean .
   $ cat >> .hg/hgrc <<EOF
-  > [ui]
-  > mergemarkertemplate={author} {rev}\nfoo\nbar\nbaz
+  > [command-templates]
+  > mergemarker={author} {rev}\nfoo\nbar\nbaz
   > EOF
 
   $ hg -q merge 1
@@ -170,8 +201,8 @@ Verify line trimming of custom conflict marker using multi-byte characters
   $ hg --encoding utf-8 commit --logfile logfile
 
   $ cat >> .hg/hgrc <<EOF
-  > [ui]
-  > mergemarkertemplate={desc|firstline}
+  > [command-templates]
+  > mergemarker={desc|firstline}
   > EOF
 
   $ hg -q --encoding utf-8 merge 1
@@ -249,6 +280,80 @@ internal:merge3
   4
   5
   >>>>>>> merge rev
+  Hop we are done.
+
+internal:mergediff
+
+  $ hg co -C 1
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ cat << EOF > a
+  > Small Mathematical Series.
+  > 1
+  > 2
+  > 3
+  > 4
+  > 4.5
+  > 5
+  > Hop we are done.
+  > EOF
+  $ hg co -m 2 -t internal:mergediff
+  merging a
+  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  0 files updated, 0 files merged, 0 files removed, 1 files unresolved
+  use 'hg resolve' to retry unresolved file merges
+  [1]
+  $ cat a
+  Small Mathematical Series.
+  1
+  2
+  3
+  <<<<<<<
+  ------- base
+  +++++++ working copy
+   4
+  +4.5
+   5
+  ======= destination
+  6
+  8
+  >>>>>>>
+  Hop we are done.
+Test the same thing as above but modify a bit more so we instead get the working
+copy in full and the diff from base to destination.
+  $ hg co -C 1
+  1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+  $ cat << EOF > a
+  > Small Mathematical Series.
+  > 1
+  > 2
+  > 3.5
+  > 4.5
+  > 5.5
+  > Hop we are done.
+  > EOF
+  $ hg co -m 2 -t internal:mergediff
+  merging a
+  warning: conflicts while merging a! (edit, then use 'hg resolve --mark')
+  0 files updated, 0 files merged, 0 files removed, 1 files unresolved
+  use 'hg resolve' to retry unresolved file merges
+  [1]
+  $ cat a
+  Small Mathematical Series.
+  1
+  2
+  <<<<<<<
+  ======= working copy
+  3.5
+  4.5
+  5.5
+  ------- base
+  +++++++ destination
+   3
+  -4
+  -5
+  +6
+  +8
+  >>>>>>>
   Hop we are done.
 
 Add some unconflicting changes on each head, to make sure we really

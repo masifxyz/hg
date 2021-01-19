@@ -189,8 +189,8 @@ Ensure the data got to the server OK
 # TEST: ensure a missing processor is handled
   $ echo '[FAIL][BASE64][GZIP][NOOP]' > fail-base64-gzip-noop
   $ hg commit -Aqm 'fail+base64+gzip+noop'
-  abort: missing processor for flag '0x1'!
-  [255]
+  abort: missing processor for flag '0x1'
+  [50]
   $ rm fail-base64-gzip-noop
 
 # TEST: ensure we cannot register several flag processors on the same flag
@@ -205,7 +205,7 @@ Ensure the data got to the server OK
       extsetup(ui)
     File "*/tests/flagprocessorext.py", line *, in extsetup (glob)
       flagutil.addflagprocessor( (py38 !)
-      REVIDX_NOOP, (noopdonothingread, noopdonothing, validatehash,) (no-py38 !)
+      validatehash, (no-py38 !)
     File "*/mercurial/revlogutils/flagutil.py", line *, in addflagprocessor (glob)
       insertflagprocessor(flag, processor, flagprocessors)
     File "*/mercurial/revlogutils/flagutil.py", line *, in insertflagprocessor (glob)

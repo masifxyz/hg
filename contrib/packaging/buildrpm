@@ -7,6 +7,7 @@
 BUILD=1
 RPMBUILDDIR="$PWD/rpmbuild"
 PYTHONEXE=python3
+DOCUTILSPACKAGE=python3-docutils
 
 while [ "$1" ]; do
     case "$1" in
@@ -24,6 +25,11 @@ while [ "$1" ]; do
         PYTHONVER=2.7.16
         PYTHONMD5=f1a2ace631068444831d01485466ece0
         PYTHONEXE=python
+        ;;
+    --docutilspackage)
+        shift
+        DOCUTILSPACKAGE="$1"
+        shift
         ;;
     --rpmbuilddir )
         shift
@@ -50,7 +56,7 @@ if [ ! -d .hg ]; then
     exit 1
 fi
 
-gethgversion
+gethgversion $PYTHONEXE
 
 if [ -z "$type" ] ; then
     release=1
@@ -70,7 +76,7 @@ else
 fi
 
 mkdir -p $RPMBUILDDIR/{SOURCES,BUILD,SRPMS,RPMS}
-$HG archive -t tgz $RPMBUILDDIR/SOURCES/mercurial-$version-$release.tar.gz
+$PYTHONEXE $HG archive -t tgz $RPMBUILDDIR/SOURCES/mercurial-$version-$release.tar.gz
 if [ "$PYTHONVER" ]; then
 (
     mkdir -p build
@@ -106,7 +112,7 @@ echo "%changelog" >> $rpmspec
 
 if echo $version | grep '+' > /dev/null 2>&1; then
     latesttag="`echo $version | sed -e 's/+.*//'`"
-    $HG log -r .:"$latesttag" -fM \
+    $PYTHONEXE $HG log -r .:"$latesttag" -fM \
         --template '{date|hgdate}\t{author}\t{desc|firstline}\n' | python -c '
 import sys, time
 
@@ -130,9 +136,9 @@ for l in sorted(changelog, reverse=True):
 
 else
 
-    $HG log \
+    $PYTHONEXE $HG log \
          --template '{date|hgdate}\t{author}\t{desc|firstline}\n' \
-         .hgtags | python -c '
+         .hgtags | $PYTHONEXE -c '
 import sys, time
 
 def datestr(date, format):
@@ -148,6 +154,9 @@ fi
 
 sed -i \
     -e "s/^%define withpython.*$/%define withpython $RPMPYTHONVER/" \
+    $rpmspec
+sed -i \
+    -e "s/^%global pythondocutils.*$/%global pythondocutils $DOCUTILSPACKAGE/" \
     $rpmspec
 
 if [ "$BUILD" ]; then

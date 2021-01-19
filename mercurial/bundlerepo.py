@@ -17,7 +17,11 @@ import os
 import shutil
 
 from .i18n import _
-from .node import nullid, nullrev
+from .node import (
+    hex,
+    nullid,
+    nullrev,
+)
 
 from . import (
     bundle2,
@@ -32,7 +36,6 @@ from . import (
     localrepo,
     manifest,
     mdiff,
-    node as nodemod,
     pathutil,
     phases,
     pycompat,
@@ -63,11 +66,14 @@ class bundlerevlog(revlog.revlog):
             size = len(delta)
             start = cgunpacker.tell() - size
 
-            link = linkmapper(cs)
             if self.index.has_node(node):
                 # this can happen if two branches make the same change
                 self.bundlerevs.add(self.index.rev(node))
                 continue
+            if cs == node:
+                linkrev = nullrev
+            else:
+                linkrev = linkmapper(cs)
 
             for p in (p1, p2):
                 if not self.index.has_node(p):
@@ -87,7 +93,7 @@ class bundlerevlog(revlog.revlog):
                 size,
                 -1,
                 baserev,
-                link,
+                linkrev,
                 self.rev(p1),
                 self.rev(p2),
                 node,
@@ -325,8 +331,7 @@ class bundlerepository(object):
         self._cgunpacker = changegroup.getunbundler(version, cgstream, b'UN')
 
     def _writetempbundle(self, readfn, suffix, header=b''):
-        """Write a temporary file to disk
-        """
+        """Write a temporary file to disk"""
         fdtemp, temp = self.vfs.mkstemp(prefix=b"hg-bundle-", suffix=suffix)
         self.tempfile = temp
 
@@ -435,9 +440,9 @@ class bundlerepository(object):
         p2rev = self.changelog.rev(p2)
         msg = _(b"setting parent to node %s that only exists in the bundle\n")
         if self.changelog.repotiprev < p1rev:
-            self.ui.warn(msg % nodemod.hex(p1))
+            self.ui.warn(msg % hex(p1))
         if self.changelog.repotiprev < p2rev:
-            self.ui.warn(msg % nodemod.hex(p2))
+            self.ui.warn(msg % hex(p2))
         return super(bundlerepository, self).setparents(p1, p2)
 
 
@@ -527,7 +532,7 @@ class bundletransactionmanager(object):
 def getremotechanges(
     ui, repo, peer, onlyheads=None, bundlename=None, force=False
 ):
-    '''obtains a bundle of changes incoming from peer
+    """obtains a bundle of changes incoming from peer
 
     "onlyheads" restricts the returned changes to those reachable from the
       specified heads.
@@ -545,7 +550,7 @@ def getremotechanges(
     "cleanupfn" must be called without arguments when you're done processing
       the changes; it closes both the original "peer" and the one returned
       here.
-    '''
+    """
     tmp = discovery.findcommonincoming(repo, peer, heads=onlyheads, force=force)
     common, incoming, rheads = tmp
     if not incoming:
@@ -608,7 +613,10 @@ def getremotechanges(
                 with peer.commandexecutor() as e:
                     cg = e.callcommand(
                         b'changegroup',
-                        {b'nodes': incoming, b'source': b'incoming',},
+                        {
+                            b'nodes': incoming,
+                            b'source': b'incoming',
+                        },
                     ).result()
 
                 rheads = None
@@ -652,7 +660,10 @@ def getremotechanges(
 
         with peer.commandexecutor() as e:
             remotephases = e.callcommand(
-                b'listkeys', {b'namespace': b'phases',}
+                b'listkeys',
+                {
+                    b'namespace': b'phases',
+                },
             ).result()
 
         pullop = exchange.pulloperation(bundlerepo, peer, heads=reponodes)

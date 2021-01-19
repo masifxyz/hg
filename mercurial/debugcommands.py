@@ -78,6 +78,7 @@ from . import (
     sshpeer,
     sslutil,
     streamclone,
+    strip,
     tags as tagsmod,
     templater,
     treediscovery,
@@ -105,7 +106,9 @@ from .revlogutils import (
 
 release = lockmod.release
 
-command = registrar.command()
+table = {}
+table.update(strip.command._table)
+command = registrar.command(table)
 
 
 @command(b'debugancestor', [], _(b'[INDEX] REV1 REV2'), optionalrepo=True)
@@ -975,6 +978,7 @@ def debugdiscovery(ui, repo, remoteurl=b"default", **opts):
     # make sure tests are repeatable
     random.seed(int(opts[b'seed']))
 
+    data = {}
     if opts.get(b'old'):
 
         def doit(pushedrevs, remoteheads, remote=remote):
@@ -982,7 +986,7 @@ def debugdiscovery(ui, repo, remoteurl=b"default", **opts):
                 # enable in-client legacy support
                 remote = localrepo.locallegacypeer(remote.local())
             common, _in, hds = treediscovery.findcommonincoming(
-                repo, remote, force=True
+                repo, remote, force=True, audit=data
             )
             common = set(common)
             if not opts.get(b'nonheads'):
@@ -1004,7 +1008,7 @@ def debugdiscovery(ui, repo, remoteurl=b"default", **opts):
                 revs = scmutil.revrange(repo, pushedrevs)
                 nodes = [repo[r].node() for r in revs]
             common, any, hds = setdiscovery.findcommonheads(
-                ui, repo, remote, ancestorsof=nodes
+                ui, repo, remote, ancestorsof=nodes, audit=data
             )
             return common, hds
 
@@ -1014,44 +1018,97 @@ def debugdiscovery(ui, repo, remoteurl=b"default", **opts):
         common, hds = doit(localrevs, remoterevs)
 
     # compute all statistics
-    common = set(common)
-    rheads = set(hds)
-    lheads = set(repo.heads())
+    heads_common = set(common)
+    heads_remote = set(hds)
+    heads_local = set(repo.heads())
+    # note: they cannot be a local or remote head that is in common and not
+    # itself a head of common.
+    heads_common_local = heads_common & heads_local
+    heads_common_remote = heads_common & heads_remote
+    heads_common_both = heads_common & heads_remote & heads_local
 
-    data = {}
+    all = repo.revs(b'all()')
+    common = repo.revs(b'::%ln', common)
+    roots_common = repo.revs(b'roots(::%ld)', common)
+    missing = repo.revs(b'not ::%ld', common)
+    heads_missing = repo.revs(b'heads(%ld)', missing)
+    roots_missing = repo.revs(b'roots(%ld)', missing)
+    assert len(common) + len(missing) == len(all)
+
+    initial_undecided = repo.revs(
+        b'not (::%ln or %ln::)', heads_common_remote, heads_common_local
+    )
+    heads_initial_undecided = repo.revs(b'heads(%ld)', initial_undecided)
+    roots_initial_undecided = repo.revs(b'roots(%ld)', initial_undecided)
+    common_initial_undecided = initial_undecided & common
+    missing_initial_undecided = initial_undecided & missing
+
     data[b'elapsed'] = t.elapsed
-    data[b'nb-common'] = len(common)
-    data[b'nb-common-local'] = len(common & lheads)
-    data[b'nb-common-remote'] = len(common & rheads)
-    data[b'nb-common-both'] = len(common & rheads & lheads)
-    data[b'nb-local'] = len(lheads)
-    data[b'nb-local-missing'] = data[b'nb-local'] - data[b'nb-common-local']
-    data[b'nb-remote'] = len(rheads)
-    data[b'nb-remote-unknown'] = data[b'nb-remote'] - data[b'nb-common-remote']
-    data[b'nb-revs'] = len(repo.revs(b'all()'))
-    data[b'nb-revs-common'] = len(repo.revs(b'::%ln', common))
-    data[b'nb-revs-missing'] = data[b'nb-revs'] - data[b'nb-revs-common']
+    data[b'nb-common-heads'] = len(heads_common)
+    data[b'nb-common-heads-local'] = len(heads_common_local)
+    data[b'nb-common-heads-remote'] = len(heads_common_remote)
+    data[b'nb-common-heads-both'] = len(heads_common_both)
+    data[b'nb-common-roots'] = len(roots_common)
+    data[b'nb-head-local'] = len(heads_local)
+    data[b'nb-head-local-missing'] = len(heads_local) - len(heads_common_local)
+    data[b'nb-head-remote'] = len(heads_remote)
+    data[b'nb-head-remote-unknown'] = len(heads_remote) - len(
+        heads_common_remote
+    )
+    data[b'nb-revs'] = len(all)
+    data[b'nb-revs-common'] = len(common)
+    data[b'nb-revs-missing'] = len(missing)
+    data[b'nb-missing-heads'] = len(heads_missing)
+    data[b'nb-missing-roots'] = len(roots_missing)
+    data[b'nb-ini_und'] = len(initial_undecided)
+    data[b'nb-ini_und-heads'] = len(heads_initial_undecided)
+    data[b'nb-ini_und-roots'] = len(roots_initial_undecided)
+    data[b'nb-ini_und-common'] = len(common_initial_undecided)
+    data[b'nb-ini_und-missing'] = len(missing_initial_undecided)
 
     # display discovery summary
     ui.writenoi18n(b"elapsed time:  %(elapsed)f seconds\n" % data)
+    ui.writenoi18n(b"round-trips:           %(total-roundtrips)9d\n" % data)
     ui.writenoi18n(b"heads summary:\n")
-    ui.writenoi18n(b"  total common heads:  %(nb-common)9d\n" % data)
-    ui.writenoi18n(b"    also local heads:  %(nb-common-local)9d\n" % data)
-    ui.writenoi18n(b"    also remote heads: %(nb-common-remote)9d\n" % data)
-    ui.writenoi18n(b"    both:              %(nb-common-both)9d\n" % data)
-    ui.writenoi18n(b"  local heads:         %(nb-local)9d\n" % data)
-    ui.writenoi18n(b"    common:            %(nb-common-local)9d\n" % data)
-    ui.writenoi18n(b"    missing:           %(nb-local-missing)9d\n" % data)
-    ui.writenoi18n(b"  remote heads:        %(nb-remote)9d\n" % data)
-    ui.writenoi18n(b"    common:            %(nb-common-remote)9d\n" % data)
-    ui.writenoi18n(b"    unknown:           %(nb-remote-unknown)9d\n" % data)
+    ui.writenoi18n(b"  total common heads:  %(nb-common-heads)9d\n" % data)
+    ui.writenoi18n(
+        b"    also local heads:  %(nb-common-heads-local)9d\n" % data
+    )
+    ui.writenoi18n(
+        b"    also remote heads: %(nb-common-heads-remote)9d\n" % data
+    )
+    ui.writenoi18n(b"    both:              %(nb-common-heads-both)9d\n" % data)
+    ui.writenoi18n(b"  local heads:         %(nb-head-local)9d\n" % data)
+    ui.writenoi18n(
+        b"    common:            %(nb-common-heads-local)9d\n" % data
+    )
+    ui.writenoi18n(
+        b"    missing:           %(nb-head-local-missing)9d\n" % data
+    )
+    ui.writenoi18n(b"  remote heads:        %(nb-head-remote)9d\n" % data)
+    ui.writenoi18n(
+        b"    common:            %(nb-common-heads-remote)9d\n" % data
+    )
+    ui.writenoi18n(
+        b"    unknown:           %(nb-head-remote-unknown)9d\n" % data
+    )
     ui.writenoi18n(b"local changesets:      %(nb-revs)9d\n" % data)
     ui.writenoi18n(b"  common:              %(nb-revs-common)9d\n" % data)
+    ui.writenoi18n(b"    heads:             %(nb-common-heads)9d\n" % data)
+    ui.writenoi18n(b"    roots:             %(nb-common-roots)9d\n" % data)
     ui.writenoi18n(b"  missing:             %(nb-revs-missing)9d\n" % data)
+    ui.writenoi18n(b"    heads:             %(nb-missing-heads)9d\n" % data)
+    ui.writenoi18n(b"    roots:             %(nb-missing-roots)9d\n" % data)
+    ui.writenoi18n(b"  first undecided set: %(nb-ini_und)9d\n" % data)
+    ui.writenoi18n(b"    heads:             %(nb-ini_und-heads)9d\n" % data)
+    ui.writenoi18n(b"    roots:             %(nb-ini_und-roots)9d\n" % data)
+    ui.writenoi18n(b"    common:            %(nb-ini_und-common)9d\n" % data)
+    ui.writenoi18n(b"    missing:           %(nb-ini_und-missing)9d\n" % data)
 
     if ui.verbose:
         ui.writenoi18n(
-            b"common heads: %s\n" % b" ".join(sorted(short(n) for n in common))
+            b"common heads: %s\n"
+            % b" ".join(sorted(short(n) for n in heads_common))
         )
 
 
@@ -1059,11 +1116,14 @@ _chunksize = 4 << 10
 
 
 @command(
-    b'debugdownload', [(b'o', b'output', b'', _(b'path')),], optionalrepo=True
+    b'debugdownload',
+    [
+        (b'o', b'output', b'', _(b'path')),
+    ],
+    optionalrepo=True,
 )
 def debugdownload(ui, repo, url, output=None, **opts):
-    """download a resource using Mercurial logic and config
-    """
+    """download a resource using Mercurial logic and config"""
     fh = urlmod.open(ui, url, output)
 
     dest = ui
@@ -1507,10 +1567,10 @@ def debugindexstats(ui, repo):
 
 @command(b'debuginstall', [] + cmdutil.formatteropts, b'', norepo=True)
 def debuginstall(ui, **opts):
-    '''test Mercurial installation
+    """test Mercurial installation
 
     Returns 0 on success.
-    '''
+    """
     opts = pycompat.byteskwargs(opts)
 
     problems = 0
@@ -1829,10 +1889,10 @@ def debuglabelcomplete(ui, repo, *args):
 @command(
     b'debuglocks',
     [
-        (b'L', b'force-lock', None, _(b'free the store lock (DANGEROUS)')),
+        (b'L', b'force-free-lock', None, _(b'free the store lock (DANGEROUS)')),
         (
             b'W',
-            b'force-wlock',
+            b'force-free-wlock',
             None,
             _(b'free the working state lock (DANGEROUS)'),
         ),
@@ -1871,11 +1931,11 @@ def debuglocks(ui, repo, **opts):
 
     """
 
-    if opts.get('force_lock'):
+    if opts.get('force_free_lock'):
         repo.svfs.unlink(b'lock')
-    if opts.get('force_wlock'):
+    if opts.get('force_free_wlock'):
         repo.vfs.unlink(b'wlock')
-    if opts.get('force_lock') or opts.get('force_wlock'):
+    if opts.get('force_free_lock') or opts.get('force_free_wlock'):
         return 0
 
     locks = []
@@ -2170,8 +2230,7 @@ def debugnamecomplete(ui, repo, *args):
     ],
 )
 def debugnodemap(ui, repo, **opts):
-    """write and inspect on disk nodemap
-    """
+    """write and inspect on disk nodemap"""
     if opts['dump_new']:
         unfi = repo.unfiltered()
         cl = unfi.changelog
@@ -2250,7 +2309,7 @@ def debugobsolete(ui, repo, precursor=None, *successors, **opts):
                 raise TypeError()
             return n
         except TypeError:
-            raise error.Abort(
+            raise error.InputError(
                 b'changeset references must be full hexadecimal '
                 b'node identifiers'
             )
@@ -2261,7 +2320,7 @@ def debugobsolete(ui, repo, precursor=None, *successors, **opts):
             try:
                 indices.append(int(v))
             except ValueError:
-                raise error.Abort(
+                raise error.InputError(
                     _(b'invalid index value: %r') % v,
                     hint=_(b'use integers for indices'),
                 )
@@ -2279,7 +2338,9 @@ def debugobsolete(ui, repo, precursor=None, *successors, **opts):
 
     if precursor is not None:
         if opts[b'rev']:
-            raise error.Abort(b'cannot select revision when creating marker')
+            raise error.InputError(
+                b'cannot select revision when creating marker'
+            )
         metadata = {}
         metadata[b'user'] = encoding.fromlocal(opts[b'user'] or ui.username())
         succs = tuple(parsenodeid(succ) for succ in successors)
@@ -2397,13 +2458,13 @@ def debugp1copies(ui, repo, **opts):
     _(b'FILESPEC...'),
 )
 def debugpathcomplete(ui, repo, *specs, **opts):
-    '''complete part or all of a tracked path
+    """complete part or all of a tracked path
 
     This command supports shells that offer path name completion. It
     currently completes only files already known to the dirstate.
 
     Completion extends only to the next path segment unless
-    --full is specified, in which case entire paths are used.'''
+    --full is specified, in which case entire paths are used."""
 
     def complete(path, acceptable):
         dirstate = repo.dirstate
@@ -2582,13 +2643,13 @@ def debugpickmergetool(ui, repo, *pats, **opts):
 
 @command(b'debugpushkey', [], _(b'REPO NAMESPACE [KEY OLD NEW]'), norepo=True)
 def debugpushkey(ui, repopath, namespace, *keyinfo, **opts):
-    '''access the pushkey key/value protocol
+    """access the pushkey key/value protocol
 
     With two args, list the keys in the given namespace.
 
     With five args, set a key to new if it currently is set to old.
     Reports success or failure.
-    '''
+    """
 
     target = hg.peer(ui, {}, repopath)
     if keyinfo:
@@ -3380,12 +3441,22 @@ def debugserve(ui, repo, **opts):
 
 @command(b'debugsetparents', [], _(b'REV1 [REV2]'))
 def debugsetparents(ui, repo, rev1, rev2=None):
-    """manually set the parents of the current working directory
+    """manually set the parents of the current working directory (DANGEROUS)
 
-    This is useful for writing repository conversion tools, but should
-    be used with care. For example, neither the working directory nor the
-    dirstate is updated, so file status may be incorrect after running this
-    command.
+    This command is not what you are looking for and should not be used. Using
+    this command will most certainly results in slight corruption of the file
+    level histories withing your repository. DO NOT USE THIS COMMAND.
+
+    The command update the p1 and p2 field in the dirstate, and not touching
+    anything else. This useful for writing repository conversion tools, but
+    should be used with extreme care. For example, neither the working
+    directory nor the dirstate is updated, so file status may be incorrect
+    after running this command. Only used if you are one of the few people that
+    deeply unstand both conversion tools and file level histories. If you are
+    reading this help, you are not one of this people (most of them sailed west
+    from Mithlond anyway.
+
+    So one last time DO NOT USE THIS COMMAND.
 
     Returns 0 on success.
     """
@@ -3427,7 +3498,7 @@ def debugsidedata(ui, repo, file_, rev=None, **opts):
 
 @command(b'debugssl', [], b'[SOURCE]', optionalrepo=True)
 def debugssl(ui, repo, source=None, **opts):
-    '''test a secure connection to a server
+    """test a secure connection to a server
 
     This builds the certificate chain for the server on Windows, installing the
     missing intermediates and trusted root via Windows Update if necessary.  It
@@ -3438,7 +3509,7 @@ def debugssl(ui, repo, source=None, **opts):
 
     If the update succeeds, retry the original operation.  Otherwise, the cause
     of the SSL error is likely another issue.
-    '''
+    """
     if not pycompat.iswindows:
         raise error.Abort(
             _(b'certificate chain building is only possible on Windows')
@@ -3780,7 +3851,9 @@ def debugtemplate(ui, repo, tmpl, **opts):
 
 @command(
     b'debuguigetpass',
-    [(b'p', b'prompt', b'', _(b'prompt text'), _(b'TEXT')),],
+    [
+        (b'p', b'prompt', b'', _(b'prompt text'), _(b'TEXT')),
+    ],
     _(b'[-p TEXT]'),
     norepo=True,
 )
@@ -3794,7 +3867,9 @@ def debuguigetpass(ui, prompt=b''):
 
 @command(
     b'debuguiprompt',
-    [(b'p', b'prompt', b'', _(b'prompt text'), _(b'TEXT')),],
+    [
+        (b'p', b'prompt', b'', _(b'prompt text'), _(b'TEXT')),
+    ],
     _(b'[-p TEXT]'),
     norepo=True,
 )
@@ -3825,6 +3900,7 @@ def debugupdatecaches(ui, repo, *pats, **opts):
         (b'', b'backup', True, _(b'keep the old repository content around')),
         (b'', b'changelog', None, _(b'select the changelog for upgrade')),
         (b'', b'manifest', None, _(b'select the manifest for upgrade')),
+        (b'', b'filelogs', None, _(b'select all filelogs for upgrade')),
     ],
 )
 def debugupgraderepo(ui, repo, run=False, optimize=None, backup=True, **opts):
@@ -3853,9 +3929,11 @@ def debugupgraderepo(ui, repo, run=False, optimize=None, backup=True, **opts):
       * `--no-manifest`: optimize all revlog but the manifest
       * `--changelog`: optimize the changelog only
       * `--no-changelog --no-manifest`: optimize filelogs only
+      * `--filelogs`: optimize the filelogs only
+      * `--no-changelog --no-manifest --no-filelogs`: skip all revlog optimizations
     """
     return upgrade.upgraderepo(
-        ui, repo, run=run, optimize=optimize, backup=backup, **opts
+        ui, repo, run=run, optimize=set(optimize), backup=backup, **opts
     )
 
 
@@ -4307,7 +4385,10 @@ def debugwireproto(ui, repo, path=None, **opts):
                 {
                     'loggingfh': ui,
                     'loggingname': b's',
-                    'loggingopts': {'logdata': True, 'logdataapis': False,},
+                    'loggingopts': {
+                        'logdata': True,
+                        'logdataapis': False,
+                    },
                 }
             )
 

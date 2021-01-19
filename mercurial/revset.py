@@ -11,6 +11,11 @@ import re
 
 from .i18n import _
 from .pycompat import getattr
+from .node import (
+    bin,
+    nullrev,
+    wdirrev,
+)
 from . import (
     dagop,
     destutil,
@@ -20,7 +25,6 @@ from . import (
     grep as grepmod,
     hbisect,
     match as matchmod,
-    node,
     obsolete as obsmod,
     obsutil,
     pathutil,
@@ -55,7 +59,7 @@ spanset = smartset.spanset
 fullreposet = smartset.fullreposet
 
 # revisions not included in all(), but populated if specified
-_virtualrevs = (node.nullrev, node.wdirrev)
+_virtualrevs = (nullrev, wdirrev)
 
 # Constants for ordering requirement, used in getset():
 #
@@ -177,9 +181,9 @@ def rangepost(repo, subset, x, order):
 def _makerangeset(repo, subset, m, n, order):
     if m == n:
         r = baseset([m])
-    elif n == node.wdirrev:
+    elif n == wdirrev:
         r = spanset(repo, m, len(repo)) + baseset([n])
-    elif m == node.wdirrev:
+    elif m == wdirrev:
         r = baseset([m]) + spanset(repo, repo.changelog.tiprev(), n - 1)
     elif m < n:
         r = spanset(repo, m, n + 1)
@@ -529,8 +533,7 @@ def ancestorspec(repo, subset, x, n, order):
 
 @predicate(b'author(string)', safe=True, weight=10)
 def author(repo, subset, x):
-    """Alias for ``user(string)``.
-    """
+    """Alias for ``user(string)``."""
     # i18n: "author" is a keyword
     n = getstring(x, _(b"author requires a string"))
     kind, pattern, matcher = _substringmatcher(n, casesensitive=False)
@@ -598,7 +601,7 @@ def bookmark(repo, subset, x):
                 bms.add(repo[bmrev].rev())
     else:
         bms = {repo[r].rev() for r in repo._bookmarks.values()}
-    bms -= {node.nullrev}
+    bms -= {nullrev}
     return subset & bms
 
 
@@ -723,7 +726,6 @@ def _children(repo, subset, parentset):
     cs = set()
     pr = repo.changelog.parentrevs
     minrev = parentset.min()
-    nullrev = node.nullrev
     for r in subset:
         if r <= minrev:
             continue
@@ -737,8 +739,7 @@ def _children(repo, subset, parentset):
 
 @predicate(b'children(set)', safe=True)
 def children(repo, subset, x):
-    """Child changesets of changesets in set.
-    """
+    """Child changesets of changesets in set."""
     s = getset(repo, fullreposet(repo), x)
     cs = _children(repo, subset, s)
     return subset & cs
@@ -746,8 +747,7 @@ def children(repo, subset, x):
 
 @predicate(b'closed()', safe=True, weight=10)
 def closed(repo, subset, x):
-    """Changeset is closed.
-    """
+    """Changeset is closed."""
     # i18n: "closed" is a keyword
     getargs(x, 0, 0, _(b"closed takes no arguments"))
     return subset.filter(
@@ -771,8 +771,7 @@ def _commonancestorheads(repo, subset, x):
 
 @predicate(b'commonancestors(set)', safe=True)
 def commonancestors(repo, subset, x):
-    """Changesets that are ancestors of every changeset in set.
-    """
+    """Changesets that are ancestors of every changeset in set."""
     startrevs = getset(repo, fullreposet(repo), x, order=anyorder)
     if not startrevs:
         return baseset()
@@ -868,8 +867,7 @@ def converted(repo, subset, x):
 
 @predicate(b'date(interval)', safe=True, weight=10)
 def date(repo, subset, x):
-    """Changesets within the interval, see :hg:`help dates`.
-    """
+    """Changesets within the interval, see :hg:`help dates`."""
     # i18n: "date" is a keyword
     ds = getstring(x, _(b"date requires a string"))
     dm = dateutil.matchdate(ds)
@@ -1108,8 +1106,7 @@ def extdata(repo, subset, x):
 
 @predicate(b'extinct()', safe=True)
 def extinct(repo, subset, x):
-    """Obsolete changesets with obsolete descendants only. (EXPERIMENTAL)
-    """
+    """Obsolete changesets with obsolete descendants only. (EXPERIMENTAL)"""
     # i18n: "extinct" is a keyword
     getargs(x, 0, 0, _(b"extinct takes no arguments"))
     extincts = obsmod.getrevs(repo, b'extinct')
@@ -1216,8 +1213,7 @@ def filelog(repo, subset, x):
 
 @predicate(b'first(set, [n])', safe=True, takeorder=True, weight=0)
 def first(repo, subset, x, order):
-    """An alias for limit().
-    """
+    """An alias for limit()."""
     return limit(repo, subset, x, order)
 
 
@@ -1341,8 +1337,7 @@ def followlines(repo, subset, x):
 
 @predicate(b'all()', safe=True)
 def getall(repo, subset, x):
-    """All changesets, the same as ``0:tip``.
-    """
+    """All changesets, the same as ``0:tip``."""
     # i18n: "all" is a keyword
     getargs(x, 0, 0, _(b"all takes no arguments"))
     return subset & spanset(repo)  # drop "null" if any
@@ -1404,7 +1399,7 @@ def _matchfiles(repo, subset, x):
                     b'_matchfiles expected at most one revision'
                 )
             if value == b'':  # empty means working directory
-                rev = node.wdirrev
+                rev = wdirrev
             else:
                 rev = value
         elif prefix == b'd:':
@@ -1424,7 +1419,6 @@ def _matchfiles(repo, subset, x):
     # This directly read the changelog data as creating changectx for all
     # revisions is quite expensive.
     getfiles = repo.changelog.readfiles
-    wdirrev = node.wdirrev
 
     def matches(x):
         if x == wdirrev:
@@ -1480,8 +1474,7 @@ def hasfile(repo, subset, x):
 
 @predicate(b'head()', safe=True)
 def head(repo, subset, x):
-    """Changeset is a named branch head.
-    """
+    """Changeset is a named branch head."""
     # i18n: "head" is a keyword
     getargs(x, 0, 0, _(b"head takes no arguments"))
     hs = set()
@@ -1493,30 +1486,28 @@ def head(repo, subset, x):
 
 @predicate(b'heads(set)', safe=True, takeorder=True)
 def heads(repo, subset, x, order):
-    """Members of set with no children in set.
-    """
+    """Members of set with no children in set."""
     # argument set should never define order
     if order == defineorder:
         order = followorder
     inputset = getset(repo, fullreposet(repo), x, order=order)
     wdirparents = None
-    if node.wdirrev in inputset:
+    if wdirrev in inputset:
         # a bit slower, but not common so good enough for now
         wdirparents = [p.rev() for p in repo[None].parents()]
         inputset = set(inputset)
-        inputset.discard(node.wdirrev)
+        inputset.discard(wdirrev)
     heads = repo.changelog.headrevs(inputset)
     if wdirparents is not None:
         heads.difference_update(wdirparents)
-        heads.add(node.wdirrev)
+        heads.add(wdirrev)
     heads = baseset(heads)
     return subset & heads
 
 
 @predicate(b'hidden()', safe=True)
 def hidden(repo, subset, x):
-    """Hidden changesets.
-    """
+    """Hidden changesets."""
     # i18n: "hidden" is a keyword
     getargs(x, 0, 0, _(b"hidden takes no arguments"))
     hiddenrevs = repoview.filterrevs(repo, b'visible')
@@ -1546,8 +1537,7 @@ def keyword(repo, subset, x):
 
 @predicate(b'limit(set[, n[, offset]])', safe=True, takeorder=True, weight=0)
 def limit(repo, subset, x, order):
-    """First n members of set, defaulting to 1, starting from offset.
-    """
+    """First n members of set, defaulting to 1, starting from offset."""
     args = getargsdict(x, b'limit', b'set n offset')
     if b'set' not in args:
         # i18n: "limit" is a keyword
@@ -1571,8 +1561,7 @@ def limit(repo, subset, x, order):
 
 @predicate(b'last(set, [n])', safe=True, takeorder=True)
 def last(repo, subset, x, order):
-    """Last n members of set, defaulting to 1.
-    """
+    """Last n members of set, defaulting to 1."""
     # i18n: "last" is a keyword
     l = getargs(x, 1, 2, _(b"last requires one or two arguments"))
     lim = 1
@@ -1592,8 +1581,7 @@ def last(repo, subset, x, order):
 
 @predicate(b'max(set)', safe=True)
 def maxrev(repo, subset, x):
-    """Changeset with highest revision number in set.
-    """
+    """Changeset with highest revision number in set."""
     os = getset(repo, fullreposet(repo), x)
     try:
         m = os.max()
@@ -1608,12 +1596,10 @@ def maxrev(repo, subset, x):
 
 @predicate(b'merge()', safe=True)
 def merge(repo, subset, x):
-    """Changeset is a merge changeset.
-    """
+    """Changeset is a merge changeset."""
     # i18n: "merge" is a keyword
     getargs(x, 0, 0, _(b"merge takes no arguments"))
     cl = repo.changelog
-    nullrev = node.nullrev
 
     def ismerge(r):
         try:
@@ -1626,8 +1612,7 @@ def merge(repo, subset, x):
 
 @predicate(b'branchpoint()', safe=True)
 def branchpoint(repo, subset, x):
-    """Changesets with more than one child.
-    """
+    """Changesets with more than one child."""
     # i18n: "branchpoint" is a keyword
     getargs(x, 0, 0, _(b"branchpoint takes no arguments"))
     cl = repo.changelog
@@ -1648,8 +1633,7 @@ def branchpoint(repo, subset, x):
 
 @predicate(b'min(set)', safe=True)
 def minrev(repo, subset, x):
-    """Changeset with lowest revision number in set.
-    """
+    """Changeset with lowest revision number in set."""
     os = getset(repo, fullreposet(repo), x)
     try:
         m = os.min()
@@ -1709,23 +1693,22 @@ def named(repo, subset, x):
             if name not in ns.deprecated:
                 names.update(repo[n].rev() for n in ns.nodes(repo, name))
 
-    names -= {node.nullrev}
+    names -= {nullrev}
     return subset & names
 
 
 @predicate(b'id(string)', safe=True)
 def node_(repo, subset, x):
-    """Revision non-ambiguously specified by the given hex string prefix.
-    """
+    """Revision non-ambiguously specified by the given hex string prefix."""
     # i18n: "id" is a keyword
     l = getargs(x, 1, 1, _(b"id requires one argument"))
     # i18n: "id" is a keyword
     n = getstring(l[0], _(b"id requires a string"))
     if len(n) == 40:
         try:
-            rn = repo.changelog.rev(node.bin(n))
+            rn = repo.changelog.rev(bin(n))
         except error.WdirUnsupported:
-            rn = node.wdirrev
+            rn = wdirrev
         except (LookupError, TypeError):
             rn = None
     else:
@@ -1737,7 +1720,7 @@ def node_(repo, subset, x):
         except LookupError:
             pass
         except error.WdirUnsupported:
-            rn = node.wdirrev
+            rn = wdirrev
 
     if rn is None:
         return baseset()
@@ -1747,8 +1730,7 @@ def node_(repo, subset, x):
 
 @predicate(b'none()', safe=True)
 def none(repo, subset, x):
-    """No changesets.
-    """
+    """No changesets."""
     # i18n: "none" is a keyword
     getargs(x, 0, 0, _(b"none takes no arguments"))
     return baseset()
@@ -1869,8 +1851,7 @@ def outgoing(repo, subset, x):
 
 @predicate(b'p1([set])', safe=True)
 def p1(repo, subset, x):
-    """First parent of changesets in set, or the working directory.
-    """
+    """First parent of changesets in set, or the working directory."""
     if x is None:
         p = repo[x].p1().rev()
         if p >= 0:
@@ -1884,7 +1865,7 @@ def p1(repo, subset, x):
             ps.add(cl.parentrevs(r)[0])
         except error.WdirUnsupported:
             ps.add(repo[r].p1().rev())
-    ps -= {node.nullrev}
+    ps -= {nullrev}
     # XXX we should turn this into a baseset instead of a set, smartset may do
     # some optimizations from the fact this is a baseset.
     return subset & ps
@@ -1892,8 +1873,7 @@ def p1(repo, subset, x):
 
 @predicate(b'p2([set])', safe=True)
 def p2(repo, subset, x):
-    """Second parent of changesets in set, or the working directory.
-    """
+    """Second parent of changesets in set, or the working directory."""
     if x is None:
         ps = repo[x].parents()
         try:
@@ -1913,7 +1893,7 @@ def p2(repo, subset, x):
             parents = repo[r].parents()
             if len(parents) == 2:
                 ps.add(parents[1])
-    ps -= {node.nullrev}
+    ps -= {nullrev}
     # XXX we should turn this into a baseset instead of a set, smartset may do
     # some optimizations from the fact this is a baseset.
     return subset & ps
@@ -1940,7 +1920,7 @@ def parents(repo, subset, x):
                 up(parentrevs(r))
             except error.WdirUnsupported:
                 up(p.rev() for p in repo[r].parents())
-    ps -= {node.nullrev}
+    ps -= {nullrev}
     return subset & ps
 
 
@@ -2015,7 +1995,7 @@ def parentspec(repo, subset, x, n, order):
         else:
             try:
                 parents = cl.parentrevs(r)
-                if parents[1] != node.nullrev:
+                if parents[1] != nullrev:
                     ps.add(parents[1])
             except error.WdirUnsupported:
                 parents = repo[r].parents()
@@ -2305,8 +2285,7 @@ def matching(repo, subset, x):
 
 @predicate(b'reverse(set)', safe=True, takeorder=True, weight=0)
 def reverse(repo, subset, x, order):
-    """Reverse order of set.
-    """
+    """Reverse order of set."""
     l = getset(repo, subset, x, order)
     if order == defineorder:
         l.reverse()
@@ -2315,8 +2294,7 @@ def reverse(repo, subset, x, order):
 
 @predicate(b'roots(set)', safe=True)
 def roots(repo, subset, x):
-    """Changesets in set with no parent changeset in set.
-    """
+    """Changesets in set with no parent changeset in set."""
     s = getset(repo, fullreposet(repo), x)
     parents = repo.changelog.parentrevs
 
@@ -2556,8 +2534,7 @@ def tagged(repo, subset, x):
 
 @predicate(b'orphan()', safe=True)
 def orphan(repo, subset, x):
-    """Non-obsolete changesets with obsolete ancestors. (EXPERIMENTAL)
-    """
+    """Non-obsolete changesets with obsolete ancestors. (EXPERIMENTAL)"""
     # i18n: "orphan" is a keyword
     getargs(x, 0, 0, _(b"orphan takes no arguments"))
     orphan = obsmod.getrevs(repo, b'orphan')
@@ -2566,8 +2543,7 @@ def orphan(repo, subset, x):
 
 @predicate(b'unstable()', safe=True)
 def unstable(repo, subset, x):
-    """Changesets with instabilities. (EXPERIMENTAL)
-    """
+    """Changesets with instabilities. (EXPERIMENTAL)"""
     # i18n: "unstable" is a keyword
     getargs(x, 0, 0, b'unstable takes no arguments')
     _unstable = set()
@@ -2592,8 +2568,8 @@ def wdir(repo, subset, x):
     """Working directory. (EXPERIMENTAL)"""
     # i18n: "wdir" is a keyword
     getargs(x, 0, 0, _(b"wdir takes no arguments"))
-    if node.wdirrev in subset or isinstance(subset, fullreposet):
-        return baseset([node.wdirrev])
+    if wdirrev in subset or isinstance(subset, fullreposet):
+        return baseset([wdirrev])
     return baseset()
 
 
@@ -2663,7 +2639,7 @@ def _orderedhexlist(repo, subset, x):
     if not s:
         return baseset()
     cl = repo.changelog
-    ls = [cl.rev(node.bin(r)) for r in s.split(b'\0')]
+    ls = [cl.rev(bin(r)) for r in s.split(b'\0')]
     s = subset
     return baseset([r for r in ls if r in s])
 
@@ -2715,7 +2691,15 @@ subscriptrelations = {
 
 
 def lookupfn(repo):
-    return lambda symbol: scmutil.isrevsymbol(repo, symbol)
+    def fn(symbol):
+        try:
+            return scmutil.isrevsymbol(repo, symbol)
+        except error.AmbiguousPrefixLookupError:
+            raise error.InputError(
+                b'ambiguous revision identifier: %s' % symbol
+            )
+
+    return fn
 
 
 def match(ui, spec, lookup=None):
@@ -2781,8 +2765,7 @@ def makematcher(tree):
 
 
 def loadpredicate(ui, extname, registrarobj):
-    """Load revset predicates from specified registrarobj
-    """
+    """Load revset predicates from specified registrarobj"""
     for name, func in pycompat.iteritems(registrarobj._table):
         symbols[name] = func
         if func._safe:

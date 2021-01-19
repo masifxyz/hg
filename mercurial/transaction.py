@@ -56,7 +56,7 @@ def _playback(
     unlink=True,
     checkambigfiles=None,
 ):
-    for f, o, _ignore in entries:
+    for f, o in entries:
         if o or not unlink:
             checkambig = checkambigfiles and (f, b'') in checkambigfiles
             try:
@@ -158,8 +158,8 @@ class transaction(util.transactional):
         vfsmap[b''] = opener  # set default value
         self._vfsmap = vfsmap
         self._after = after
-        self._entries = []
-        self._map = {}
+        self._offsetmap = {}
+        self._newfiles = set()
         self._journal = journalname
         self._undoname = undoname
         self._queue = []
@@ -180,7 +180,7 @@ class transaction(util.transactional):
 
         # a dict of arguments to be passed to hooks
         self.hookargs = {}
-        self._file = opener.open(self._journal, b"w")
+        self._file = opener.open(self._journal, b"w+")
 
         # a list of ('location', 'path', 'backuppath', cache) entries.
         # - if 'backuppath' is empty, no file existed at backup time
@@ -243,26 +243,36 @@ class transaction(util.transactional):
         This is used by strip to delay vision of strip offset. The transaction
         sees either none or all of the strip actions to be done."""
         q = self._queue.pop()
-        for f, o, data in q:
-            self._addentry(f, o, data)
+        for f, o in q:
+            self._addentry(f, o)
 
     @active
-    def add(self, file, offset, data=None):
+    def add(self, file, offset):
         """record the state of an append-only file before update"""
-        if file in self._map or file in self._backupmap:
+        if (
+            file in self._newfiles
+            or file in self._offsetmap
+            or file in self._backupmap
+        ):
             return
         if self._queue:
-            self._queue[-1].append((file, offset, data))
+            self._queue[-1].append((file, offset))
             return
 
-        self._addentry(file, offset, data)
+        self._addentry(file, offset)
 
-    def _addentry(self, file, offset, data):
+    def _addentry(self, file, offset):
         """add a append-only entry to memory and on-disk state"""
-        if file in self._map or file in self._backupmap:
+        if (
+            file in self._newfiles
+            or file in self._offsetmap
+            or file in self._backupmap
+        ):
             return
-        self._entries.append((file, offset, data))
-        self._map[file] = len(self._entries) - 1
+        if offset:
+            self._offsetmap[file] = offset
+        else:
+            self._newfiles.add(file)
         # add enough data to the journal to do the truncate
         self._file.write(b"%s\0%d\n" % (file, offset))
         self._file.flush()
@@ -282,7 +292,11 @@ class transaction(util.transactional):
             msg = b'cannot use transaction.addbackup inside "group"'
             raise error.ProgrammingError(msg)
 
-        if file in self._map or file in self._backupmap:
+        if (
+            file in self._newfiles
+            or file in self._offsetmap
+            or file in self._backupmap
+        ):
             return
         vfs = self._vfsmap[location]
         dirname, filename = vfs.split(file)
@@ -395,24 +409,39 @@ class transaction(util.transactional):
         return any
 
     @active
-    def find(self, file):
-        if file in self._map:
-            return self._entries[self._map[file]]
-        if file in self._backupmap:
-            return self._backupentries[self._backupmap[file]]
-        return None
+    def findoffset(self, file):
+        if file in self._newfiles:
+            return 0
+        return self._offsetmap.get(file)
 
     @active
-    def replace(self, file, offset, data=None):
-        '''
+    def readjournal(self):
+        self._file.seek(0)
+        entries = []
+        for l in self._file.readlines():
+            file, troffset = l.split(b'\0')
+            entries.append((file, int(troffset)))
+        return entries
+
+    @active
+    def replace(self, file, offset):
+        """
         replace can only replace already committed entries
         that are not pending in the queue
-        '''
-
-        if file not in self._map:
+        """
+        if file in self._newfiles:
+            if not offset:
+                return
+            self._newfiles.remove(file)
+            self._offsetmap[file] = offset
+        elif file in self._offsetmap:
+            if not offset:
+                del self._offsetmap[file]
+                self._newfiles.add(file)
+            else:
+                self._offsetmap[file] = offset
+        else:
             raise KeyError(file)
-        index = self._map[file]
-        self._entries[index] = (file, offset, data)
         self._file.write(b"%s\0%d\n" % (file, offset))
         self._file.flush()
 
@@ -447,9 +476,9 @@ class transaction(util.transactional):
 
     @active
     def writepending(self):
-        '''write pending file to temporary version
+        """write pending file to temporary version
 
-        This is used to allow hooks to view a transaction before commit'''
+        This is used to allow hooks to view a transaction before commit"""
         categories = sorted(self._pendingcallback)
         for cat in categories:
             # remove callback since the data will have been flushed
@@ -460,8 +489,7 @@ class transaction(util.transactional):
 
     @active
     def hasfinalize(self, category):
-        """check is a callback already exist for a category
-        """
+        """check is a callback already exist for a category"""
         return category in self._finalizecallback
 
     @active
@@ -504,11 +532,11 @@ class transaction(util.transactional):
 
     @active
     def addvalidator(self, category, callback):
-        """ adds a callback to be called when validating the transaction.
+        """adds a callback to be called when validating the transaction.
 
         The transaction will be given as the first argument to the callback.
 
-        callback should raise exception if to abort transaction """
+        callback should raise exception if to abort transaction"""
         self._validatecallback[category] = callback
 
     @active
@@ -552,7 +580,8 @@ class transaction(util.transactional):
                     self._report(
                         b"couldn't remove %s: %s\n" % (vfs.join(b), inst)
                     )
-        self._entries = []
+        self._offsetmap = {}
+        self._newfiles = set()
         self._writeundo()
         if self._after:
             self._after()
@@ -594,9 +623,9 @@ class transaction(util.transactional):
 
     @active
     def abort(self):
-        '''abort the transaction (generally called on error, or when the
+        """abort the transaction (generally called on error, or when the
         transaction is not explicitly committed before going out of
-        scope)'''
+        scope)"""
         self._abort()
 
     def _writeundo(self):
@@ -629,13 +658,14 @@ class transaction(util.transactional):
         undobackupfile.close()
 
     def _abort(self):
+        entries = self.readjournal()
         self._count = 0
         self._usages = 0
         self._file.close()
         self._backupsfile.close()
 
         try:
-            if not self._entries and not self._backupentries:
+            if not entries and not self._backupentries:
                 if self._backupjournal:
                     self._opener.unlink(self._backupjournal)
                 if self._journal:
@@ -654,7 +684,7 @@ class transaction(util.transactional):
                     self._report,
                     self._opener,
                     self._vfsmap,
-                    self._entries,
+                    entries,
                     self._backupentries,
                     False,
                     checkambigfiles=self._checkambigfiles,
@@ -696,7 +726,7 @@ def rollback(opener, vfsmap, file, report, checkambigfiles=None):
     for l in lines:
         try:
             f, o = l.split(b'\0')
-            entries.append((f, int(o), None))
+            entries.append((f, int(o)))
         except ValueError:
             report(
                 _(b"couldn't read journal entry %r!\n") % pycompat.bytestr(l)

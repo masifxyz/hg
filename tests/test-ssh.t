@@ -43,19 +43,19 @@ configure for serving
 repo not found error
 
   $ hg clone -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" ssh://user@dummy/nonexistent local
-  remote: abort: repository nonexistent not found!
-  abort: no suitable response from remote hg!
+  remote: abort: repository nonexistent not found
+  abort: no suitable response from remote hg
   [255]
   $ hg clone -q -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" ssh://user@dummy/nonexistent local
-  remote: abort: repository nonexistent not found!
-  abort: no suitable response from remote hg!
+  remote: abort: repository nonexistent not found
+  abort: no suitable response from remote hg
   [255]
 
 non-existent absolute path
 
   $ hg clone -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" ssh://user@dummy/`pwd`/nonexistent local
-  remote: abort: repository $TESTTMP/nonexistent not found!
-  abort: no suitable response from remote hg!
+  remote: abort: repository $TESTTMP/nonexistent not found
+  abort: no suitable response from remote hg
   [255]
 
 clone remote via stream
@@ -84,8 +84,8 @@ clone bookmarks via stream
   $ hg -R local-stream book mybook
   $ hg clone -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" --stream ssh://user@dummy/local-stream stream2
   streaming all changes
-  9 files to transfer, 870 bytes of data
-  transferred 870 bytes in * seconds (*) (glob)
+  16 files to transfer, * of data (glob)
+  transferred * in * seconds (*) (glob)
   updating to branch default
   2 files updated, 0 files merged, 0 files removed, 0 files unresolved
   $ cd stream2
@@ -135,8 +135,8 @@ pull from wrong ssh URL
 
   $ hg pull -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" ssh://user@dummy/doesnotexist
   pulling from ssh://user@dummy/doesnotexist
-  remote: abort: repository doesnotexist not found!
-  abort: no suitable response from remote hg!
+  remote: abort: repository doesnotexist not found
+  abort: no suitable response from remote hg
   [255]
 
 local change
@@ -331,9 +331,10 @@ try again with remote chg, which should succeed as well
   remote: adding changesets
   remote: adding manifests
   remote: adding file changes
+  remote: added 1 changesets with 1 changes to 1 files (py3 !)
   remote: KABOOM
   remote: KABOOM IN PROCESS
-  remote: added 1 changesets with 1 changes to 1 files
+  remote: added 1 changesets with 1 changes to 1 files (no-py3 !)
 
 #endif
 
@@ -360,7 +361,7 @@ results here)
 
   $ hg push ssh://user:erroneouspwd@dummy/remote
   pushing to ssh://user:*@dummy/remote (glob)
-  abort: password in URL not supported!
+  abort: password in URL not supported
   [255]
 
   $ cd $TESTTMP
@@ -379,7 +380,7 @@ Test remote paths with spaces (issue2983):
   73649e48688a
 
   $ hg id --ssh "\"$PYTHON\" \"$TESTDIR/dummyssh\"" "ssh://user@dummy/a repo#noNoNO"
-  abort: unknown revision 'noNoNO'!
+  abort: unknown revision 'noNoNO'
   [255]
 
 Test (non-)escaping of remote paths with spaces when cloning (issue3145):
@@ -387,7 +388,7 @@ Test (non-)escaping of remote paths with spaces when cloning (issue3145):
   $ hg clone --ssh "\"$PYTHON\" \"$TESTDIR/dummyssh\"" "ssh://user@dummy/a repo"
   destination directory: a repo
   abort: destination 'a repo' is not empty
-  [255]
+  [10]
 
 Make sure hg is really paranoid in serve --stdio mode. It used to be
 possible to get a debugger REPL by specifying a repo named --debugger.
@@ -420,12 +421,12 @@ parameters:
 
   $ hg id --ssh "sh ssh.sh" "ssh://user@dummy/a'repo"
   remote: Illegal repository "$TESTTMP/a'repo"
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
   $ hg id --ssh "sh ssh.sh" --remotecmd hacking "ssh://user@dummy/a'repo"
   remote: Illegal command "hacking -R 'a'\''repo' serve --stdio"
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
   $ SSH_ORIGINAL_COMMAND="'hg' -R 'a'repo' serve --stdio" "$PYTHON" "$TESTDIR/../contrib/hg-ssh"
@@ -675,7 +676,7 @@ abort with no error hint when there is a ssh problem when pulling
 
   $ hg pull ssh://brokenrepository -e "\"$PYTHON\" \"$TESTDIR/dummyssh\""
   pulling from ssh://brokenrepository/
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 
 abort with configured error hint when there is a ssh problem when pulling
@@ -683,7 +684,7 @@ abort with configured error hint when there is a ssh problem when pulling
   $ hg pull ssh://brokenrepository -e "\"$PYTHON\" \"$TESTDIR/dummyssh\"" \
   > --config ui.ssherrorhint="Please see http://company/internalwiki/ssh.html"
   pulling from ssh://brokenrepository/
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   (Please see http://company/internalwiki/ssh.html)
   [255]
 
@@ -696,11 +697,11 @@ test that custom environment is passed down to ssh executable
   $ hg pull ssh://something --config ui.ssh="sh dumpenv"
   pulling from ssh://something/
   remote: 
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
   $ hg pull ssh://something --config ui.ssh="sh dumpenv" --config sshenv.VAR=17
   pulling from ssh://something/
   remote: 17
-  abort: no suitable response from remote hg!
+  abort: no suitable response from remote hg
   [255]
 

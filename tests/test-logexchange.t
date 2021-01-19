@@ -481,15 +481,15 @@ Testing for a single remote name which exists
 Testing for a literal name which does not exists, which should fail.
 
   $ hg log -r 'remotebranches(def)' -GT "{rev}:{node|short} {remotenames}\n"
-  abort: remote name 'def' does not exist!
+  abort: remote name 'def' does not exist
   [255]
 
   $ hg log -r 'remotebookmarks("server3")' -GT "{rev}:{node|short} {remotenames}\n"
-  abort: remote name 'server3' does not exist!
+  abort: remote name 'server3' does not exist
   [255]
 
   $ hg log -r 'remotenames("server3")' -GT "{rev}:{node|short} {remotenames}\n"
-  abort: remote name 'server3' does not exist!
+  abort: remote name 'server3' does not exist
   [255]
 
 Testing for a pattern which does not match anything, which shouldn't fail.
@@ -500,15 +500,15 @@ Testing for multiple names, which is not supported.
 
   $ hg log -r 'remotenames("re:default", "re:server2")' -GT "{rev}:{node|short} {remotenames}\n"
   hg: parse error: only one argument accepted
-  [255]
+  [10]
 
   $ hg log -r 'remotebranches("default/wat", "server2/wat")' -GT "{rev}:{node|short} {remotebranches}\n"
   hg: parse error: only one argument accepted
-  [255]
+  [10]
 
   $ hg log -r 'remotebookmarks("default/foo", "server2/foo")' -GT "{rev}:{node|short} {remotebookmarks}\n"
   hg: parse error: only one argument accepted
-  [255]
+  [10]
 
 Testing pattern matching
 

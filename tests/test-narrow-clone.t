@@ -69,7 +69,7 @@ BUG: local-to-local narrow clones should work, but don't.
   abort: server does not support narrow clones
   [255]
   $ hg tracked -R narrow-via-localpeer
-  abort: repository narrow-via-localpeer not found!
+  abort: repository narrow-via-localpeer not found
   [255]
   $ rm -Rf narrow-via-localpeer
 
@@ -254,8 +254,8 @@ Testing the --narrowspec flag to clone
 
   $ hg clone ssh://user@dummy/master specfile --narrowspec narrowspecs
   reading narrowspec from '$TESTTMP/narrowspecs'
-  abort: cannot specify other files using '%include' in narrowspec
-  [255]
+  config error: cannot specify other files using '%include' in narrowspec
+  [30]
 
   $ cat > narrowspecs <<EOF
   > [include]

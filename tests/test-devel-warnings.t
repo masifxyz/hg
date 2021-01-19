@@ -104,6 +104,7 @@
    */hg:* in <module> (glob) (?)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py* in callcatch (glob)
@@ -120,6 +121,7 @@
    */hg:* in <module> (glob) (?)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -142,6 +144,7 @@
    */mercurial/commandserver.py:* in runcommand (glob)
    */mercurial/commandserver.py:* in _dispatchcommand (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -184,6 +187,7 @@ Stripping from a transaction
    */hg:* in <module> (glob) (?)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py* in callcatch (glob)
@@ -201,6 +205,7 @@ Stripping from a transaction
    */hg:* in <module> (glob)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -223,6 +228,7 @@ Stripping from a transaction
    */mercurial/commandserver.py:* in runcommand (glob)
    */mercurial/commandserver.py:* in _dispatchcommand (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -247,6 +253,7 @@ Stripping from a transaction
    */hg:* in <module> (glob) (?)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py* in callcatch (glob)
@@ -271,6 +278,7 @@ Stripping from a transaction
    */hg:* in <module> (glob)
    */mercurial/dispatch.py:* in run (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -293,6 +301,7 @@ Stripping from a transaction
    */mercurial/commandserver.py:* in runcommand (glob)
    */mercurial/commandserver.py:* in _dispatchcommand (glob)
    */mercurial/dispatch.py:* in dispatch (glob)
+   */mercurial/dispatch.py:* in _rundispatch (glob)
    */mercurial/dispatch.py:* in _runcatch (glob)
    */mercurial/dispatch.py:* in _callcatch (glob)
    */mercurial/scmutil.py:* in callcatch (glob)
@@ -310,9 +319,9 @@ Stripping from a transaction
 Test programming error failure:
 
   $ hg buggytransaction 2>&1 | egrep -v '^  '
-  ** Unknown exception encountered with possibly-broken third-party extension buggylocking
+  ** Unknown exception encountered with possibly-broken third-party extension "buggylocking" (version N/A)
   ** which supports versions unknown of Mercurial.
-  ** Please disable buggylocking and try your action again.
+  ** Please disable "buggylocking" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)
@@ -322,9 +331,9 @@ Test programming error failure:
   *ProgrammingError: transaction requires locking (glob)
 
   $ hg programmingerror 2>&1 | egrep -v '^  '
-  ** Unknown exception encountered with possibly-broken third-party extension buggylocking
+  ** Unknown exception encountered with possibly-broken third-party extension "buggylocking" (version N/A)
   ** which supports versions unknown of Mercurial.
-  ** Please disable buggylocking and try your action again.
+  ** Please disable "buggylocking" and try your action again.
   ** If that fixes the bug please report it to the extension author.
   ** Python * (glob)
   ** Mercurial Distributed SCM (*) (glob)

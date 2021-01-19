@@ -43,9 +43,9 @@ Test that histedit learns about obsolescence not stored in histedit state
   $ echo "pick `hg log -r 2 -T '{node|short}'`" >> plan
   $ echo "edit `hg log -r 1 -T '{node|short}'`" >> plan
   $ hg histedit -r 'all()' --commands plan
-  Editing (1b2d564fad96), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (1b2d564fad96), commit as needed now to split the change
+  (to edit 1b2d564fad96, `hg histedit --continue` after making changes)
+  [240]
   $ hg st
   A b
   A c
@@ -70,9 +70,9 @@ With some node gone missing during the edit.
   $ echo "pick `hg log -r 5 -T '{node|short}'`" >> plan
   $ echo "edit `hg log -r 4 -T '{node|short}'`" >> plan
   $ hg histedit -r 'all()' --commands plan
-  Editing (49d44ab2be1b), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (49d44ab2be1b), commit as needed now to split the change
+  (to edit 49d44ab2be1b, `hg histedit --continue` after making changes)
+  [240]
   $ hg st
   A b
   A d
@@ -139,7 +139,7 @@ Base setup for the rest of the testing
   #
   # Commands:
   #
-  #  e, edit = use commit, but stop for amending
+  #  e, edit = use commit, but allow edits before making new commit
   #  m, mess = edit commit message without changing commit content
   #  p, pick = use commit
   #  b, base = checkout changeset and apply further changesets from there
@@ -225,9 +225,9 @@ Test that rewriting leaving instability behind is allowed
   > edit b346ab9a313d 6 c
   > EOF
   0 files updated, 0 files merged, 1 files removed, 0 files unresolved
-  Editing (b346ab9a313d), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (b346ab9a313d), commit as needed now to split the change
+  (to edit b346ab9a313d, `hg histedit --continue` after making changes)
+  [240]
   $ echo c >> c
   $ hg histedit --continue
   1 new orphan changesets
@@ -293,8 +293,8 @@ Check that histedit respect immutability
 -------------------------------------------
 
   $ cat >> $HGRCPATH << EOF
-  > [ui]
-  > logtemplate= {rev}:{node|short} ({phase}) {desc|firstline}\n
+  > [command-templates]
+  > log = {rev}:{node|short} ({phase}) {desc|firstline}\n
   > EOF
 
   $ hg ph -pv '.^'
@@ -309,7 +309,7 @@ Check that histedit respect immutability
   $ hg histedit -r '.~2'
   abort: cannot edit public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
 
 
 Prepare further testing
@@ -359,9 +359,9 @@ New-commit as draft (default)
   > pick ee118ab9fa44 16 k
   > EOF
   0 files updated, 0 files merged, 6 files removed, 0 files unresolved
-  Editing (b449568bf7fc), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (b449568bf7fc), commit as needed now to split the change
+  (to edit b449568bf7fc, `hg histedit --continue` after making changes)
+  [240]
   $ echo f >> f
   $ hg histedit --continue
   $ hg log -G
@@ -401,9 +401,9 @@ New-commit as secret (config)
   > pick ee118ab9fa44 16 k
   > EOF
   0 files updated, 0 files merged, 6 files removed, 0 files unresolved
-  Editing (b449568bf7fc), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (b449568bf7fc), commit as needed now to split the change
+  (to edit b449568bf7fc, `hg histedit --continue` after making changes)
+  [240]
   $ echo f >> f
   $ hg histedit --continue
   $ hg log -G
@@ -527,9 +527,9 @@ attempted later.
   > roll 3a6c53ee7f3d 17 j
   > edit ee118ab9fa44 18 k
   > EOF
-  Editing (ee118ab9fa44), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (ee118ab9fa44), commit as needed now to split the change
+  (to edit ee118ab9fa44, `hg histedit --continue` after making changes)
+  [240]
 
 #if abortcommand
 when in dry-run mode
@@ -566,9 +566,9 @@ when in dry-run mode
   > pick 3a6c53ee7f3d 17 j
   > edit ee118ab9fa44 18 k
   > EOF
-  Editing (ee118ab9fa44), you may commit or record as needed now.
-  (hg histedit --continue to resume)
-  [1]
+  Editing (ee118ab9fa44), commit as needed now to split the change
+  (to edit ee118ab9fa44, `hg histedit --continue` after making changes)
+  [240]
   $ hg histedit --continue --config experimental.evolution.track-operation=1
   $ hg log -G
   @  23:175d6b286a22 (secret) k

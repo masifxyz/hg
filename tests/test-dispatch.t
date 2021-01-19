@@ -29,7 +29,7 @@ Missing arg:
    -T --template TEMPLATE   display with template
   
   (use 'hg cat -h' to show more help)
-  [255]
+  [10]
 
 Missing parameter for early option:
 
@@ -41,10 +41,10 @@ Missing parameter for early option:
 "--" may be an option value:
 
   $ hg -R -- log
-  abort: repository -- not found!
+  abort: repository -- not found
   [255]
   $ hg log -R --
-  abort: repository -- not found!
+  abort: repository -- not found
   [255]
   $ hg log -T --
   -- (no-eol)
@@ -62,21 +62,21 @@ Parsing of early options should stop at "--":
 Unparsable form of early options:
 
   $ hg cat --debugg
-  abort: option --debugger may not be abbreviated!
-  [255]
+  abort: option --debugger may not be abbreviated
+  [10]
 
 Parsing failure of early options should be detected before executing the
 command:
 
   $ hg log -b '--config=hooks.pre-log=false' default
-  abort: option --config may not be abbreviated!
-  [255]
+  abort: option --config may not be abbreviated
+  [10]
   $ hg log -b -R. default
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
   $ hg log --cwd .. -b --cwd=. default
-  abort: option --cwd may not be abbreviated!
-  [255]
+  abort: option --cwd may not be abbreviated
+  [10]
 
 However, we can't prevent it from loading extensions and configs:
 
@@ -85,14 +85,14 @@ However, we can't prevent it from loading extensions and configs:
   > EOF
   $ hg log -b '--config=extensions.bad=bad.py' default
   *** failed to import extension bad from bad.py: bad
-  abort: option --config may not be abbreviated!
-  [255]
+  abort: option --config may not be abbreviated
+  [10]
 
   $ mkdir -p badrepo/.hg
   $ echo 'invalid-syntax' > badrepo/.hg/hgrc
   $ hg log -b -Rbadrepo default
-  hg: parse error at badrepo/.hg/hgrc:1: invalid-syntax
-  [255]
+  config error at badrepo/.hg/hgrc:1: invalid-syntax
+  [30]
 
   $ hg log -b --cwd=inexistent default
   abort: $ENOENT$: 'inexistent'
@@ -110,11 +110,11 @@ applied before the command name is resolved:
   hg log: option -b not recognized
   error in definition for alias 'log': --config may only be given on the command
   line
-  [255]
+  [10]
 
   $ hg log -b '--config=defaults.log=--config=hooks.pre-log=false'
-  abort: option --config may not be abbreviated!
-  [255]
+  abort: option --config may not be abbreviated
+  [10]
 
 Shell aliases bypass any command parsing rules but for the early one:
 
@@ -126,31 +126,31 @@ Early options must come first if HGPLAIN=+strictflags is specified:
 
 #if no-chg
   $ HGPLAIN=+strictflags hg log -b --config='hooks.pre-log=false' default
-  abort: unknown revision '--config=hooks.pre-log=false'!
+  abort: unknown revision '--config=hooks.pre-log=false'
   [255]
   $ HGPLAIN=+strictflags hg log -b -R. default
-  abort: unknown revision '-R.'!
+  abort: unknown revision '-R.'
   [255]
   $ HGPLAIN=+strictflags hg log -b --cwd=. default
-  abort: unknown revision '--cwd=.'!
+  abort: unknown revision '--cwd=.'
   [255]
 #endif
   $ HGPLAIN=+strictflags hg log -b --debugger default
-  abort: unknown revision '--debugger'!
+  abort: unknown revision '--debugger'
   [255]
   $ HGPLAIN=+strictflags hg log -b --config='alias.log=!echo pwned' default
-  abort: unknown revision '--config=alias.log=!echo pwned'!
+  abort: unknown revision '--config=alias.log=!echo pwned'
   [255]
 
   $ HGPLAIN=+strictflags hg log --config='hooks.pre-log=false' -b default
-  abort: option --config may not be abbreviated!
-  [255]
+  abort: option --config may not be abbreviated
+  [10]
   $ HGPLAIN=+strictflags hg log -q --cwd=.. -b default
-  abort: option --cwd may not be abbreviated!
-  [255]
+  abort: option --cwd may not be abbreviated
+  [10]
   $ HGPLAIN=+strictflags hg log -q -R . -b default
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
 
   $ HGPLAIN=+strictflags hg --config='hooks.pre-log=false' log -b default
   abort: pre-log hook exited with status 1
@@ -197,8 +197,8 @@ specified" should include filename even when it is empty
 No repo:
 
   $ hg cat
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
 
 #endif
 

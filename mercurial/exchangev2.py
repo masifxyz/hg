@@ -79,7 +79,9 @@ def pull(pullop):
     # Ensure all new changesets are draft by default. If the repo is
     # publishing, the phase will be adjusted by the loop below.
     if csetres[b'added']:
-        phases.registernew(repo, tr, phases.draft, csetres[b'added'])
+        phases.registernew(
+            repo, tr, phases.draft, [repo[n].rev() for n in csetres[b'added']]
+        )
 
     # And adjust the phase of all changesets accordingly.
     for phasenumber, phase in phases.phasenames.items():
@@ -87,7 +89,10 @@ def pull(pullop):
             continue
 
         phases.advanceboundary(
-            repo, tr, phasenumber, csetres[b'nodesbyphase'][phase],
+            repo,
+            tr,
+            phasenumber,
+            csetres[b'nodesbyphase'][phase],
         )
 
     # Write bookmark updates.
@@ -187,7 +192,10 @@ def _checkuserawstorefiledata(pullop):
 def _fetchrawstorefiles(repo, remote):
     with remote.commandexecutor() as e:
         objs = e.callcommand(
-            b'rawstorefiledata', {b'files': [b'changelog', b'manifestlog'],}
+            b'rawstorefiledata',
+            {
+                b'files': [b'changelog', b'manifestlog'],
+            },
         ).result()
 
         # First object is a summary of files data that follows.
@@ -343,16 +351,21 @@ def _processchangesetdata(repo, tr, objs):
     )
 
     manifestnodes = {}
+    added = []
 
     def linkrev(node):
         repo.ui.debug(b'add changeset %s\n' % short(node))
         # Linkrev for changelog is always self.
         return len(cl)
 
+    def ondupchangeset(cl, node):
+        added.append(node)
+
     def onchangeset(cl, node):
         progress.increment()
 
         revision = cl.changelogrevision(node)
+        added.append(node)
 
         # We need to preserve the mapping of changelog revision to node
         # so we can set the linkrev accordingly when manifests are added.
@@ -403,8 +416,12 @@ def _processchangesetdata(repo, tr, objs):
                 0,
             )
 
-    added = cl.addgroup(
-        iterrevisions(), linkrev, weakref.proxy(tr), addrevisioncb=onchangeset
+    cl.addgroup(
+        iterrevisions(),
+        linkrev,
+        weakref.proxy(tr),
+        addrevisioncb=onchangeset,
+        duplicaterevisioncb=ondupchangeset,
     )
 
     progress.complete()
@@ -516,12 +533,15 @@ def _fetchmanifests(repo, tr, remote, manifestnodes):
             # Chomp off header object.
             next(objs)
 
-            added.extend(
-                rootmanifest.addgroup(
-                    iterrevisions(objs, progress),
-                    linkrevs.__getitem__,
-                    weakref.proxy(tr),
-                )
+            def onchangeset(cl, node):
+                added.append(node)
+
+            rootmanifest.addgroup(
+                iterrevisions(objs, progress),
+                linkrevs.__getitem__,
+                weakref.proxy(tr),
+                addrevisioncb=onchangeset,
+                duplicaterevisioncb=onchangeset,
             )
 
     progress.complete()
@@ -732,7 +752,10 @@ def _fetchfilesfromcsets(
         with remote.commandexecutor() as e:
             args = {
                 b'revisions': [
-                    {b'type': b'changesetexplicit', b'nodes': batch,}
+                    {
+                        b'type': b'changesetexplicit',
+                        b'nodes': batch,
+                    }
                 ],
                 b'fields': fields,
                 b'haveparents': haveparents,

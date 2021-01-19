@@ -1000,7 +1000,7 @@ class curseschunkselector(object):
 
     def toggleallbetween(self):
         """toggle applied on or off for all items in range [lastapplied,
-        current]. """
+        current]."""
         if (
             not self.lastapplieditem
             or self.currentselecteditem == self.lastapplieditem
@@ -1894,7 +1894,7 @@ are you sure you want to review/edit and confirm the selected changes [yn]?
         elif keypressed in ["H", "KEY_SLEFT"]:
             self.leftarrowshiftevent()
         elif keypressed in ["q"]:
-            raise error.Abort(_(b'user quit'))
+            raise error.CanceledError(_(b'user quit'))
         elif keypressed in ['a']:
             self.flipselections()
         elif keypressed in ["c"]:

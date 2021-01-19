@@ -23,7 +23,7 @@ common commands affecting largefile.
   > EOF
 
   $ hg config extensions
-  abort: repository requires features unknown to this Mercurial: largefiles!
+  abort: repository requires features unknown to this Mercurial: largefiles
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 
@@ -42,7 +42,7 @@ common commands affecting largefile.
 
   $ hg config extensions
   \*\*\* failed to import extension largefiles from missing.py: [Errno *] $ENOENT$: 'missing.py' (glob)
-  abort: repository requires features unknown to this Mercurial: largefiles!
+  abort: repository requires features unknown to this Mercurial: largefiles
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 
@@ -125,7 +125,7 @@ TODO: Ideally, this should mention the largefile, not the standin
   $ hg clone -q . ../fetch
   $ hg --config extensions.fetch= fetch ../fetch
   abort: uncommitted changes
-  [255]
+  [20]
   $ hg up -qC
   $ cd ..
 
@@ -1009,7 +1009,7 @@ enabling largefiles extension.
   $ hg -R enabledlocally root
   $TESTTMP/individualenabling/enabledlocally
   $ hg -R notenabledlocally root
-  abort: repository requires features unknown to this Mercurial: largefiles!
+  abort: repository requires features unknown to this Mercurial: largefiles
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
 
@@ -1026,7 +1026,7 @@ enabling largefiles extension.
   [255]
 
   $ hg clone enabledlocally clone-dst
-  abort: repository requires features unknown to this Mercurial: largefiles!
+  abort: repository requires features unknown to this Mercurial: largefiles
   (see https://mercurial-scm.org/wiki/MissingRequirement for more information)
   [255]
   $ test -d clone-dst

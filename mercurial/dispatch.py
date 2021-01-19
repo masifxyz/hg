@@ -7,7 +7,6 @@
 
 from __future__ import absolute_import, print_function
 
-import difflib
 import errno
 import getopt
 import io
@@ -36,13 +35,16 @@ from . import (
     help,
     hg,
     hook,
+    localrepo,
     profiling,
     pycompat,
     rcutil,
     registrar,
+    requirements as requirementsmod,
     scmutil,
     ui as uimod,
     util,
+    vfs,
 )
 
 from .utils import (
@@ -102,43 +104,43 @@ class request(object):
                 raise exc
 
 
+def _flushstdio(ui, err):
+    status = None
+    # In all cases we try to flush stdio streams.
+    if util.safehasattr(ui, b'fout'):
+        assert ui is not None  # help pytype
+        assert ui.fout is not None  # help pytype
+        try:
+            ui.fout.flush()
+        except IOError as e:
+            err = e
+            status = -1
+
+    if util.safehasattr(ui, b'ferr'):
+        assert ui is not None  # help pytype
+        assert ui.ferr is not None  # help pytype
+        try:
+            if err is not None and err.errno != errno.EPIPE:
+                ui.ferr.write(
+                    b'abort: %s\n' % encoding.strtolocal(err.strerror)
+                )
+            ui.ferr.flush()
+        # There's not much we can do about an I/O error here. So (possibly)
+        # change the status code and move on.
+        except IOError:
+            status = -1
+
+    return status
+
+
 def run():
     """run the command in sys.argv"""
     try:
         initstdio()
         with tracing.log('parse args into request'):
             req = request(pycompat.sysargv[1:])
-        err = None
-        try:
-            status = dispatch(req)
-        except error.StdioError as e:
-            err = e
-            status = -1
 
-        # In all cases we try to flush stdio streams.
-        if util.safehasattr(req.ui, b'fout'):
-            assert req.ui is not None  # help pytype
-            assert req.ui.fout is not None  # help pytype
-            try:
-                req.ui.fout.flush()
-            except IOError as e:
-                err = e
-                status = -1
-
-        if util.safehasattr(req.ui, b'ferr'):
-            assert req.ui is not None  # help pytype
-            assert req.ui.ferr is not None  # help pytype
-            try:
-                if err is not None and err.errno != errno.EPIPE:
-                    req.ui.ferr.write(
-                        b'abort: %s\n' % encoding.strtolocal(err.strerror)
-                    )
-                req.ui.ferr.flush()
-            # There's not much we can do about an I/O error here. So (possibly)
-            # change the status code and move on.
-            except IOError:
-                status = -1
-
+        status = dispatch(req)
         _silencestdio()
     except KeyboardInterrupt:
         # Catch early/late KeyboardInterrupt as last ditch. Here nothing will
@@ -164,39 +166,50 @@ if pycompat.ispy3:
         # "just work," here we change the sys.* streams to disable line ending
         # normalization, ensuring compatibility with our ui type.
 
-        # write_through is new in Python 3.7.
-        kwargs = {
-            "newline": "\n",
-            "line_buffering": sys.stdout.line_buffering,
-        }
-        if util.safehasattr(sys.stdout, "write_through"):
-            kwargs["write_through"] = sys.stdout.write_through
-        sys.stdout = io.TextIOWrapper(
-            sys.stdout.buffer, sys.stdout.encoding, sys.stdout.errors, **kwargs
-        )
+        if sys.stdout is not None:
+            # write_through is new in Python 3.7.
+            kwargs = {
+                "newline": "\n",
+                "line_buffering": sys.stdout.line_buffering,
+            }
+            if util.safehasattr(sys.stdout, "write_through"):
+                kwargs["write_through"] = sys.stdout.write_through
+            sys.stdout = io.TextIOWrapper(
+                sys.stdout.buffer,
+                sys.stdout.encoding,
+                sys.stdout.errors,
+                **kwargs
+            )
 
-        kwargs = {
-            "newline": "\n",
-            "line_buffering": sys.stderr.line_buffering,
-        }
-        if util.safehasattr(sys.stderr, "write_through"):
-            kwargs["write_through"] = sys.stderr.write_through
-        sys.stderr = io.TextIOWrapper(
-            sys.stderr.buffer, sys.stderr.encoding, sys.stderr.errors, **kwargs
-        )
+        if sys.stderr is not None:
+            kwargs = {
+                "newline": "\n",
+                "line_buffering": sys.stderr.line_buffering,
+            }
+            if util.safehasattr(sys.stderr, "write_through"):
+                kwargs["write_through"] = sys.stderr.write_through
+            sys.stderr = io.TextIOWrapper(
+                sys.stderr.buffer,
+                sys.stderr.encoding,
+                sys.stderr.errors,
+                **kwargs
+            )
 
-        # No write_through on read-only stream.
-        sys.stdin = io.TextIOWrapper(
-            sys.stdin.buffer,
-            sys.stdin.encoding,
-            sys.stdin.errors,
-            # None is universal newlines mode.
-            newline=None,
-            line_buffering=sys.stdin.line_buffering,
-        )
+        if sys.stdin is not None:
+            # No write_through on read-only stream.
+            sys.stdin = io.TextIOWrapper(
+                sys.stdin.buffer,
+                sys.stdin.encoding,
+                sys.stdin.errors,
+                # None is universal newlines mode.
+                newline=None,
+                line_buffering=sys.stdin.line_buffering,
+            )
 
     def _silencestdio():
         for fp in (sys.stdout, sys.stderr):
+            if fp is None:
+                continue
             # Check if the file is okay
             try:
                 fp.flush()
@@ -204,9 +217,7 @@ if pycompat.ispy3:
             except IOError:
                 pass
             # Otherwise mark it as closed to silence "Exception ignored in"
-            # message emitted by the interpreter finalizer. Be careful to
-            # not close procutil.stdout, which may be a fdopen-ed file object
-            # and its close() actually closes the underlying file descriptor.
+            # message emitted by the interpreter finalizer.
             try:
                 fp.close()
             except IOError:
@@ -223,47 +234,27 @@ else:
         pass
 
 
-def _getsimilar(symbols, value):
-    sim = lambda x: difflib.SequenceMatcher(None, value, x).ratio()
-    # The cutoff for similarity here is pretty arbitrary. It should
-    # probably be investigated and tweaked.
-    return [s for s in symbols if sim(s) > 0.6]
-
-
-def _reportsimilar(write, similar):
-    if len(similar) == 1:
-        write(_(b"(did you mean %s?)\n") % similar[0])
-    elif similar:
-        ss = b", ".join(sorted(similar))
-        write(_(b"(did you mean one of %s?)\n") % ss)
-
-
-def _formatparse(write, inst):
-    similar = []
-    if isinstance(inst, error.UnknownIdentifier):
-        # make sure to check fileset first, as revset can invoke fileset
-        similar = _getsimilar(inst.symbols, inst.function)
-    if len(inst.args) > 1:
-        write(
-            _(b"hg: parse error at %s: %s\n")
-            % (pycompat.bytestr(inst.args[1]), inst.args[0])
-        )
-        if inst.args[0].startswith(b' '):
-            write(_(b"unexpected leading whitespace\n"))
-    else:
-        write(_(b"hg: parse error: %s\n") % inst.args[0])
-        _reportsimilar(write, similar)
-    if inst.hint:
-        write(_(b"(%s)\n") % inst.hint)
-
-
 def _formatargs(args):
     return b' '.join(procutil.shellquote(a) for a in args)
 
 
 def dispatch(req):
     """run the command specified in req.args; returns an integer status code"""
-    with tracing.log('dispatch.dispatch'):
+    err = None
+    try:
+        status = _rundispatch(req)
+    except error.StdioError as e:
+        err = e
+        status = -1
+
+    ret = _flushstdio(req.ui, err)
+    if ret:
+        status = ret
+    return status
+
+
+def _rundispatch(req):
+    with tracing.log('dispatch._rundispatch'):
         if req.ferr:
             ferr = req.ferr
         elif req.ui:
@@ -288,12 +279,7 @@ def dispatch(req):
             if req.fmsg:
                 req.ui.fmsg = req.fmsg
         except error.Abort as inst:
-            ferr.write(_(b"abort: %s\n") % inst.message)
-            if inst.hint:
-                ferr.write(_(b"(%s)\n") % inst.hint)
-            return -1
-        except error.ParseError as inst:
-            _formatparse(ferr.write, inst)
+            ferr.write(inst.format())
             return -1
 
         msg = _formatargs(req.args)
@@ -484,14 +470,17 @@ def _callcatch(ui, func):
     config parsing and commands. besides, use handlecommandexception to handle
     uncaught exceptions.
     """
+    detailed_exit_code = -1
     try:
         return scmutil.callcatch(ui, func)
     except error.AmbiguousCommand as inst:
+        detailed_exit_code = 10
         ui.warn(
             _(b"hg: command '%s' is ambiguous:\n    %s\n")
             % (inst.prefix, b" ".join(inst.matches))
         )
     except error.CommandError as inst:
+        detailed_exit_code = 10
         if inst.command:
             ui.pager(b'help')
             msgbytes = pycompat.bytestr(inst.message)
@@ -500,10 +489,8 @@ def _callcatch(ui, func):
         else:
             ui.warn(_(b"hg: %s\n") % inst.message)
             ui.warn(_(b"(use 'hg help -v' for a list of global options)\n"))
-    except error.ParseError as inst:
-        _formatparse(ui.warn, inst)
-        return -1
     except error.UnknownCommand as inst:
+        detailed_exit_code = 10
         nocmdmsg = _(b"hg: unknown command '%s'\n") % inst.command
         try:
             # check if the command is in a disabled extension
@@ -516,10 +503,10 @@ def _callcatch(ui, func):
         except (error.UnknownCommand, error.Abort):
             suggested = False
             if inst.all_commands:
-                sim = _getsimilar(inst.all_commands, inst.command)
+                sim = error.getsimilar(inst.all_commands, inst.command)
                 if sim:
                     ui.warn(nocmdmsg)
-                    _reportsimilar(ui.warn, sim)
+                    ui.warn(b"(%s)\n" % error.similarity_hint(sim))
                     suggested = True
             if not suggested:
                 ui.warn(nocmdmsg)
@@ -532,7 +519,10 @@ def _callcatch(ui, func):
         if not handlecommandexception(ui):
             raise
 
-    return -1
+    if ui.configbool(b'ui', b'detailed-exit-code'):
+        return detailed_exit_code
+    else:
+        return -1
 
 
 def aliasargs(fn, givenargs):
@@ -550,7 +540,7 @@ def aliasargs(fn, givenargs):
             nums.append(num)
             if num < len(givenargs):
                 return givenargs[num]
-            raise error.Abort(_(b'too few arguments for command alias'))
+            raise error.InputError(_(b'too few arguments for command alias'))
 
         cmd = re.sub(br'\$(\d+|\$)', replacer, cmd)
         givenargs = [x for i, x in enumerate(givenargs) if i not in nums]
@@ -559,10 +549,10 @@ def aliasargs(fn, givenargs):
 
 
 def aliasinterpolate(name, args, cmd):
-    '''interpolate args into cmd for shell aliases
+    """interpolate args into cmd for shell aliases
 
     This also handles $0, $@ and "$@".
-    '''
+    """
     # util.interpolate can't deal with "$@" (with quotes) because it's only
     # built to match prefix + patterns.
     replacemap = {b'$%d' % (i + 1): arg for i, arg in enumerate(args)}
@@ -670,12 +660,18 @@ class cmdalias(object):
         except error.UnknownCommand:
             self.badalias = _(
                 b"alias '%s' resolves to unknown command '%s'"
-            ) % (self.name, cmd,)
+            ) % (
+                self.name,
+                cmd,
+            )
             self.unknowncmd = True
         except error.AmbiguousCommand:
             self.badalias = _(
                 b"alias '%s' resolves to ambiguous command '%s'"
-            ) % (self.name, cmd,)
+            ) % (
+                self.name,
+                cmd,
+            )
 
     def _populatehelp(self, ui, name, cmd, fn, defaulthelp=None):
         # confine strings to be passed to i18n.gettext()
@@ -734,7 +730,7 @@ class cmdalias(object):
                     hint = _(b"'%s' is provided by '%s' extension") % (cmd, ext)
                 except error.UnknownCommand:
                     pass
-            raise error.Abort(self.badalias, hint=hint)
+            raise error.ConfigError(self.badalias, hint=hint)
         if self.shadows:
             ui.debug(
                 b"alias '%s' shadows command '%s'\n" % (self.name, self.cmdname)
@@ -868,7 +864,7 @@ def _parseconfig(ui, config):
             ui.setconfig(section, name, value, b'--config')
             configs.append((section, name, value))
         except (IndexError, ValueError):
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b'malformed --config option: %r '
                     b'(use --config section.name=value)'
@@ -941,6 +937,30 @@ def runcommand(lui, repo, cmd, fullargs, ui, options, d, cmdpats, cmdoptions):
     return ret
 
 
+def _readsharedsourceconfig(ui, path):
+    """if the current repository is shared one, this tries to read
+    .hg/hgrc of shared source if we are in share-safe mode
+
+    Config read is loaded into the ui object passed
+
+    This should be called before reading .hg/hgrc or the main repo
+    as that overrides config set in shared source"""
+    try:
+        with open(os.path.join(path, b".hg", b"requires"), "rb") as fp:
+            requirements = set(fp.read().splitlines())
+            if not (
+                requirementsmod.SHARESAFE_REQUIREMENT in requirements
+                and requirementsmod.SHARED_REQUIREMENT in requirements
+            ):
+                return
+            hgvfs = vfs.vfs(os.path.join(path, b".hg"))
+            sharedvfs = localrepo._getsharedvfs(hgvfs, requirements)
+            root = sharedvfs.base
+            ui.readconfig(sharedvfs.join(b"hgrc"), root)
+    except IOError:
+        pass
+
+
 def _getlocal(ui, rpath, wd=None):
     """Return (path, local ui object) for the given target path.
 
@@ -961,13 +981,17 @@ def _getlocal(ui, rpath, wd=None):
     else:
         lui = ui.copy()
         if rcutil.use_repo_hgrc():
+            _readsharedsourceconfig(lui, path)
             lui.readconfig(os.path.join(path, b".hg", b"hgrc"), path)
+            lui.readconfig(os.path.join(path, b".hg", b"hgrc-not-shared"), path)
 
     if rpath:
         path = lui.expandpath(rpath)
         lui = ui.copy()
         if rcutil.use_repo_hgrc():
+            _readsharedsourceconfig(lui, path)
             lui.readconfig(os.path.join(path, b".hg", b"hgrc"), path)
+            lui.readconfig(os.path.join(path, b".hg", b"hgrc-not-shared"), path)
 
     return path, lui
 
@@ -1071,18 +1095,20 @@ def _dispatch(req):
         req.canonical_command = cmd
 
         if options[b"config"] != req.earlyoptions[b"config"]:
-            raise error.Abort(_(b"option --config may not be abbreviated!"))
+            raise error.InputError(_(b"option --config may not be abbreviated"))
         if options[b"cwd"] != req.earlyoptions[b"cwd"]:
-            raise error.Abort(_(b"option --cwd may not be abbreviated!"))
+            raise error.InputError(_(b"option --cwd may not be abbreviated"))
         if options[b"repository"] != req.earlyoptions[b"repository"]:
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b"option -R has to be separated from other options (e.g. not "
-                    b"-qR) and --repository may only be abbreviated as --repo!"
+                    b"-qR) and --repository may only be abbreviated as --repo"
                 )
             )
         if options[b"debugger"] != req.earlyoptions[b"debugger"]:
-            raise error.Abort(_(b"option --debugger may not be abbreviated!"))
+            raise error.InputError(
+                _(b"option --debugger may not be abbreviated")
+            )
         # don't validate --profile/--traceback, which can be enabled from now
 
         if options[b"encoding"]:
@@ -1187,7 +1213,7 @@ def _dispatch(req):
                         intents=func.intents,
                     )
                     if not repo.local():
-                        raise error.Abort(
+                        raise error.InputError(
                             _(b"repository '%s' is not local") % path
                         )
                     repo.ui.setconfig(
@@ -1208,7 +1234,7 @@ def _dispatch(req):
                                 req.earlyoptions[b'repository'] = guess
                                 return _dispatch(req)
                         if not path:
-                            raise error.RepoError(
+                            raise error.InputError(
                                 _(
                                     b"no repository found in"
                                     b" '%s' (.hg not found)"
@@ -1257,7 +1283,7 @@ def _exceptionwarning(ui):
     # of date) will be clueful enough to notice the implausible
     # version number and try updating.
     ct = util.versiontuple(n=2)
-    worst = None, ct, b''
+    worst = None, ct, b'', b''
     if ui.config(b'ui', b'supportcontact') is None:
         for name, mod in extensions.extensions():
             # 'testedwith' should be bytes, but not all extensions are ported
@@ -1265,10 +1291,11 @@ def _exceptionwarning(ui):
             testedwith = stringutil.forcebytestr(
                 getattr(mod, 'testedwith', b'')
             )
+            version = extensions.moduleversion(mod)
             report = getattr(mod, 'buglink', _(b'the extension author.'))
             if not testedwith.strip():
                 # We found an untested extension. It's likely the culprit.
-                worst = name, b'unknown', report
+                worst = name, b'unknown', report, version
                 break
 
             # Never blame on extensions bundled with Mercurial.
@@ -1282,20 +1309,21 @@ def _exceptionwarning(ui):
             lower = [t for t in tested if t < ct]
             nearest = max(lower or tested)
             if worst[0] is None or nearest < worst[1]:
-                worst = name, nearest, report
+                worst = name, nearest, report, version
     if worst[0] is not None:
-        name, testedwith, report = worst
+        name, testedwith, report, version = worst
         if not isinstance(testedwith, (bytes, str)):
             testedwith = b'.'.join(
                 [stringutil.forcebytestr(c) for c in testedwith]
             )
+        extver = version or _(b"(version N/A)")
         warning = _(
             b'** Unknown exception encountered with '
-            b'possibly-broken third-party extension %s\n'
+            b'possibly-broken third-party extension "%s" %s\n'
             b'** which supports versions %s of Mercurial.\n'
-            b'** Please disable %s and try your action again.\n'
+            b'** Please disable "%s" and try your action again.\n'
             b'** If that fixes the bug please report it to %s\n'
-        ) % (name, testedwith, name, stringutil.forcebytestr(report))
+        ) % (name, extver, testedwith, name, stringutil.forcebytestr(report))
     else:
         bugtracker = ui.config(b'ui', b'supportcontact')
         if bugtracker is None:
@@ -1309,12 +1337,22 @@ def _exceptionwarning(ui):
             + b'\n'
         )
     sysversion = pycompat.sysbytes(sys.version).replace(b'\n', b'')
+
+    def ext_with_ver(x):
+        ext = x[0]
+        ver = extensions.moduleversion(x[1])
+        if ver:
+            ext += b' ' + ver
+        return ext
+
     warning += (
         (_(b"** Python %s\n") % sysversion)
         + (_(b"** Mercurial Distributed SCM (version %s)\n") % util.version())
         + (
             _(b"** Extensions loaded: %s\n")
-            % b", ".join([x[0] for x in extensions.extensions()])
+            % b", ".join(
+                [ext_with_ver(x) for x in sorted(extensions.extensions())]
+            )
         )
     )
     return warning

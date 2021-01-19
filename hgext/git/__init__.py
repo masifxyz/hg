@@ -29,12 +29,23 @@ from . import (
     index,
 )
 
+# Note for extension authors: ONLY specify testedwith = 'ships-with-hg-core' for
+# extensions which SHIP WITH MERCURIAL. Non-mainline extensions should
+# be specifying the version(s) of Mercurial they are tested with, or
+# leave the attribute unspecified.
+testedwith = b'ships-with-hg-core'
+
 configtable = {}
 configitem = registrar.configitem(configtable)
 # git.log-index-cache-miss: internal knob for testing
 configitem(
-    b"git", b"log-index-cache-miss", default=False,
+    b"git",
+    b"log-index-cache-miss",
+    default=False,
 )
+
+getversion = gitutil.pygit2_version
+
 
 # TODO: extract an interface for this in core
 class gitstore(object):  # store.basicstore):
@@ -224,8 +235,7 @@ class gitbmstore(object):
         return bname
 
     def applychanges(self, repo, tr, changes):
-        """Apply a list of changes to bookmarks
-        """
+        """Apply a list of changes to bookmarks"""
         # TODO: this should respect transactions, but that's going to
         # require enlarging the gitbmstore to know how to do in-memory
         # temporary writes and read those back prior to transaction

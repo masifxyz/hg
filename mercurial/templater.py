@@ -312,9 +312,9 @@ def _scantemplate(tmpl, start, stop, quote=b'', raw=False):
 
 
 def _addparseerrorhint(inst, tmpl):
-    if len(inst.args) <= 1:
-        return  # no location
-    loc = inst.args[1]
+    if inst.location is None:
+        return
+    loc = inst.location
     # Offset the caret location by the number of newlines before the
     # location of the error, since we will replace one-char newlines
     # with the two-char literal r'\n'.
@@ -376,14 +376,22 @@ def parseexpr(expr):
     ('string', 'foo')
     >>> parseexpr(b'foo(bar)')
     ('func', ('symbol', 'foo'), ('symbol', 'bar'))
-    >>> parseexpr(b'foo(')
-    Traceback (most recent call last):
-      ...
-    ParseError: ('not a prefix: end', 4)
-    >>> parseexpr(b'"foo" "bar"')
-    Traceback (most recent call last):
-      ...
-    ParseError: ('invalid token', 7)
+    >>> from . import error
+    >>> from . import pycompat
+    >>> try:
+    ...   parseexpr(b'foo(')
+    ... except error.ParseError as e:
+    ...   pycompat.sysstr(e.message)
+    ...   e.location
+    'not a prefix: end'
+    4
+    >>> try:
+    ...   parseexpr(b'"foo" "bar"')
+    ... except error.ParseError as e:
+    ...   pycompat.sysstr(e.message)
+    ...   e.location
+    'invalid token'
+    7
     """
     try:
         return _parseexpr(expr)
@@ -443,7 +451,7 @@ def gettemplate(exp, context):
 
 
 def _runrecursivesymbol(context, mapping, key):
-    raise error.Abort(_(b"recursive reference '%s' in template") % key)
+    raise error.InputError(_(b"recursive reference '%s' in template") % key)
 
 
 def buildtemplate(exp, context):
@@ -655,7 +663,7 @@ class nullresourcemapper(resourcemapper):
 
 
 class engine(object):
-    '''template expansion engine.
+    """template expansion engine.
 
     template expansion works like this. a map file contains key=value
     pairs. if value is quoted, it is treated as string. otherwise, it
@@ -672,7 +680,7 @@ class engine(object):
     {key%format}.
 
     filter uses function to transform value. syntax is
-    {key|filter1|filter2|...}.'''
+    {key|filter1|filter2|...}."""
 
     def __init__(self, loader, filters=None, defaults=None, resources=None):
         self._loader = loader
@@ -773,9 +781,9 @@ class engine(object):
             return False
 
     def process(self, t, mapping):
-        '''Perform expansion. t is name of map element to expand.
+        """Perform expansion. t is name of map element to expand.
         mapping contains added elements for use during expansion. Is a
-        generator.'''
+        generator."""
         func, data = self._load(t)
         return self._expand(func, data, mapping)
 
@@ -849,7 +857,11 @@ def _readmapfile(fp, mapfile):
         if subresource:
             data = subresource.read()
             conf.parse(
-                abs, data, sections=sections, remap=remap, include=include,
+                abs,
+                data,
+                sections=sections,
+                remap=remap,
+                include=include,
             )
 
     data = fp.read()
@@ -1086,12 +1098,12 @@ def templatedir():
 
 
 def open_template(name, templatepath=None):
-    '''returns a file-like object for the given template, and its full path
+    """returns a file-like object for the given template, and its full path
 
     If the name is a relative path and we're in a frozen binary, the template
     will be read from the mercurial.templates package instead. The returned path
     will then be the relative path.
-    '''
+    """
     # Does the name point directly to a map file?
     if os.path.isfile(name) or os.path.isabs(name):
         return name, open(name, mode='rb')

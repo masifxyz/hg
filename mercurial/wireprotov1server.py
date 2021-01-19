@@ -19,6 +19,7 @@ from .pycompat import getattr
 
 from . import (
     bundle2,
+    bundlecaches,
     changegroup as changegroupmod,
     discovery,
     encoding,
@@ -272,7 +273,7 @@ def clonebundles(repo, proto):
     data center given the client's IP address.
     """
     return wireprototypes.bytesresponse(
-        repo.vfs.tryread(b'clonebundles.manifest')
+        repo.vfs.tryread(bundlecaches.CB_MANIFEST_FILE)
     )
 
 
@@ -387,8 +388,8 @@ def find_pullbundle(repo, proto, opts, clheads, heads, common):
     manifest = repo.vfs.tryread(b'pullbundles.manifest')
     if not manifest:
         return None
-    res = exchange.parseclonebundlesmanifest(repo, manifest)
-    res = exchange.filterclonebundleentries(repo, res)
+    res = bundlecaches.parseclonebundlesmanifest(repo, manifest)
+    res = bundlecaches.filterclonebundleentries(repo, res)
     if not res:
         return None
     cl = repo.unfiltered().changelog
@@ -601,10 +602,10 @@ def pushkey(repo, proto, namespace, key, old, new):
 
 @wireprotocommand(b'stream_out', permission=b'pull')
 def stream(repo, proto):
-    '''If the server supports streaming clone, it advertises the "stream"
+    """If the server supports streaming clone, it advertises the "stream"
     capability with a value representing the version and flags of the repo
     it is serving. Client checks to see if it understands the format.
-    '''
+    """
     return wireprototypes.streamreslegacy(streamclone.generatev1wireproto(repo))
 
 
@@ -684,9 +685,7 @@ def unbundle(repo, proto, heads):
                     # We did not change it to minimise code change.
                     # This need to be moved to something proper.
                     # Feel free to do it.
-                    procutil.stderr.write(b"abort: %s\n" % exc.message)
-                    if exc.hint is not None:
-                        procutil.stderr.write(b"(%s)\n" % exc.hint)
+                    procutil.stderr.write(exc.format())
                     procutil.stderr.flush()
                     return wireprototypes.pushres(
                         0, output.getvalue() if output else b''

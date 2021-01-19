@@ -9,9 +9,11 @@ Create a repository:
   lfs.usercache=$TESTTMP/.cache/lfs
   ui.slash=True
   ui.interactive=False
+  ui.detailed-exit-code=True
   ui.merge=internal:merge
   ui.mergemarkers=detailed
   ui.promptecho=True
+  ui.timeout.warn=15
   web.address=localhost
   web\.ipv6=(?:True|False) (re)
   web.server-header=testing stub value
@@ -46,6 +48,31 @@ Writes to stdio succeed and fail appropriately
   $ hg status ENOENT 2>/dev/full
   [255]
 #endif
+
+On Python 3, stdio may be None:
+
+  $ hg debuguiprompt --config ui.interactive=true 0<&-
+   abort: Bad file descriptor
+  [255]
+  $ hg version -q 0<&-
+  Mercurial Distributed SCM * (glob)
+
+#if py3
+  $ hg version -q 1>&-
+  abort: Bad file descriptor
+  [255]
+#else
+  $ hg version -q 1>&-
+#endif
+  $ hg unknown -q 1>&-
+  hg: unknown command 'unknown'
+  (did you mean debugknown?)
+  [10]
+
+  $ hg version -q 2>&-
+  Mercurial Distributed SCM * (glob)
+  $ hg unknown -q 2>&-
+  [10]
 
   $ hg commit -m test
 

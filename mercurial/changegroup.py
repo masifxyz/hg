@@ -316,20 +316,29 @@ class cg1unpacker(object):
             self.callback = progress.increment
 
             efilesset = set()
+            cgnodes = []
+
+            def ondupchangelog(cl, node):
+                if cl.rev(node) < clstart:
+                    cgnodes.append(node)
 
             def onchangelog(cl, node):
                 efilesset.update(cl.readfiles(node))
 
             self.changelogheader()
             deltas = self.deltaiter()
-            cgnodes = cl.addgroup(deltas, csmap, trp, addrevisioncb=onchangelog)
-            efiles = len(efilesset)
-
-            if not cgnodes:
+            if not cl.addgroup(
+                deltas,
+                csmap,
+                trp,
+                addrevisioncb=onchangelog,
+                duplicaterevisioncb=ondupchangelog,
+            ):
                 repo.ui.develwarn(
                     b'applied empty changelog from changegroup',
                     config=b'warn-empty-changegroup',
                 )
+            efiles = len(efilesset)
             clend = len(cl)
             changesets = clend - clstart
             progress.complete()
@@ -356,7 +365,7 @@ class cg1unpacker(object):
                 for cset in pycompat.xrange(clstart, clend):
                     mfnode = cl.changelogrevision(cset).manifest
                     mfest = ml[mfnode].readdelta()
-                    # store file cgnodes we must see
+                    # store file nodes we must see
                     for f, n in pycompat.iteritems(mfest):
                         needfiles.setdefault(f, set()).add(n)
 
@@ -414,7 +423,7 @@ class cg1unpacker(object):
                     **pycompat.strkwargs(hookargs)
                 )
 
-            added = [cl.node(r) for r in pycompat.xrange(clstart, clend)]
+            added = pycompat.xrange(clstart, clend)
             phaseall = None
             if srctype in (b'push', b'serve'):
                 # Old servers can not push the boundary themselves.
@@ -436,7 +445,8 @@ class cg1unpacker(object):
             if added:
                 phases.registernew(repo, tr, targetphase, added)
             if phaseall is not None:
-                phases.advanceboundary(repo, tr, phaseall, cgnodes)
+                phases.advanceboundary(repo, tr, phaseall, cgnodes, revs=added)
+                cgnodes = []
 
             if changesets > 0:
 
@@ -449,9 +459,9 @@ class cg1unpacker(object):
 
                     repo.hook(b"changegroup", **pycompat.strkwargs(hookargs))
 
-                    for n in added:
+                    for rev in added:
                         args = hookargs.copy()
-                        args[b'node'] = hex(n)
+                        args[b'node'] = hex(cl.node(rev))
                         del args[b'node_last']
                         repo.hook(b"incoming", **pycompat.strkwargs(args))
 

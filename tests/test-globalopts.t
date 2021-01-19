@@ -85,15 +85,15 @@ Implicit -R:
   $ hg ann a/a a/a
   0: a
   $ hg ann a/a b/b
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
   $ hg -R b ann a/a
   abort: a/a not under root '$TESTTMP/b'
   (consider using '--cwd b')
   [255]
   $ hg log
-  abort: no repository found in '$TESTTMP' (.hg not found)!
-  [255]
+  abort: no repository found in '$TESTTMP' (.hg not found)
+  [10]
 
 #endif
 
@@ -134,23 +134,23 @@ earlygetopt short option without following space:
 earlygetopt with illegal abbreviations:
 
   $ hg --confi "foo.bar=baz"
-  abort: option --config may not be abbreviated!
-  [255]
+  abort: option --config may not be abbreviated
+  [10]
   $ hg --cw a tip
-  abort: option --cwd may not be abbreviated!
-  [255]
+  abort: option --cwd may not be abbreviated
+  [10]
   $ hg --rep a tip
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
   $ hg --repositor a tip
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
   $ hg -qR a tip
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
   $ hg -qRa tip
-  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo!
-  [255]
+  abort: option -R has to be separated from other options (e.g. not -qR) and --repository may only be abbreviated as --repo
+  [10]
 
 Testing --cwd:
 
@@ -217,19 +217,19 @@ Testing --config:
   quuxfoo
   $ hg --cwd c --config '' tip -q
   abort: malformed --config option: '' (use --config section.name=value)
-  [255]
+  [10]
   $ hg --cwd c --config a.b tip -q
   abort: malformed --config option: 'a.b' (use --config section.name=value)
-  [255]
+  [10]
   $ hg --cwd c --config a tip -q
   abort: malformed --config option: 'a' (use --config section.name=value)
-  [255]
+  [10]
   $ hg --cwd c --config a.= tip -q
   abort: malformed --config option: 'a.=' (use --config section.name=value)
-  [255]
+  [10]
   $ hg --cwd c --config .b= tip -q
   abort: malformed --config option: '.b=' (use --config section.name=value)
-  [255]
+  [10]
 
 Testing --debug:
 

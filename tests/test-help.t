@@ -380,7 +380,6 @@ Test extension help:
        relink        recreates hardlinks between repository clones
        schemes       extend schemes with shortcuts to repository swarms
        share         share a common history between several working directories
-       strip         strip changesets and their descendants from history
        transplant    command to transplant changesets from another branch
        win32mbcs     allow the use of MBCS paths with problematic encodings
        zeroconf      discover and advertise repositories on the local network
@@ -594,7 +593,7 @@ Test help option with version option
    -n --dry-run             do not perform actions, just print output
   
   (use 'hg add -h' to show more help)
-  [255]
+  [10]
 
 Test ambiguous command help
 
@@ -630,7 +629,7 @@ Test command without options
   (some details hidden, use --verbose to show complete help)
 
   $ hg help diff
-  hg diff [OPTION]... ([-c REV] | [-r REV1 [-r REV2]]) [FILE]...
+  hg diff [OPTION]... ([-c REV] | [--from REV1] [--to REV2]) [FILE]...
   
   diff repository (or selected files)
   
@@ -643,13 +642,17 @@ Test command without options
          default to comparing against the working directory's first parent
          changeset if no revisions are specified.
   
-      When two revision arguments are given, then changes are shown between
-      those revisions. If only one revision is specified then that revision is
-      compared to the working directory, and, when no revisions are specified,
-      the working directory files are compared to its first parent.
+      By default, the working directory files are compared to its first parent.
+      To see the differences from another revision, use --from. To see the
+      difference to another revision, use --to. For example, 'hg diff --from .^'
+      will show the differences from the working copy's grandparent to the
+      working copy, 'hg diff --to .' will show the diff from the working copy to
+      its parent (i.e. the reverse of the default), and 'hg diff --from 1.0 --to
+      1.2' will show the diff between those two revisions.
   
       Alternatively you can specify -c/--change with a revision to see the
-      changes in that changeset relative to its first parent.
+      changes in that changeset relative to its first parent (i.e. 'hg diff -c
+      42' is equivalent to 'hg diff --from 42^ --to 42')
   
       Without the -a/--text option, diff will avoid generating diffs of files it
       detects as binary. With -a, diff will generate a diff anyway, probably
@@ -662,7 +665,8 @@ Test command without options
   
   options ([+] can be repeated):
   
-   -r --rev REV [+]         revision
+      --from REV1           revision to diff from
+      --to REV2             revision to diff to
    -c --change REV          change made by revision
    -a --text                treat all files as text
    -g --git                 use git extended diff format
@@ -754,18 +758,18 @@ Test command without options
   $ hg help foo
   abort: no such help topic: foo
   (try 'hg help --keyword foo')
-  [255]
+  [10]
 
   $ hg skjdfks
   hg: unknown command 'skjdfks'
   (use 'hg help' for a list of commands)
-  [255]
+  [10]
 
 Typoed command gives suggestion
   $ hg puls
   hg: unknown command 'puls'
   (did you mean one of pull, push?)
-  [255]
+  [10]
 
 Not enabled extension gets suggested
 
@@ -776,7 +780,7 @@ Not enabled extension gets suggested
       rebase        command to move sets of revisions to a different ancestor
   
   (use 'hg help extensions' for information on enabling extensions)
-  [255]
+  [10]
 
 Disabled extension gets suggested
   $ hg --config extensions.rebase=! rebase
@@ -786,7 +790,7 @@ Disabled extension gets suggested
       rebase        command to move sets of revisions to a different ancestor
   
   (use 'hg help extensions' for information on enabling extensions)
-  [255]
+  [10]
 
 Checking that help adapts based on the config:
 
@@ -800,16 +804,16 @@ this is a section and erroring out weirdly.
   $ hg .log
   hg: unknown command '.log'
   (did you mean log?)
-  [255]
+  [10]
 
   $ hg log.
   hg: unknown command 'log.'
   (did you mean log?)
-  [255]
+  [10]
   $ hg pu.lh
   hg: unknown command 'pu.lh'
   (did you mean one of pull, push?)
-  [255]
+  [10]
 
   $ cat > helpext.py <<EOF
   > import os
@@ -1064,9 +1068,11 @@ Test list of internal help commands
    debugserve    run a server with advanced settings
    debugsetparents
                  manually set the parents of the current working directory
+                 (DANGEROUS)
    debugsidedata
                  dump the side data for a cl/manifest/file revision
    debugssl      test a secure connection to a server
+   debugstrip    strip changesets and all their descendants from the repository
    debugsub      (no help text available)
    debugsuccessorssets
                  show set of successors for revision
@@ -1339,7 +1345,7 @@ non-existent subtopics print an error
   $ hg help internals.foo
   abort: no such help topic: internals.foo
   (try 'hg help --keyword foo')
-  [255]
+  [10]
 
 test advanced, deprecated and experimental options are hidden in command help
   $ hg help debugoptADV
@@ -1444,7 +1450,7 @@ Test a help topic
       - "<DATE" - at or before a given date/time
       - ">DATE" - on or after a given date/time
       - "DATE to DATE" - a date range, inclusive
-      - "-DAYS" - within a given number of days of today
+      - "-DAYS" - within a given number of days from today
 
 Test repeated config section name
 
@@ -1473,7 +1479,7 @@ Test section name with dot
 
   $ hg help config.annotate.git
   abort: help section not found: config.annotate.git
-  [255]
+  [10]
 
   $ hg help config.update.check
       "commands.update.check"
@@ -1503,7 +1509,7 @@ Test section name with dot
 
   $ hg help config.ommands.update.check
   abort: help section not found: config.ommands.update.check
-  [255]
+  [10]
 
 Unrelated trailing paragraphs shouldn't be included
 
@@ -1544,6 +1550,10 @@ Separate sections from subsections
       "dotencode"
   
       "usefncache"
+  
+      "use-persistent-nodemap"
+  
+      "use-share-safe"
   
       "usestore"
   
@@ -1649,7 +1659,7 @@ Test -e / -c / -k combinations
   $ hg help -c schemes
   abort: no such help topic: schemes
   (try 'hg help --keyword schemes')
-  [255]
+  [10]
   $ hg help -e schemes |head -1
   schemes extension - extend schemes with shortcuts to repository swarms
   $ hg help -c -k dates |egrep '^(Topics|Extensions|Commands):'
@@ -1664,7 +1674,7 @@ Test -e / -c / -k combinations
   $ hg help -e commit
   abort: no such help topic: commit
   (try 'hg help --keyword commit')
-  [255]
+  [10]
 
 Test keyword search help
 
@@ -1709,14 +1719,14 @@ Test unfound topic
   $ hg help nonexistingtopicthatwillneverexisteverever
   abort: no such help topic: nonexistingtopicthatwillneverexisteverever
   (try 'hg help --keyword nonexistingtopicthatwillneverexisteverever')
-  [255]
+  [10]
 
 Test unfound keyword
 
   $ hg help --keyword nonexistingwordthatwillneverexisteverever
   abort: no matches
   (try 'hg help' for a list of topics)
-  [255]
+  [10]
 
 Test omit indicating for help
 
@@ -1863,11 +1873,11 @@ Test section lookup
   
   $ hg help glossary.mcguffin
   abort: help section not found: glossary.mcguffin
-  [255]
+  [10]
 
   $ hg help glossary.mc.guffin
   abort: help section not found: glossary.mc.guffin
-  [255]
+  [10]
 
   $ hg help template.files
       files         List of strings. All files modified, added, or removed by
@@ -2051,6 +2061,13 @@ Test dynamic list of merge tools only shows up once
         files. It will fail if there are any conflicts and leave markers in the
         partially merged file. Marker will have three sections, one from each
         side of the merge and one for the base content.
+  
+      ":mergediff"
+        Uses the internal non-interactive simple merge algorithm for merging
+        files. It will fail if there are any conflicts and leave markers in the
+        partially merged file. The marker will have two sections, one with the
+        content from one side of the merge, and one with a diff from the base
+        content to the content on the other side. (experimental)
   
       ":other"
         Uses the other 'p2()' version of files as the merged version.
@@ -3281,7 +3298,7 @@ Dish up an empty repo; serve it cold.
    <li> &quot;&lt;DATE&quot; - at or before a given date/time
    <li> &quot;&gt;DATE&quot; - on or after a given date/time
    <li> &quot;DATE to DATE&quot; - a date range, inclusive
-   <li> &quot;-DAYS&quot; - within a given number of days of today
+   <li> &quot;-DAYS&quot; - within a given number of days from today
   </ul>
   
   </div>

@@ -22,6 +22,7 @@ relationships. We indicate fixed file content by uppercasing it.
   > [extensions]
   > fix =
   > strip =
+  > debugdrawdag=$TESTDIR/drawdag.py
   > [fix]
   > uppercase-whole-file:command="$PYTHON" $UPPERCASEPY
   > uppercase-whole-file:pattern=set:**
@@ -366,6 +367,37 @@ Test passing multiple revisions to --source
   XXXX
 
   $ cd ..
+
+  $ hg init exclude-obsolete
+  $ cd exclude-obsolete
+  $ hg debugdrawdag <<'EOS'
+  > E C # prune: C
+  > | |
+  > D B # prune: B, D
+  > |/
+  > A
+  > EOS
+  1 new orphan changesets
+  $ hg log --graph --template '{rev} {desc}\n'
+  *  4 E
+  |
+  | x  3 C
+  | |
+  x |  2 D
+  | |
+  | x  1 B
+  |/
+  o  0 A
+  
+  $ hg fix -s A
+  $ hg fix -s B
+  abort: no changesets specified
+  (use --source or --working-dir)
+  [255]
+  $ hg fix -s D
+  $ hg fix -s E
+  $ cd ..
+
 #endif
 
 The --all flag should fix anything that wouldn't cause a problem if you fixed
@@ -379,7 +411,7 @@ replacing anything that isn't public.
   $ cd fixall
   $ hg fix --all --working-dir
   abort: cannot specify both --working-dir and --all
-  [255]
+  [10]
 
 #if obsstore-on
   $ printf "one\n" > foo.whole

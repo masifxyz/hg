@@ -56,7 +56,7 @@ One process waiting for another
   > EOF
   $ echo b > b/b
   $ hg -R b ci -A -m b --config hooks.precommit="python:`pwd`/hooks.py:sleepone" > stdout &
-  $ hg -R b up -q --config hooks.pre-update="python:`pwd`/hooks.py:sleephalf" \
+  $ hg -R b up -q --config ui.timeout.warn=0 --config hooks.pre-update="python:`pwd`/hooks.py:sleephalf" \
   > > preup-stdout 2>preup-stderr
   $ wait
   $ cat preup-stdout
@@ -136,6 +136,6 @@ Pushing to a local read-only repo that can't be locked
   pushing to a
   searching for changes
   abort: could not lock repository a: Permission denied
-  [255]
+  [20]
 
   $ chmod 700 a/.hg/store

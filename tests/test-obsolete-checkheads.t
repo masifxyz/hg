@@ -3,8 +3,8 @@ Check that obsolete properly strip heads
   > [phases]
   > # public changeset are not obsolete
   > publish=false
-  > [ui]
-  > logtemplate='{node|short} ({phase}) {desc|firstline}\n'
+  > [command-templates]
+  > log='{node|short} ({phase}) {desc|firstline}\n'
   > [experimental]
   > evolution.createmarkers=True
   > EOF
@@ -95,9 +95,9 @@ Abort: old will still be an head because it's public.
   $ hg push
   pushing to $TESTTMP/remote
   searching for changes
-  abort: push creates new remote head 71e3228bffe1!
+  abort: push creates new remote head 71e3228bffe1
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 old head is now public (public remote version)
 ==============================================
@@ -155,9 +155,9 @@ Push should abort on new head
   $ hg push -r 'desc("other")'
   pushing to $TESTTMP/remote
   searching for changes
-  abort: push creates new remote head d7d41ccbd4de!
+  abort: push creates new remote head d7d41ccbd4de
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 
 
@@ -267,9 +267,9 @@ We do not have enought data to take the right decision, we should fail
   pushing to $TESTTMP/remote
   searching for changes
   remote has heads on branch 'default' that are not known locally: c70b08862e08
-  abort: push creates new remote head 71e3228bffe1!
+  abort: push creates new remote head 71e3228bffe1
   (pull and merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]
 
 Pulling the missing data makes it work
 
@@ -317,6 +317,6 @@ setup
   $ hg push
   pushing to $TESTTMP/remote
   searching for changes
-  abort: push creates new remote head 350a93b716be!
+  abort: push creates new remote head 350a93b716be
   (merge or see 'hg help push' for details about pushing new heads)
-  [255]
+  [20]

@@ -10,6 +10,11 @@ import itertools
 import os
 
 from mercurial.i18n import _
+from mercurial.node import (
+    hex,
+    nullid,
+    short,
+)
 from mercurial import (
     bundle2,
     cmdutil,
@@ -21,7 +26,6 @@ from mercurial import (
     extensions,
     hg,
     narrowspec,
-    node,
     pathutil,
     pycompat,
     registrar,
@@ -99,7 +103,7 @@ def clonenarrowcmd(orig, ui, repo, *args, **opts):
 
         includes, excludes, profiles = sparse.parseconfig(ui, fdata, b'narrow')
         if profiles:
-            raise error.Abort(
+            raise error.ConfigError(
                 _(
                     b"cannot specify other files using '%include' in"
                     b" narrowspec"
@@ -184,9 +188,9 @@ def pullbundle2extraprepare(orig, pullop, kwargs):
     # we have all the nodes
     if wireprototypes.ELLIPSESCAP1 in pullop.remote.capabilities():
         kwargs[b'known'] = [
-            node.hex(ctx.node())
+            hex(ctx.node())
             for ctx in repo.set(b'::%ln', pullop.common)
-            if ctx.node() != node.nullid
+            if ctx.node() != nullid
         ]
         if not kwargs[b'known']:
             # Mercurial serializes an empty list as '' and deserializes it as
@@ -239,16 +243,16 @@ def _narrow(
         maxnodes = 10
         if ui.verbose or len(visibletostrip) <= maxnodes:
             for n in visibletostrip:
-                ui.status(b'%s\n' % node.short(n))
+                ui.status(b'%s\n' % short(n))
         else:
             for n in visibletostrip[:maxnodes]:
-                ui.status(b'%s\n' % node.short(n))
+                ui.status(b'%s\n' % short(n))
             ui.status(
                 _(b'...and %d more, use --verbose to list all\n')
                 % (len(visibletostrip) - maxnodes)
             )
         if not force:
-            raise error.Abort(
+            raise error.StateError(
                 _(b'local changes found'),
                 hint=_(b'use --force-delete-local-changes to ignore'),
             )
@@ -362,7 +366,7 @@ def _widen(
             ds = repo.dirstate
             p1, p2 = ds.p1(), ds.p2()
             with ds.parentchange():
-                ds.setparents(node.nullid, node.nullid)
+                ds.setparents(nullid, nullid)
         if isoldellipses:
             with wrappedextraprepare:
                 exchange.pull(repo, remote, heads=common)
@@ -372,7 +376,7 @@ def _widen(
                 known = [
                     ctx.node()
                     for ctx in repo.set(b'::%ln', common)
-                    if ctx.node() != node.nullid
+                    if ctx.node() != nullid
                 ]
             with remote.commandexecutor() as e:
                 bundle = e.callcommand(
@@ -483,7 +487,7 @@ def trackedcmd(ui, repo, remotepath=None, *pats, **opts):
     """
     opts = pycompat.byteskwargs(opts)
     if requirements.NARROW_REQUIREMENT not in repo.requirements:
-        raise error.Abort(
+        raise error.InputError(
             _(
                 b'the tracked command is only supported on '
                 b'repositories cloned with --narrow'
@@ -493,7 +497,7 @@ def trackedcmd(ui, repo, remotepath=None, *pats, **opts):
     # Before supporting, decide whether it "hg tracked --clear" should mean
     # tracking no paths or all paths.
     if opts[b'clear']:
-        raise error.Abort(_(b'the --clear option is not yet supported'))
+        raise error.InputError(_(b'the --clear option is not yet supported'))
 
     # import rules from a file
     newrules = opts.get(b'import_rules')
@@ -502,7 +506,7 @@ def trackedcmd(ui, repo, remotepath=None, *pats, **opts):
             filepath = os.path.join(encoding.getcwd(), newrules)
             fdata = util.readfile(filepath)
         except IOError as inst:
-            raise error.Abort(
+            raise error.StorageError(
                 _(b"cannot read narrowspecs from '%s': %s")
                 % (filepath, encoding.strtolocal(inst.strerror))
             )
@@ -510,7 +514,7 @@ def trackedcmd(ui, repo, remotepath=None, *pats, **opts):
             ui, fdata, b'narrow'
         )
         if profiles:
-            raise error.Abort(
+            raise error.InputError(
                 _(
                     b"including other spec files using '%include' "
                     b"is not supported in narrowspec"

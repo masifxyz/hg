@@ -5,7 +5,18 @@
 # % make PREFIX=/opt/ install
 
 export PREFIX=/usr/local
-PYTHON?=python
+
+# Default to Python 3.
+#
+# Windows ships Python 3 as `python.exe`, which may not be on PATH.  py.exe is.
+ifeq ($(OS),Windows_NT)
+PYTHON?=py -3
+else
+PYTHON?=python3
+endif
+
+PYOXIDIZER?=pyoxidizer
+
 $(eval HGROOT := $(shell pwd))
 HGPYTHONS ?= $(HGROOT)/build/pythons
 PURE=
@@ -181,27 +192,21 @@ i18n/hg.pot: $(PYFILES) $(DOCFILES) i18n/posplit i18n/hggettext
 # Packaging targets
 
 packaging_targets := \
-  centos5 \
-  centos6 \
   centos7 \
   centos8 \
   deb \
-  docker-centos5 \
-  docker-centos6 \
   docker-centos7 \
   docker-centos8 \
   docker-debian-bullseye \
   docker-debian-buster \
   docker-debian-stretch \
   docker-fedora \
-  docker-ubuntu-trusty \
-  docker-ubuntu-trusty-ppa \
   docker-ubuntu-xenial \
   docker-ubuntu-xenial-ppa \
-  docker-ubuntu-artful \
-  docker-ubuntu-artful-ppa \
   docker-ubuntu-bionic \
   docker-ubuntu-bionic-ppa \
+  docker-ubuntu-focal \
+  docker-ubuntu-focal-ppa \
   fedora \
   linux-wheels \
   linux-wheels-x86_64 \
@@ -250,9 +255,12 @@ osx:
 	  --resources contrib/packaging/macosx/ \
 	  "$${OUTPUTDIR:-dist/}"/Mercurial-"$${HGVER}"-macosx"$${OSXVER}".pkg
 
+pyoxidizer:
+	$(PYOXIDIZER) build --path ./rust/hgcli --release
+
 .PHONY: help all local build doc cleanbutpackages clean install install-bin \
 	install-doc install-home install-home-bin install-home-doc \
 	dist dist-notests check tests rust-tests check-code format-c \
-	update-pot \
+	update-pot pyoxidizer \
 	$(packaging_targets) \
 	osx

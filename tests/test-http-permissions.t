@@ -765,7 +765,7 @@ Attempting a write command with HTTP GET fails
   no bookmarks set
   $ hg bookmark -d bm
   abort: bookmark 'bm' does not exist
-  [255]
+  [10]
 
   $ get-with-headers.py $LOCALIP:$HGPORT '?cmd=customwritenoperm'
   405 push requires POST request
@@ -806,7 +806,7 @@ Attempting a write command with an unknown HTTP verb fails
   no bookmarks set
   $ hg bookmark -d bm
   abort: bookmark 'bm' does not exist
-  [255]
+  [10]
 
   $ get-with-headers.py $LOCALIP:$HGPORT '?cmd=customwritenoperm'
   405 push requires POST request
@@ -874,13 +874,13 @@ Reset server to remove REQUEST_METHOD hack to test hg client
   searching for changes
   no changes found
   abort: HTTP Error 403: ssl required
-  [255]
+  [100]
 
   $ hg --cwd ../test2 push http://localhost:$HGPORT/
   pushing to http://localhost:$HGPORT/
   searching for changes
   abort: HTTP Error 403: ssl required
-  [255]
+  [100]
 
   $ killdaemons.py
 

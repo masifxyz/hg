@@ -17,7 +17,6 @@ from mercurial.i18n import _
 from mercurial.node import bin, hex, nullid
 from mercurial import (
     error,
-    node,
     pycompat,
     revlog,
     sshpeer,
@@ -47,12 +46,12 @@ _lfsmod = None
 
 
 def getcachekey(reponame, file, id):
-    pathhash = node.hex(hashutil.sha1(file).digest())
+    pathhash = hex(hashutil.sha1(file).digest())
     return os.path.join(reponame, pathhash[:2], pathhash[2:], id)
 
 
 def getlocalkey(file, id):
-    pathhash = node.hex(hashutil.sha1(file).digest())
+    pathhash = hex(hashutil.sha1(file).digest())
     return os.path.join(pathhash, id)
 
 
@@ -302,8 +301,7 @@ def _getfiles_threaded(
 
 
 class fileserverclient(object):
-    """A client for requesting files from the remote file server.
-    """
+    """A client for requesting files from the remote file server."""
 
     def __init__(self, repo):
         ui = repo.ui
@@ -568,8 +566,7 @@ class fileserverclient(object):
     def prefetch(
         self, fileids, force=False, fetchdata=True, fetchhistory=False
     ):
-        """downloads the given file versions to the cache
-        """
+        """downloads the given file versions to the cache"""
         repo = self.repo
         idstocheck = []
         for file, id in fileids:

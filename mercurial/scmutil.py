@@ -66,11 +66,11 @@ termsize = scmplatform.termsize
 
 @attr.s(slots=True, repr=False)
 class status(object):
-    '''Struct with a list of files per status.
+    """Struct with a list of files per status.
 
     The 'deleted', 'unknown' and 'ignored' properties are only
     relevant to the working copy.
-    '''
+    """
 
     modified = attr.ib(default=attr.Factory(list))
     added = attr.ib(default=attr.Factory(list))
@@ -123,9 +123,9 @@ def itersubrepos(ctx1, ctx2):
 
 
 def nochangesfound(ui, repo, excluded=None):
-    '''Report no changes for push/pull, excluded is None or a list of
+    """Report no changes for push/pull, excluded is None or a list of
     nodes excluded from the push/pull.
-    '''
+    """
     secretlist = []
     if excluded:
         for n in excluded:
@@ -148,6 +148,8 @@ def callcatch(ui, func):
     return func() if no exception happens. otherwise do some error handling
     and return an exit code accordingly. does not handle all exceptions.
     """
+    coarse_exit_code = -1
+    detailed_exit_code = -1
     try:
         try:
             return func()
@@ -157,6 +159,7 @@ def callcatch(ui, func):
     # Global exception handling, alphabetically
     # Mercurial-specific first, followed by built-in and library exceptions
     except error.LockHeld as inst:
+        detailed_exit_code = 20
         if inst.errno == errno.ETIMEDOUT:
             reason = _(b'timed out waiting for lock held by %r') % (
                 pycompat.bytestr(inst.locker)
@@ -170,6 +173,7 @@ def callcatch(ui, func):
         if not inst.locker:
             ui.error(_(b"(lock might be very busy)\n"))
     except error.LockUnavailable as inst:
+        detailed_exit_code = 20
         ui.error(
             _(b"abort: could not lock %s: %s\n")
             % (
@@ -178,6 +182,7 @@ def callcatch(ui, func):
             )
         )
     except error.OutOfBandError as inst:
+        detailed_exit_code = 100
         if inst.args:
             msg = _(b"abort: remote error:\n")
         else:
@@ -188,7 +193,7 @@ def callcatch(ui, func):
         if inst.hint:
             ui.error(b'(%s)\n' % inst.hint)
     except error.RepoError as inst:
-        ui.error(_(b"abort: %s!\n") % inst)
+        ui.error(_(b"abort: %s\n") % inst)
         if inst.hint:
             ui.error(_(b"(%s)\n") % inst.hint)
     except error.ResponseError as inst:
@@ -203,43 +208,58 @@ def callcatch(ui, func):
         else:
             ui.error(b"\n%r\n" % pycompat.bytestr(stringutil.ellipsis(msg)))
     except error.CensoredNodeError as inst:
-        ui.error(_(b"abort: file censored %s!\n") % inst)
+        ui.error(_(b"abort: file censored %s\n") % inst)
     except error.StorageError as inst:
-        ui.error(_(b"abort: %s!\n") % inst)
+        ui.error(_(b"abort: %s\n") % inst)
         if inst.hint:
             ui.error(_(b"(%s)\n") % inst.hint)
+        detailed_exit_code = 50
     except error.InterventionRequired as inst:
         ui.error(b"%s\n" % inst)
         if inst.hint:
             ui.error(_(b"(%s)\n") % inst.hint)
-        return 1
+        detailed_exit_code = 240
+        coarse_exit_code = 1
     except error.WdirUnsupported:
         ui.error(_(b"abort: working directory revision cannot be specified\n"))
     except error.Abort as inst:
-        ui.error(_(b"abort: %s\n") % inst.message)
-        if inst.hint:
-            ui.error(_(b"(%s)\n") % inst.hint)
+        if isinstance(inst, (error.InputError, error.ParseError)):
+            detailed_exit_code = 10
+        elif isinstance(inst, error.StateError):
+            detailed_exit_code = 20
+        elif isinstance(inst, error.ConfigError):
+            detailed_exit_code = 30
+        elif isinstance(inst, error.SecurityError):
+            detailed_exit_code = 150
+        elif isinstance(inst, error.CanceledError):
+            detailed_exit_code = 250
+        ui.error(inst.format())
+    except error.WorkerError as inst:
+        # Don't print a message -- the worker already should have
+        return inst.status_code
     except ImportError as inst:
-        ui.error(_(b"abort: %s!\n") % stringutil.forcebytestr(inst))
+        ui.error(_(b"abort: %s\n") % stringutil.forcebytestr(inst))
         m = stringutil.forcebytestr(inst).split()[-1]
         if m in b"mpatch bdiff".split():
             ui.error(_(b"(did you forget to compile extensions?)\n"))
         elif m in b"zlib".split():
             ui.error(_(b"(is your Python install correct?)\n"))
+    except util.urlerr.httperror as inst:
+        detailed_exit_code = 100
+        ui.error(_(b"abort: %s\n") % stringutil.forcebytestr(inst))
+    except util.urlerr.urlerror as inst:
+        detailed_exit_code = 100
+        try:  # usually it is in the form (errno, strerror)
+            reason = inst.reason.args[1]
+        except (AttributeError, IndexError):
+            # it might be anything, for example a string
+            reason = inst.reason
+        if isinstance(reason, pycompat.unicode):
+            # SSLError of Python 2.7.9 contains a unicode
+            reason = encoding.unitolocal(reason)
+        ui.error(_(b"abort: error: %s\n") % stringutil.forcebytestr(reason))
     except (IOError, OSError) as inst:
-        if util.safehasattr(inst, b"code"):  # HTTPError
-            ui.error(_(b"abort: %s\n") % stringutil.forcebytestr(inst))
-        elif util.safehasattr(inst, b"reason"):  # URLError or SSLError
-            try:  # usually it is in the form (errno, strerror)
-                reason = inst.reason.args[1]
-            except (AttributeError, IndexError):
-                # it might be anything, for example a string
-                reason = inst.reason
-            if isinstance(reason, pycompat.unicode):
-                # SSLError of Python 2.7.9 contains a unicode
-                reason = encoding.unitolocal(reason)
-            ui.error(_(b"abort: error: %s\n") % stringutil.forcebytestr(reason))
-        elif (
+        if (
             util.safehasattr(inst, b"args")
             and inst.args
             and inst.args[0] == errno.EPIPE
@@ -263,34 +283,40 @@ def callcatch(ui, func):
     except SystemExit as inst:
         # Commands shouldn't sys.exit directly, but give a return code.
         # Just in case catch this and and pass exit code to caller.
-        return inst.code
+        detailed_exit_code = 254
+        coarse_exit_code = inst.code
 
-    return -1
+    if ui.configbool(b'ui', b'detailed-exit-code'):
+        return detailed_exit_code
+    else:
+        return coarse_exit_code
 
 
 def checknewlabel(repo, lbl, kind):
     # Do not use the "kind" parameter in ui output.
     # It makes strings difficult to translate.
     if lbl in [b'tip', b'.', b'null']:
-        raise error.Abort(_(b"the name '%s' is reserved") % lbl)
+        raise error.InputError(_(b"the name '%s' is reserved") % lbl)
     for c in (b':', b'\0', b'\n', b'\r'):
         if c in lbl:
-            raise error.Abort(
+            raise error.InputError(
                 _(b"%r cannot be used in a name") % pycompat.bytestr(c)
             )
     try:
         int(lbl)
-        raise error.Abort(_(b"cannot use an integer as a name"))
+        raise error.InputError(_(b"cannot use an integer as a name"))
     except ValueError:
         pass
     if lbl.strip() != lbl:
-        raise error.Abort(_(b"leading or trailing whitespace in name %r") % lbl)
+        raise error.InputError(
+            _(b"leading or trailing whitespace in name %r") % lbl
+        )
 
 
 def checkfilename(f):
     '''Check that the filename f is an acceptable filename for a tracked file'''
     if b'\r' in f or b'\n' in f:
-        raise error.Abort(
+        raise error.InputError(
             _(b"'\\n' and '\\r' disallowed in filenames: %r")
             % pycompat.bytestr(f)
         )
@@ -305,13 +331,13 @@ def checkportable(ui, f):
         if msg:
             msg = b"%s: %s" % (msg, procutil.shellquote(f))
             if abort:
-                raise error.Abort(msg)
+                raise error.InputError(msg)
             ui.warn(_(b"warning: %s\n") % msg)
 
 
 def checkportabilityalert(ui):
-    '''check if the user's config requests nothing, a warning, or abort for
-    non-portable filenames'''
+    """check if the user's config requests nothing, a warning, or abort for
+    non-portable filenames"""
     val = ui.config(b'ui', b'portablefilenames')
     lval = val.lower()
     bval = stringutil.parsebool(val)
@@ -377,8 +403,8 @@ def filteredhash(repo, maxrev):
 
 
 def walkrepos(path, followsym=False, seen_dirs=None, recurse=False):
-    '''yield every hg repository under path, always recursively.
-    The recurse flag will only control recursion into repo working dirs'''
+    """yield every hg repository under path, always recursively.
+    The recurse flag will only control recursion into repo working dirs"""
 
     def errhandler(err):
         if err.filename == path:
@@ -768,7 +794,7 @@ def increasingwindows(windowsize=8, sizelimit=512):
 
 
 def walkchangerevs(repo, revs, makefilematcher, prepare):
-    '''Iterate over files and the revs in a "windowed" way.
+    """Iterate over files and the revs in a "windowed" way.
 
     Callers most commonly need to iterate backwards over the history
     in which they are interested. Doing so has awful (quadratic-looking)
@@ -780,7 +806,7 @@ def walkchangerevs(repo, revs, makefilematcher, prepare):
 
     This function returns an iterator yielding contexts. Before
     yielding each context, the iterator will first call the prepare
-    function on each context in the window in forward order.'''
+    function on each context in the window in forward order."""
 
     if not revs:
         return []
@@ -872,17 +898,17 @@ def subdiruipathfn(subpath, uipathfn):
 
 
 def anypats(pats, opts):
-    '''Checks if any patterns, including --include and --exclude were given.
+    """Checks if any patterns, including --include and --exclude were given.
 
     Some commands (e.g. addremove) use this condition for deciding whether to
     print absolute or relative paths.
-    '''
+    """
     return bool(pats or opts.get(b'include') or opts.get(b'exclude'))
 
 
 def expandpats(pats):
-    '''Expand bare globs when running on windows.
-    On posix we assume it already has already been done by sh.'''
+    """Expand bare globs when running on windows.
+    On posix we assume it already has already been done by sh."""
     if not util.expandglobs:
         return list(pats)
     ret = []
@@ -903,9 +929,9 @@ def expandpats(pats):
 def matchandpats(
     ctx, pats=(), opts=None, globbed=False, default=b'relpath', badfn=None
 ):
-    '''Return a matcher and the patterns that were used.
+    """Return a matcher and the patterns that were used.
     The matcher will warn about bad matches, unless an alternate badfn callback
-    is provided.'''
+    is provided."""
     if opts is None:
         opts = {}
     if not globbed and default == b'relpath':
@@ -976,7 +1002,7 @@ def getorigvfs(ui, repo):
 
 
 def backuppath(ui, repo, filepath):
-    '''customize where working copy backup files (.orig files) are created
+    """customize where working copy backup files (.orig files) are created
 
     Fetch user defined path from config file: [ui] origbackuppath = <path>
     Fall back to default (filepath with .orig suffix) if not specified
@@ -984,7 +1010,7 @@ def backuppath(ui, repo, filepath):
     filepath is repo-relative
 
     Returns an absolute path
-    '''
+    """
     origvfs = getorigvfs(ui, repo)
     if origvfs is None:
         return repo.wjoin(filepath + b".orig")
@@ -1275,8 +1301,8 @@ def addremove(repo, matcher, prefix, uipathfn, opts=None):
 
 
 def marktouched(repo, files, similarity=0.0):
-    '''Assert that files have somehow been operated upon. files are relative to
-    the repo root.'''
+    """Assert that files have somehow been operated upon. files are relative to
+    the repo root."""
     m = matchfiles(repo, files, badfn=lambda x, y: rejected.append(x))
     rejected = []
 
@@ -1310,11 +1336,11 @@ def marktouched(repo, files, similarity=0.0):
 
 
 def _interestingfiles(repo, matcher):
-    '''Walk dirstate with matcher, looking for files that addremove would care
+    """Walk dirstate with matcher, looking for files that addremove would care
     about.
 
     This is different from dirstate.status because it doesn't care about
-    whether files are modified or clean.'''
+    whether files are modified or clean."""
     added, unknown, deleted, removed, forgotten = [], [], [], [], []
     audit_path = pathutil.pathauditor(repo.root, cached=True)
 
@@ -1369,8 +1395,8 @@ def _findrenames(repo, matcher, added, removed, similarity, uipathfn):
 
 
 def _markchanges(repo, unknown, deleted, renames):
-    '''Marks the files in unknown as added, the files in deleted as removed,
-    and the files in renames as copied.'''
+    """Marks the files in unknown as added, the files in deleted as removed,
+    and the files in renames as copied."""
     wctx = repo[None]
     with repo.wlock():
         wctx.forget(deleted)
@@ -1399,10 +1425,10 @@ def getrenamedfn(repo, endrev=None):
         endrev = len(repo)
 
     def getrenamed(fn, rev):
-        '''looks up all renames for a file (up to endrev) the first
+        """looks up all renames for a file (up to endrev) the first
         time the file is given. It indexes on the changerev and only
         parses the manifest if linkrev != changerev.
-        Returns rename info for fn at changerev rev.'''
+        Returns rename info for fn at changerev rev."""
         if fn not in rcache:
             rcache[fn] = {}
             fl = repo.file(fn)
@@ -1523,7 +1549,7 @@ def movedirstate(repo, newctx, match=None):
 
 
 def filterrequirements(requirements):
-    """ filters the requirements into two sets:
+    """filters the requirements into two sets:
 
     wcreq: requirements which should be written in .hg/requires
     storereq: which should be written in .hg/store/requires
@@ -1547,7 +1573,12 @@ def istreemanifest(repo):
 
 
 def writereporequirements(repo, requirements=None):
-    """ writes requirements for the repo to .hg/requires """
+    """writes requirements for the repo
+
+    Requirements are written to .hg/requires and .hg/store/requires based
+    on whether share-safe mode is enabled and which requirements are wdir
+    requirements and which are store requirements
+    """
     if requirements:
         repo.requirements = requirements
     wcreq, storereq = filterrequirements(repo.requirements)
@@ -1555,6 +1586,9 @@ def writereporequirements(repo, requirements=None):
         writerequires(repo.vfs, wcreq)
     if storereq is not None:
         writerequires(repo.svfs, storereq)
+    elif repo.ui.configbool(b'format', b'usestore'):
+        # only remove store requires if we are using store
+        repo.svfs.tryunlink(b'requires')
 
 
 def writerequires(opener, requirements):
@@ -1770,7 +1804,7 @@ def extdatasource(repo, source):
             k = encoding.tolocal(k)
             try:
                 data[revsingle(repo, k).rev()] = encoding.tolocal(v)
-            except (error.LookupError, error.RepoLookupError):
+            except (error.LookupError, error.RepoLookupError, error.InputError):
                 pass  # we ignore data for nodes that don't exist locally
     finally:
         if proc:
@@ -1843,8 +1877,7 @@ class progress(object):
 
 
 def gdinitconfig(ui):
-    """helper function to know if a repo should be created as general delta
-    """
+    """helper function to know if a repo should be created as general delta"""
     # experimental config: format.generaldelta
     return ui.configbool(b'format', b'generaldelta') or ui.configbool(
         b'format', b'usegeneraldelta'
@@ -1852,8 +1885,7 @@ def gdinitconfig(ui):
 
 
 def gddeltaconfig(ui):
-    """helper function to know if incoming delta should be optimised
-    """
+    """helper function to know if incoming delta should be optimised"""
     # experimental config: format.generaldelta
     return ui.configbool(b'format', b'generaldelta')
 
@@ -2163,12 +2195,12 @@ def nodesummaries(repo, nodes, maxnumnodes=4):
     return _(b"%s and %d others") % (first, len(nodes) - maxnumnodes)
 
 
-def enforcesinglehead(repo, tr, desc, accountclosed=False):
+def enforcesinglehead(repo, tr, desc, accountclosed, filtername):
     """check that no named branch has multiple heads"""
     if desc in (b'strip', b'repair'):
         # skip the logic during strip
         return
-    visible = repo.filtered(b'visible')
+    visible = repo.filtered(filtername)
     # possible improvement: we could restrict the check to affected branch
     bm = visible.branchmap()
     for name in bm:
@@ -2274,10 +2306,18 @@ def _getrevsfromsymbols(repo, symbols):
 
 
 def bookmarkrevs(repo, mark):
+    """Select revisions reachable by a given bookmark
+
+    If the bookmarked revision isn't a head, an empty set will be returned.
     """
-    Select revisions reachable by a given bookmark
-    """
-    return repo.revs(
+    return repo.revs(format_bookmark_revspec(mark))
+
+
+def format_bookmark_revspec(mark):
+    """Build a revset expression to select revisions reachable by a given
+    bookmark"""
+    mark = b'literal:' + mark
+    return revsetlang.formatspec(
         b"ancestors(bookmark(%s)) - "
         b"ancestors(head() and not bookmark(%s)) - "
         b"ancestors(bookmark() and not bookmark(%s))",

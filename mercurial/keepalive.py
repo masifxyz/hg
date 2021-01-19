@@ -93,8 +93,8 @@ import threading
 
 from .i18n import _
 from .pycompat import getattr
+from .node import hex
 from . import (
-    node,
     pycompat,
     urllibcompat,
     util,
@@ -112,7 +112,7 @@ class ConnectionManager(object):
     """
     The connection manager must be able to:
       * keep track of all existing
-      """
+    """
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -675,8 +675,7 @@ def safesend(self, str):
 
 
 def wrapgetresponse(cls):
-    """Wraps getresponse in cls with a broken-pipe sane version.
-    """
+    """Wraps getresponse in cls with a broken-pipe sane version."""
 
     def safegetresponse(self):
         # In safesend() we might set the _broken_pipe_resp
@@ -724,7 +723,7 @@ def continuity(url):
     foo = fo.read()
     fo.close()
     m = md5(foo)
-    print(format % (b'normal urllib', node.hex(m.digest())))
+    print(format % (b'normal urllib', hex(m.digest())))
 
     # now install the keepalive handler and try again
     opener = urlreq.buildopener(HTTPHandler())
@@ -734,7 +733,7 @@ def continuity(url):
     foo = fo.read()
     fo.close()
     m = md5(foo)
-    print(format % (b'keepalive read', node.hex(m.digest())))
+    print(format % (b'keepalive read', hex(m.digest())))
 
     fo = urlreq.urlopen(url)
     foo = b''
@@ -746,7 +745,7 @@ def continuity(url):
             break
     fo.close()
     m = md5(foo)
-    print(format % (b'keepalive readline', node.hex(m.digest())))
+    print(format % (b'keepalive readline', hex(m.digest())))
 
 
 def comp(N, url):

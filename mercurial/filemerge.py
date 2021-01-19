@@ -408,7 +408,7 @@ def _premerge(repo, fcd, fco, fca, toolconf, files, labels=None):
 
     ui = repo.ui
 
-    validkeep = [b'keep', b'keep-merge3']
+    validkeep = [b'keep', b'keep-merge3', b'keep-mergediff']
 
     # do we attempt to simplemerge first?
     try:
@@ -423,12 +423,17 @@ def _premerge(repo, fcd, fco, fca, toolconf, files, labels=None):
             )
 
     if premerge:
-        if premerge == b'keep-merge3':
+        mode = b'merge'
+        if premerge in {b'keep-merge3', b'keep-mergediff'}:
             if not labels:
                 labels = _defaultconflictlabels
             if len(labels) < 3:
                 labels.append(b'base')
-        r = simplemerge.simplemerge(ui, fcd, fca, fco, quiet=True, label=labels)
+            if premerge == b'keep-mergediff':
+                mode = b'mergediff'
+        r = simplemerge.simplemerge(
+            ui, fcd, fca, fco, quiet=True, label=labels, mode=mode
+        )
         if not r:
             ui.debug(b" premerge successful\n")
             return 0
@@ -530,6 +535,33 @@ def _imerge3(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None):
     if len(labels) < 3:
         labels.append(b'base')
     return _imerge(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels)
+
+
+@internaltool(
+    b'mergediff',
+    fullmerge,
+    _(
+        b"warning: conflicts while merging %s! "
+        b"(edit, then use 'hg resolve --mark')\n"
+    ),
+    precheck=_mergecheck,
+)
+def _imerge_diff(
+    repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None
+):
+    """
+    Uses the internal non-interactive simple merge algorithm for merging
+    files. It will fail if there are any conflicts and leave markers in
+    the partially merged file. The marker will have two sections, one with the
+    content from one side of the merge, and one with a diff from the base
+    content to the content on the other side. (experimental)"""
+    if not labels:
+        labels = _defaultconflictlabels
+    if len(labels) < 3:
+        labels.append(b'base')
+    return _merge(
+        repo, mynode, orig, fcd, fco, fca, toolconf, files, labels, b'mergediff'
+    )
 
 
 def _imergeauto(
@@ -643,7 +675,7 @@ def _xmergeimm(repo, mynode, orig, fcd, fco, fca, toolconf, files, labels=None):
 
 
 def _describemerge(ui, repo, mynode, fcl, fcb, fco, env, toolpath, args):
-    tmpl = ui.config(b'ui', b'pre-merge-tool-output-template')
+    tmpl = ui.config(b'command-templates', b'pre-merge-tool-output')
     if not tmpl:
         return
 
@@ -831,7 +863,7 @@ def _formatlabels(repo, fcd, fco, fca, labels, tool=None):
     ca = fca.changectx()
 
     ui = repo.ui
-    template = ui.config(b'ui', b'mergemarkertemplate')
+    template = ui.config(b'command-templates', b'mergemarker')
     if tool is not None:
         template = _toolstr(ui, tool, b'mergemarkertemplate', template)
     template = templater.unquotestring(template)
@@ -1100,7 +1132,7 @@ def _filemerge(premerge, repo, wctx, mynode, orig, fcd, fco, fca, labels=None):
             labeltool = None
             if markerstyle != b'basic':
                 # respect 'tool's mergemarkertemplate (which defaults to
-                # ui.mergemarkertemplate)
+                # command-templates.mergemarker)
                 labeltool = tool
             if internalmarkerstyle != b'basic' or markerstyle != b'basic':
                 premergelabels = _formatlabels(
@@ -1232,8 +1264,7 @@ def filemerge(repo, wctx, mynode, orig, fcd, fco, fca, labels=None):
 
 
 def loadinternalmerge(ui, extname, registrarobj):
-    """Load internal merge tool from specified registrarobj
-    """
+    """Load internal merge tool from specified registrarobj"""
     for name, func in pycompat.iteritems(registrarobj._table):
         fullname = b':' + name
         internals[fullname] = func

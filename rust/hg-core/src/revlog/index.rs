@@ -1,7 +1,9 @@
+use std::convert::TryInto;
 use std::ops::Deref;
 
 use byteorder::{BigEndian, ByteOrder};
 
+use crate::revlog::node::Node;
 use crate::revlog::revlog::RevlogError;
 use crate::revlog::{Revision, NULL_REVISION};
 
@@ -130,6 +132,16 @@ impl Index {
     }
 }
 
+impl super::RevlogIndex for Index {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn node(&self, rev: Revision) -> Option<&Node> {
+        self.get_entry(rev).map(|entry| entry.hash())
+    }
+}
+
 #[derive(Debug)]
 pub struct IndexEntry<'a> {
     bytes: &'a [u8],
@@ -188,8 +200,8 @@ impl<'a> IndexEntry<'a> {
     ///
     /// Currently, SHA-1 is used and only the first 20 bytes of this field
     /// are used.
-    pub fn hash(&self) -> &[u8] {
-        &self.bytes[32..52]
+    pub fn hash(&self) -> &'a Node {
+        (&self.bytes[32..52]).try_into().unwrap()
     }
 }
 

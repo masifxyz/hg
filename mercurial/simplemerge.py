@@ -19,10 +19,10 @@
 from __future__ import absolute_import
 
 from .i18n import _
+from .node import nullid
 from . import (
     error,
     mdiff,
-    node as nodemod,
     pycompat,
     util,
 )
@@ -57,8 +57,7 @@ def intersect(ra, rb):
 
 
 def compare_range(a, astart, aend, b, bstart, bend):
-    """Compare a[astart:aend] == b[bstart:bend], without slicing.
-    """
+    """Compare a[astart:aend] == b[bstart:bend], without slicing."""
     if (aend - astart) != (bend - bstart):
         return False
     for ia, ib in zip(
@@ -102,8 +101,7 @@ class Merge3Text(object):
         localorother=None,
         minimize=False,
     ):
-        """Return merge in cvs-like form.
-        """
+        """Return merge in cvs-like form."""
         self.conflicts = False
         newline = b'\n'
         if len(self.a) > 0:
@@ -435,9 +433,9 @@ def _verifytext(text, path, ui, opts):
     then we just warn)"""
     if stringutil.binary(text):
         msg = _(b"%s looks like a binary file.") % path
-        if not opts.get(b'quiet'):
+        if not opts.get('quiet'):
             ui.warn(_(b'warning: %s\n') % msg)
-        if not opts.get(b'text'):
+        if not opts.get('text'):
             raise error.Abort(msg)
     return text
 
@@ -454,7 +452,69 @@ def _picklabels(defaults, overrides):
 def is_not_null(ctx):
     if not util.safehasattr(ctx, "node"):
         return False
-    return ctx.node() != nodemod.nullid
+    return ctx.node() != nullid
+
+
+def _mergediff(m3, name_a, name_b, name_base):
+    lines = []
+    conflicts = False
+    for group in m3.merge_groups():
+        if group[0] == b'conflict':
+            base_lines, a_lines, b_lines = group[1:]
+            base_text = b''.join(base_lines)
+            b_blocks = list(
+                mdiff.allblocks(
+                    base_text,
+                    b''.join(b_lines),
+                    lines1=base_lines,
+                    lines2=b_lines,
+                )
+            )
+            a_blocks = list(
+                mdiff.allblocks(
+                    base_text,
+                    b''.join(a_lines),
+                    lines1=base_lines,
+                    lines2=b_lines,
+                )
+            )
+
+            def matching_lines(blocks):
+                return sum(
+                    block[1] - block[0]
+                    for block, kind in blocks
+                    if kind == b'='
+                )
+
+            def diff_lines(blocks, lines1, lines2):
+                for block, kind in blocks:
+                    if kind == b'=':
+                        for line in lines1[block[0] : block[1]]:
+                            yield b' ' + line
+                    else:
+                        for line in lines1[block[0] : block[1]]:
+                            yield b'-' + line
+                        for line in lines2[block[2] : block[3]]:
+                            yield b'+' + line
+
+            lines.append(b"<<<<<<<\n")
+            if matching_lines(a_blocks) < matching_lines(b_blocks):
+                lines.append(b"======= %s\n" % name_a)
+                lines.extend(a_lines)
+                lines.append(b"------- %s\n" % name_base)
+                lines.append(b"+++++++ %s\n" % name_b)
+                lines.extend(diff_lines(b_blocks, base_lines, b_lines))
+            else:
+                lines.append(b"------- %s\n" % name_base)
+                lines.append(b"+++++++ %s\n" % name_a)
+                lines.extend(diff_lines(a_blocks, base_lines, a_lines))
+                lines.append(b"======= %s\n" % name_b)
+                lines.extend(b_lines)
+            lines.append(b">>>>>>>\n")
+            conflicts = True
+        else:
+            lines.extend(group[1])
+    return lines, conflicts
 
 
 def simplemerge(ui, localctx, basectx, otherctx, **opts):
@@ -462,7 +522,6 @@ def simplemerge(ui, localctx, basectx, otherctx, **opts):
 
     The merged result is written into `localctx`.
     """
-    opts = pycompat.byteskwargs(opts)
 
     def readctx(ctx):
         # Merges were always run in the working copy before, which means
@@ -474,11 +533,11 @@ def simplemerge(ui, localctx, basectx, otherctx, **opts):
         # repository usually sees) might be more useful.
         return _verifytext(ctx.decodeddata(), ctx.path(), ui, opts)
 
-    mode = opts.get(b'mode', b'merge')
+    mode = opts.get('mode', b'merge')
     name_a, name_b, name_base = None, None, None
     if mode != b'union':
         name_a, name_b, name_base = _picklabels(
-            [localctx.path(), otherctx.path(), None], opts.get(b'label', [])
+            [localctx.path(), otherctx.path(), None], opts.get('label', [])
         )
 
     try:
@@ -490,7 +549,7 @@ def simplemerge(ui, localctx, basectx, otherctx, **opts):
 
     m3 = Merge3Text(basetext, localtext, othertext)
     extrakwargs = {
-        b"localorother": opts.get(b"localorother", None),
+        b"localorother": opts.get("localorother", None),
         b'minimize': True,
     }
     if mode == b'union':
@@ -502,14 +561,15 @@ def simplemerge(ui, localctx, basectx, otherctx, **opts):
         extrakwargs[b'name_base'] = name_base
         extrakwargs[b'minimize'] = False
 
-    mergedtext = b""
-    for line in m3.merge_lines(
-        name_a=name_a, name_b=name_b, **pycompat.strkwargs(extrakwargs)
-    ):
-        if opts.get(b'print'):
-            ui.fout.write(line)
-        else:
-            mergedtext += line
+    if mode == b'mergediff':
+        lines, conflicts = _mergediff(m3, name_a, name_b, name_base)
+    else:
+        lines = list(
+            m3.merge_lines(
+                name_a=name_a, name_b=name_b, **pycompat.strkwargs(extrakwargs)
+            )
+        )
+        conflicts = m3.conflicts
 
     # merge flags if necessary
     flags = localctx.flags()
@@ -521,8 +581,11 @@ def simplemerge(ui, localctx, basectx, otherctx, **opts):
         addedflags = (localflags ^ otherflags) - baseflags
         flags = b''.join(sorted(commonflags | addedflags))
 
-    if not opts.get(b'print'):
+    mergedtext = b''.join(lines)
+    if opts.get('print'):
+        ui.fout.write(mergedtext)
+    else:
         localctx.write(mergedtext, flags)
 
-    if m3.conflicts and not mode == b'union':
+    if conflicts and not mode == b'union':
         return 1

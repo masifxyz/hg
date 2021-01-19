@@ -118,19 +118,29 @@ configtable = {}
 configitem = registrar.configitem(configtable)
 
 configitem(
-    b'extdiff', br'opts\..*', default=b'', generic=True,
+    b'extdiff',
+    br'opts\..*',
+    default=b'',
+    generic=True,
 )
 
 configitem(
-    b'extdiff', br'gui\..*', generic=True,
+    b'extdiff',
+    br'gui\..*',
+    generic=True,
 )
 
 configitem(
-    b'diff-tools', br'.*\.diffargs$', default=None, generic=True,
+    b'diff-tools',
+    br'.*\.diffargs$',
+    default=None,
+    generic=True,
 )
 
 configitem(
-    b'diff-tools', br'.*\.gui$', generic=True,
+    b'diff-tools',
+    br'.*\.gui$',
+    generic=True,
 )
 
 # Note for extension authors: ONLY specify testedwith = 'ships-with-hg-core' for
@@ -141,9 +151,9 @@ testedwith = b'ships-with-hg-core'
 
 
 def snapshot(ui, repo, files, node, tmproot, listsubrepos):
-    '''snapshot files as of some revision
+    """snapshot files as of some revision
     if not using snapshot, -I/-X does not work and recursive diff
-    in tools like kdiff3 and meld displays too many files.'''
+    in tools like kdiff3 and meld displays too many files."""
     dirname = os.path.basename(repo.root)
     if dirname == b"":
         dirname = b"root"
@@ -230,9 +240,9 @@ def formatcmdline(
 
 
 def _systembackground(cmd, environ=None, cwd=None):
-    ''' like 'procutil.system', but returns the Popen object directly
-        so we don't have to wait on it.
-    '''
+    """like 'procutil.system', but returns the Popen object directly
+    so we don't have to wait on it.
+    """
     env = procutil.shellenviron(environ)
     proc = subprocess.Popen(
         procutil.tonativestr(cmd),
@@ -385,9 +395,9 @@ def diffpatch(ui, repo, node1, node2, tmproot, matcher, cmdline):
 def diffrevs(
     ui,
     repo,
-    node1a,
-    node1b,
-    node2,
+    ctx1a,
+    ctx1b,
+    ctx2,
     matcher,
     tmproot,
     cmdline,
@@ -399,10 +409,10 @@ def diffrevs(
     subrepos = opts.get(b'subrepos')
 
     # calculate list of files changed between both revs
-    st = repo.status(node1a, node2, matcher, listsubrepos=subrepos)
+    st = ctx1a.status(ctx2, matcher, listsubrepos=subrepos)
     mod_a, add_a, rem_a = set(st.modified), set(st.added), set(st.removed)
     if do3way:
-        stb = repo.status(node1b, node2, matcher, listsubrepos=subrepos)
+        stb = ctx1b.status(ctx2, matcher, listsubrepos=subrepos)
         mod_b, add_b, rem_b = (
             set(stb.modified),
             set(stb.added),
@@ -415,32 +425,34 @@ def diffrevs(
     if not common:
         return 0
 
-    # Always make a copy of node1a (and node1b, if applicable)
+    # Always make a copy of ctx1a (and ctx1b, if applicable)
     # dir1a should contain files which are:
-    #   * modified or removed from node1a to node2
-    #   * modified or added from node1b to node2
-    #     (except file added from node1a to node2 as they were not present in
-    #     node1a)
+    #   * modified or removed from ctx1a to ctx2
+    #   * modified or added from ctx1b to ctx2
+    #     (except file added from ctx1a to ctx2 as they were not present in
+    #     ctx1a)
     dir1a_files = mod_a | rem_a | ((mod_b | add_b) - add_a)
-    dir1a = snapshot(ui, repo, dir1a_files, node1a, tmproot, subrepos)[0]
-    rev1a = b'@%d' % repo[node1a].rev()
+    dir1a = snapshot(ui, repo, dir1a_files, ctx1a.node(), tmproot, subrepos)[0]
+    rev1a = b'' if ctx1a.rev() is None else b'@%d' % ctx1a.rev()
     if do3way:
         # file calculation criteria same as dir1a
         dir1b_files = mod_b | rem_b | ((mod_a | add_a) - add_b)
-        dir1b = snapshot(ui, repo, dir1b_files, node1b, tmproot, subrepos)[0]
-        rev1b = b'@%d' % repo[node1b].rev()
+        dir1b = snapshot(
+            ui, repo, dir1b_files, ctx1b.node(), tmproot, subrepos
+        )[0]
+        rev1b = b'@%d' % ctx1b.rev()
     else:
         dir1b = None
         rev1b = b''
 
     fnsandstat = []
 
-    # If node2 in not the wc or there is >1 change, copy it
+    # If ctx2 is not the wc or there is >1 change, copy it
     dir2root = b''
     rev2 = b''
-    if node2:
-        dir2 = snapshot(ui, repo, modadd, node2, tmproot, subrepos)[0]
-        rev2 = b'@%d' % repo[node2].rev()
+    if ctx2.node() is not None:
+        dir2 = snapshot(ui, repo, modadd, ctx2.node(), tmproot, subrepos)[0]
+        rev2 = b'@%d' % ctx2.rev()
     elif len(common) > 1:
         # we only actually need to get the files to copy back to
         # the working dir in this case (because the other cases
@@ -530,22 +542,31 @@ def diffrevs(
 
 
 def dodiff(ui, repo, cmdline, pats, opts, guitool=False):
-    '''Do the actual diff:
+    """Do the actual diff:
 
     - copy to a temp structure if diffing 2 internal revisions
     - copy to a temp structure if diffing working revision with
       another one and more than 1 file is changed
     - just invoke the diff for a single file in the working dir
-    '''
+    """
 
     cmdutil.check_at_most_one_arg(opts, b'rev', b'change')
     revs = opts.get(b'rev')
+    from_rev = opts.get(b'from')
+    to_rev = opts.get(b'to')
     change = opts.get(b'change')
     do3way = b'$parent2' in cmdline
 
     if change:
         ctx2 = scmutil.revsingle(repo, change, None)
         ctx1a, ctx1b = ctx2.p1(), ctx2.p2()
+    elif from_rev or to_rev:
+        repo = scmutil.unhidehashlikerevs(
+            repo, [from_rev] + [to_rev], b'nowarn'
+        )
+        ctx1a = scmutil.revsingle(repo, from_rev, None)
+        ctx1b = repo[nullid]
+        ctx2 = scmutil.revsingle(repo, to_rev, None)
     else:
         ctx1a, ctx2 = scmutil.revpair(repo, revs)
         if not revs:
@@ -553,36 +574,34 @@ def dodiff(ui, repo, cmdline, pats, opts, guitool=False):
         else:
             ctx1b = repo[nullid]
 
-    node1a = ctx1a.node()
-    node1b = ctx1b.node()
-    node2 = ctx2.node()
-
     # Disable 3-way merge if there is only one parent
     if do3way:
-        if node1b == nullid:
+        if ctx1b.node() == nullid:
             do3way = False
 
-    matcher = scmutil.match(repo[node2], pats, opts)
+    matcher = scmutil.match(ctx2, pats, opts)
 
     if opts.get(b'patch'):
         if opts.get(b'subrepos'):
             raise error.Abort(_(b'--patch cannot be used with --subrepos'))
         if opts.get(b'per_file'):
             raise error.Abort(_(b'--patch cannot be used with --per-file'))
-        if node2 is None:
+        if ctx2.node() is None:
             raise error.Abort(_(b'--patch requires two revisions'))
 
     tmproot = pycompat.mkdtemp(prefix=b'extdiff.')
     try:
         if opts.get(b'patch'):
-            return diffpatch(ui, repo, node1a, node2, tmproot, matcher, cmdline)
+            return diffpatch(
+                ui, repo, ctx1a.node(), ctx2.node(), tmproot, matcher, cmdline
+            )
 
         return diffrevs(
             ui,
             repo,
-            node1a,
-            node1b,
-            node2,
+            ctx1a,
+            ctx1b,
+            ctx2,
             matcher,
             tmproot,
             cmdline,
@@ -605,7 +624,9 @@ extdiffopts = (
             _(b'pass option to comparison program'),
             _(b'OPT'),
         ),
-        (b'r', b'rev', [], _(b'revision'), _(b'REV')),
+        (b'r', b'rev', [], _(b'revision (DEPRECATED)'), _(b'REV')),
+        (b'', b'from', b'', _(b'revision to diff from'), _(b'REV1')),
+        (b'', b'to', b'', _(b'revision to diff to'), _(b'REV2')),
         (b'c', b'change', b'', _(b'change made by revision'), _(b'REV')),
         (
             b'',
@@ -628,14 +649,16 @@ extdiffopts = (
 
 @command(
     b'extdiff',
-    [(b'p', b'program', b'', _(b'comparison program to run'), _(b'CMD')),]
+    [
+        (b'p', b'program', b'', _(b'comparison program to run'), _(b'CMD')),
+    ]
     + extdiffopts,
     _(b'hg extdiff [OPT]... [FILE]...'),
     helpcategory=command.CATEGORY_FILE_CONTENTS,
     inferrepo=True,
 )
 def extdiff(ui, repo, *pats, **opts):
-    '''use external program to diff repository (or selected files)
+    """use external program to diff repository (or selected files)
 
     Show differences between revisions for the specified files, using
     an external program. The default program used is diff, with
@@ -647,11 +670,8 @@ def extdiff(ui, repo, *pats, **opts):
     additional options to the program, use -o/--option. These will be
     passed before the names of the directories or files to compare.
 
-    When two revision arguments are given, then changes are shown
-    between those revisions. If only one revision is specified then
-    that revision is compared to the working directory, and, when no
-    revisions are specified, the working directory files are compared
-    to its parent.
+    The --from, --to, and --change options work the same way they do for
+    :hg:`diff`.
 
     The --per-file option runs the external program repeatedly on each
     file to diff, instead of once on two directories. By default,
@@ -664,7 +684,7 @@ def extdiff(ui, repo, *pats, **opts):
 
     The --confirm option will prompt the user before each invocation of
     the external program. It is ignored if --per-file isn't specified.
-    '''
+    """
     opts = pycompat.byteskwargs(opts)
     program = opts.get(b'program')
     option = opts.get(b'option')

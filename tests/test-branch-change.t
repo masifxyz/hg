@@ -34,38 +34,38 @@ Try without passing a new branch name
 
   $ hg branch -r .
   abort: no branch name specified for the revisions
-  [255]
+  [10]
 
 Setting an invalid branch name
 
   $ hg branch -r . a:b
   abort: ':' cannot be used in a name
-  [255]
+  [10]
   $ hg branch -r . tip
   abort: the name 'tip' is reserved
-  [255]
+  [10]
   $ hg branch -r . 1234
   abort: cannot use an integer as a name
-  [255]
+  [10]
 
 Change on non-linear set of commits
 
   $ hg branch -r 2 -r 4 foo
   abort: cannot change branch of non-linear revisions
-  [255]
+  [10]
 
 Change in middle of the stack (linear commits)
 
   $ hg branch -r 1::3 foo
   abort: cannot change branch of changeset with children
-  [255]
+  [10]
 
 Change with dirty working directory
 
   $ echo bar > a
   $ hg branch -r . foo
   abort: uncommitted changes
-  [255]
+  [20]
 
   $ hg revert --all
   reverting a
@@ -74,7 +74,7 @@ Change on empty revision set
 
   $ hg branch -r 'draft() - all()' foo
   abort: empty revision set
-  [255]
+  [10]
 
 Changing branch on linear set of commits from head
 
@@ -123,13 +123,13 @@ Change branch name to an existing branch
 
   $ hg branch -r . default
   abort: a branch of the same name already exists
-  [255]
+  [10]
 
 Changing on a branch head which is not topological head
 
   $ hg branch -r 2 stable
   abort: cannot change branch of changeset with children
-  [255]
+  [10]
 
 Enabling the allowunstable config and trying to change branch on a branch head
 which is not a topological head
@@ -143,13 +143,13 @@ which is not a topological head
 Changing branch of an obsoleted changeset
 
   $ hg branch -r 4 foobar
-  abort: hidden revision '4' was rewritten as: 7c1991464886!
+  abort: hidden revision '4' was rewritten as: 7c1991464886
   (use --hidden to access hidden revisions)
   [255]
 
   $ hg branch -r 4 --hidden foobar
   abort: cannot change branch of a obsolete changeset
-  [255]
+  [10]
 
 Make sure bookmark movement is correct
 
@@ -331,7 +331,7 @@ Changing branch of a merge commit
   (branch merge, don't forget to commit)
   $ hg branch -r . abcd
   abort: outstanding uncommitted merge
-  [255]
+  [20]
 
   $ hg ci -m "Merge commit"
   $ hg glog -r 'parents(.)::'
@@ -353,7 +353,7 @@ Changing branch of a merge commit
   changed branch on 1 changesets
   $ hg branch -r . stable
   abort: a branch of the same name already exists
-  [255]
+  [10]
 
   $ hg branch -r . stable --force
   changed branch on 1 changesets
@@ -368,7 +368,7 @@ Changing branch on public changeset
   $ hg branch -r . def
   abort: cannot change branch of public changesets
   (see 'hg help phases' for details)
-  [255]
+  [10]
 
 Merge commit with conflicts, with evolution and without
 

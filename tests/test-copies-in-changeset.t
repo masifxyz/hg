@@ -37,6 +37,7 @@ Check that copies are recorded correctly
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes    yes      no
   persistent-nodemap:  no     no      no
@@ -50,6 +51,7 @@ Check that copies are recorded correctly
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:            no     no      no
   persistent-nodemap:  no     no      no
@@ -344,7 +346,7 @@ Test rebasing a commit with copy information
   $ hg mv a b
   $ hg ci -qm 'rename a to b'
   $ hg rebase -d 1 --config rebase.experimental.inmemory=yes
-  rebasing 2:* "rename a to b" (tip) (glob)
+  rebasing 2:* tip "rename a to b" (glob)
   merging a and b to b
   saved backup bundle to $TESTTMP/rebase-rename/.hg/strip-backup/*-*-rebase.hg (glob)
   $ hg st --change . --copies
@@ -417,6 +419,7 @@ downgrading (keeping some sidedata)
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes    yes      no
   persistent-nodemap:  no     no      no
@@ -442,6 +445,7 @@ downgrading (keeping some sidedata)
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes    yes      no
   persistent-nodemap:  no     no      no
@@ -469,6 +473,7 @@ upgrading
   fncache:            yes    yes     yes
   dotencode:          yes    yes     yes
   generaldelta:       yes    yes     yes
+  share-safe:          no     no      no
   sparserevlog:       yes    yes     yes
   sidedata:           yes    yes      no
   persistent-nodemap:  no     no      no

@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 
 import os
-import re
 
 from mercurial.i18n import _
 from mercurial.pycompat import open
@@ -33,14 +32,10 @@ LARGEFILES_REQUIRED_MSG = (
 
 eh = exthelper.exthelper()
 
-# these will all be replaced by largefiles.uisetup
-ssholdcallstream = None
-httpoldcallstream = None
-
 
 def putlfile(repo, proto, sha):
-    '''Server command for putting a largefile into a repository's local store
-    and into the user cache.'''
+    """Server command for putting a largefile into a repository's local store
+    and into the user cache."""
     with proto.mayberedirectstdio() as output:
         path = lfutil.storepath(repo, sha)
         util.makedirs(os.path.dirname(path))
@@ -69,8 +64,8 @@ def putlfile(repo, proto, sha):
 
 
 def getlfile(repo, proto, sha):
-    '''Server command for retrieving a largefile from the repository-local
-    cache or user cache.'''
+    """Server command for retrieving a largefile from the repository-local
+    cache or user cache."""
     filename = lfutil.findfile(repo, sha)
     if not filename:
         raise error.Abort(
@@ -93,12 +88,12 @@ def getlfile(repo, proto, sha):
 
 
 def statlfile(repo, proto, sha):
-    '''Server command for checking if a largefile is present - returns '2\n' if
+    """Server command for checking if a largefile is present - returns '2\n' if
     the largefile is missing, '0\n' if it seems to be in good condition.
 
     The value 1 is reserved for mismatched checksum, but that is too expensive
     to be verified on every stat and must be caught be running 'hg verify'
-    server side.'''
+    server side."""
     filename = lfutil.findfile(repo, sha)
     if not filename:
         return wireprototypes.bytesresponse(b'2\n')
@@ -106,7 +101,27 @@ def statlfile(repo, proto, sha):
 
 
 def wirereposetup(ui, repo):
+    orig_commandexecutor = repo.commandexecutor
+
     class lfileswirerepository(repo.__class__):
+        def commandexecutor(self):
+            executor = orig_commandexecutor()
+            if self.capable(b'largefiles'):
+                orig_callcommand = executor.callcommand
+
+                class lfscommandexecutor(executor.__class__):
+                    def callcommand(self, command, args):
+                        if command == b'heads':
+                            command = b'lheads'
+                        return orig_callcommand(command, args)
+
+                executor.__class__ = lfscommandexecutor
+            return executor
+
+        @wireprotov1peer.batchable
+        def lheads(self):
+            return self.heads.batchable(self)
+
         def putlfile(self, sha, fd):
             # unfortunately, httprepository._callpush tries to convert its
             # input file-like into a bundle before sending it, so we can't use
@@ -194,28 +209,9 @@ def _capabilities(orig, repo, proto):
 
 
 def heads(orig, repo, proto):
-    '''Wrap server command - largefile capable clients will know to call
-    lheads instead'''
+    """Wrap server command - largefile capable clients will know to call
+    lheads instead"""
     if lfutil.islfilesrepo(repo):
         return wireprototypes.ooberror(LARGEFILES_REQUIRED_MSG)
 
     return orig(repo, proto)
-
-
-def sshrepocallstream(self, cmd, **args):
-    if cmd == b'heads' and self.capable(b'largefiles'):
-        cmd = b'lheads'
-    if cmd == b'batch' and self.capable(b'largefiles'):
-        args['cmds'] = args[r'cmds'].replace(b'heads ', b'lheads ')
-    return ssholdcallstream(self, cmd, **args)
-
-
-headsre = re.compile(br'(^|;)heads\b')
-
-
-def httprepocallstream(self, cmd, **args):
-    if cmd == b'heads' and self.capable(b'largefiles'):
-        cmd = b'lheads'
-    if cmd == b'batch' and self.capable(b'largefiles'):
-        args['cmds'] = headsre.sub(b'lheads', args['cmds'])
-    return httpoldcallstream(self, cmd, **args)

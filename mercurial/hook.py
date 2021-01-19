@@ -30,14 +30,14 @@ from .utils import (
 
 
 def pythonhook(ui, repo, htype, hname, funcname, args, throw):
-    '''call python hook. hook is callable object, looked up as
+    """call python hook. hook is callable object, looked up as
     name in python module. if callable returns "true", hook
     fails, else passes. if hook raises exception, treated as
     hook failure. exception propagates if throw is "true".
 
     reason for "true" meaning "hook failed" is so that
     unmodified commands (e.g. mercurial.commands.update) can
-    be run as hooks without wrappers to convert return values.'''
+    be run as hooks without wrappers to convert return values."""
 
     if callable(funcname):
         obj = funcname
@@ -157,6 +157,7 @@ def _exthook(ui, repo, htype, name, cmd, args, throw):
             env[b'HG_PENDING'] = repo.root
     env[b'HG_HOOKTYPE'] = htype
     env[b'HG_HOOKNAME'] = name
+    env[b'HGPLAIN'] = b'1'
 
     for k, v in pycompat.iteritems(args):
         # transaction changes can accumulate MBs of data, so skip it

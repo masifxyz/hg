@@ -131,6 +131,7 @@ Show debug commands if there are no other candidates
   debugsetparents
   debugsidedata
   debugssl
+  debugstrip
   debugsub
   debugsuccessorssets
   debugtagscache
@@ -241,7 +242,7 @@ Show an error if we use --options with an ambiguous abbreviation
   $ hg debugcomplete --options s
   hg: command 's' is ambiguous:
       serve shelve showconfig status summary
-  [255]
+  [10]
 
 Show all commands + options
   $ hg debugcommands
@@ -259,7 +260,7 @@ Show all commands + options
   cat: output, rev, decode, include, exclude, template
   clone: noupdate, updaterev, rev, branch, pull, uncompressed, stream, ssh, remotecmd, insecure
   commit: addremove, close-branch, amend, secret, edit, force-close-branch, interactive, include, exclude, message, logfile, date, user, subrepos
-  config: untrusted, edit, local, shared, global, template
+  config: untrusted, edit, local, shared, non-shared, global, template
   continue: dry-run
   copy: forget, after, at-rev, force, include, exclude, dry-run
   debugancestor: 
@@ -294,7 +295,7 @@ Show all commands + options
   debuginstall: template
   debugknown: 
   debuglabelcomplete: 
-  debuglocks: force-lock, force-wlock, set-lock, set-wlock
+  debuglocks: force-free-lock, force-free-wlock, set-lock, set-wlock
   debugmanifestfulltextcache: clear, add
   debugmergestate: style, template
   debugnamecomplete: 
@@ -319,6 +320,7 @@ Show all commands + options
   debugsetparents: 
   debugsidedata: changelog, manifest, dir
   debugssl: 
+  debugstrip: rev, force, no-backup, nobackup, , keep, bookmark, soft
   debugsub: rev
   debugsuccessorssets: closest
   debugtagscache: 
@@ -326,12 +328,12 @@ Show all commands + options
   debuguigetpass: prompt
   debuguiprompt: prompt
   debugupdatecaches: 
-  debugupgraderepo: optimize, run, backup, changelog, manifest
+  debugupgraderepo: optimize, run, backup, changelog, manifest, filelogs
   debugwalk: include, exclude
   debugwhyunstable: 
   debugwireargs: three, four, five, ssh, remotecmd, insecure
   debugwireproto: localssh, peer, noreadstderr, nologhandshake, ssh, remotecmd, insecure
-  diff: rev, change, text, git, binary, nodates, noprefix, show-function, reverse, ignore-all-space, ignore-space-change, ignore-blank-lines, ignore-space-at-eol, unified, stat, root, include, exclude, subrepos
+  diff: rev, from, to, change, text, git, binary, nodates, noprefix, show-function, reverse, ignore-all-space, ignore-space-change, ignore-blank-lines, ignore-space-at-eol, unified, stat, root, include, exclude, subrepos
   export: bookmark, output, switch-parent, rev, text, git, binary, nodates, template
   files: rev, print0, include, exclude, template, subrepos
   forget: interactive, include, exclude, dry-run
@@ -344,7 +346,7 @@ Show all commands + options
   incoming: force, newest-first, bundle, rev, bookmarks, branch, patch, git, limit, no-merges, stat, graph, style, template, ssh, remotecmd, insecure, subrepos
   init: ssh, remotecmd, insecure
   locate: rev, print0, fullpath, include, exclude
-  log: follow, follow-first, date, copies, keyword, rev, line-range, removed, only-merges, user, only-branch, branch, prune, patch, git, limit, no-merges, stat, graph, style, template, include, exclude
+  log: follow, follow-first, date, copies, keyword, rev, line-range, removed, only-merges, user, only-branch, branch, bookmark, prune, patch, git, limit, no-merges, stat, graph, style, template, include, exclude
   manifest: rev, all, template
   merge: force, rev, preview, abort, tool
   outgoing: force, rev, newest-first, bookmarks, branch, patch, git, limit, no-merges, stat, graph, style, template, ssh, remotecmd, insecure, subrepos
@@ -352,7 +354,7 @@ Show all commands + options
   paths: template
   phase: public, draft, secret, force, rev
   pull: update, force, confirm, rev, bookmark, branch, ssh, remotecmd, insecure
-  push: force, rev, bookmark, branch, new-branch, pushvars, publish, ssh, remotecmd, insecure
+  push: force, rev, bookmark, all-bookmarks, branch, new-branch, pushvars, publish, ssh, remotecmd, insecure
   recover: verify
   remove: after, force, subrepos, include, exclude, dry-run
   rename: after, at-rev, force, include, exclude, dry-run

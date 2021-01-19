@@ -35,6 +35,20 @@ Config::
     # the internal library.
     curlcmd = curl --connect-timeout 2 --retry 3 --silent
 
+    # retry failed command N time (default 0). Useful when using the extension
+    # over flakly connection.
+    #
+    # We wait `retry.interval` between each retry, in seconds.
+    # (default 1 second).
+    retry = 3
+    retry.interval = 10
+
+    # the retry option can combine well with the http.timeout one.
+    #
+    # For example to give up on http request after 20 seconds:
+    [http]
+    timeout=20
+
     [auth]
     example.schemes = https
     example.prefix = phab.example.com
@@ -53,6 +67,7 @@ import json
 import mimetypes
 import operator
 import re
+import time
 
 from mercurial.node import bin, nullid, short
 from mercurial.i18n import _
@@ -108,42 +123,68 @@ uisetup = eh.finaluisetup
 
 # developer config: phabricator.batchsize
 eh.configitem(
-    b'phabricator', b'batchsize', default=12,
+    b'phabricator',
+    b'batchsize',
+    default=12,
 )
 eh.configitem(
-    b'phabricator', b'callsign', default=None,
+    b'phabricator',
+    b'callsign',
+    default=None,
 )
 eh.configitem(
-    b'phabricator', b'curlcmd', default=None,
+    b'phabricator',
+    b'curlcmd',
+    default=None,
 )
 # developer config: phabricator.debug
 eh.configitem(
-    b'phabricator', b'debug', default=False,
+    b'phabricator',
+    b'debug',
+    default=False,
 )
 # developer config: phabricator.repophid
 eh.configitem(
-    b'phabricator', b'repophid', default=None,
+    b'phabricator',
+    b'repophid',
+    default=None,
 )
 eh.configitem(
-    b'phabricator', b'url', default=None,
+    b'phabricator',
+    b'retry',
+    default=0,
 )
 eh.configitem(
-    b'phabsend', b'confirm', default=False,
+    b'phabricator',
+    b'retry.interval',
+    default=1,
 )
 eh.configitem(
-    b'phabimport', b'secret', default=False,
+    b'phabricator',
+    b'url',
+    default=None,
 )
 eh.configitem(
-    b'phabimport', b'obsolete', default=False,
+    b'phabsend',
+    b'confirm',
+    default=False,
+)
+eh.configitem(
+    b'phabimport',
+    b'secret',
+    default=False,
+)
+eh.configitem(
+    b'phabimport',
+    b'obsolete',
+    default=False,
 )
 
 colortable = {
     b'phabricator.action.created': b'green',
     b'phabricator.action.skipped': b'magenta',
     b'phabricator.action.updated': b'magenta',
-    b'phabricator.desc': b'',
     b'phabricator.drev': b'bold',
-    b'phabricator.node': b'',
     b'phabricator.status.abandoned': b'magenta dim',
     b'phabricator.status.accepted': b'green bold',
     b'phabricator.status.closed': b'green',
@@ -168,8 +209,7 @@ _VCR_FLAGS = [
 
 @eh.wrapfunction(localrepo, "loadhgrc")
 def _loadhgrc(orig, ui, wdirvfs, hgvfs, requirements, *args, **opts):
-    """Load ``.arcconfig`` content into a ui instance on repository open.
-    """
+    """Load ``.arcconfig`` content into a ui instance on repository open."""
     result = False
     arcconfig = {}
 
@@ -385,8 +425,25 @@ def callconduit(ui, name, params):
     else:
         urlopener = urlmod.opener(ui, authinfo)
         request = util.urlreq.request(pycompat.strurl(url), data=data)
-        with contextlib.closing(urlopener.open(request)) as rsp:
-            body = rsp.read()
+        max_try = ui.configint(b'phabricator', b'retry') + 1
+        timeout = ui.configwith(float, b'http', b'timeout')
+        for try_count in range(max_try):
+            try:
+                with contextlib.closing(
+                    urlopener.open(request, timeout=timeout)
+                ) as rsp:
+                    body = rsp.read()
+                break
+            except util.urlerr.urlerror as err:
+                if try_count == max_try - 1:
+                    raise
+                ui.debug(
+                    b'Conduit Request failed (try %d/%d): %r\n'
+                    % (try_count + 1, max_try, err)
+                )
+                # failing request might come from overloaded server
+                retry_interval = ui.configint(b'phabricator', b'retry.interval')
+                time.sleep(retry_interval)
     ui.debug(b'Conduit Response: %s\n' % body)
     parsed = pycompat.rapply(
         lambda x: encoding.unitolocal(x)
@@ -635,8 +692,7 @@ class DiffFileType(object):
 
 @attr.s
 class phabhunk(dict):
-    """Represents a Differential hunk, which is owned by a Differential change
-    """
+    """Represents a Differential hunk, which is owned by a Differential change"""
 
     oldOffset = attr.ib(default=0)  # camelcase-required
     oldLength = attr.ib(default=0)  # camelcase-required
@@ -1220,9 +1276,8 @@ def _print_phabsend_action(ui, ctx, newrevid, action):
         b'phabricator.action.%s' % action,
     )
     drevdesc = ui.label(b'D%d' % newrevid, b'phabricator.drev')
-    nodedesc = ui.label(bytes(ctx), b'phabricator.node')
-    desc = ui.label(ctx.description().split(b'\n')[0], b'phabricator.desc')
-    ui.write(_(b'%s - %s - %s: %s\n') % (drevdesc, actiondesc, nodedesc, desc))
+    summary = cmdutil.format_changeset_summary(ui, ctx, b'phabsend')
+    ui.write(_(b'%s - %s - %s\n') % (drevdesc, actiondesc, summary))
 
 
 def _amend_diff_properties(unfi, drevid, newnodes, diff):
@@ -1515,7 +1570,9 @@ def phabsend(ui, repo, *revs, **opts):
                         mapping.get(old.p2().node(), (old.p2(),))[0],
                     ]
                     newdesc = rewriteutil.update_hash_refs(
-                        repo, newdesc, mapping,
+                        repo,
+                        newdesc,
+                        mapping,
                     )
                     new = context.metadataonlyctx(
                         repo,
@@ -1642,7 +1699,6 @@ def _confirmbeforesend(repo, revs, oldmap):
     ui = repo.ui
     for rev in revs:
         ctx = repo[rev]
-        desc = ctx.description().splitlines()[0]
         oldnode, olddiff, drevid = oldmap.get(ctx.node(), (None, None, None))
         if drevid:
             drevdesc = ui.label(b'D%d' % drevid, b'phabricator.drev')
@@ -1650,11 +1706,10 @@ def _confirmbeforesend(repo, revs, oldmap):
             drevdesc = ui.label(_(b'NEW'), b'phabricator.drev')
 
         ui.write(
-            _(b'%s - %s: %s\n')
+            _(b'%s - %s\n')
             % (
                 drevdesc,
-                ui.label(bytes(ctx), b'phabricator.node'),
-                ui.label(desc, b'phabricator.desc'),
+                cmdutil.format_changeset_summary(ui, ctx, b'phabsend'),
             )
         )
 
@@ -2180,8 +2235,9 @@ def phabimport(ui, repo, *specs, **opts):
         (b'', b'resign', False, _(b'resign as a reviewer from revisions')),
         (b'', b'commandeer', False, _(b'commandeer revisions')),
         (b'm', b'comment', b'', _(b'comment on the last revision')),
+        (b'r', b'rev', b'', _(b'local revision to update'), _(b'REV')),
     ],
-    _(b'DREVSPEC... [OPTIONS]'),
+    _(b'[DREVSPEC...| -r REV...] [OPTIONS]'),
     helpcategory=command.CATEGORY_IMPORT_EXPORT,
     optionalrepo=True,
 )
@@ -2211,6 +2267,28 @@ def phabupdate(ui, repo, *specs, **opts):
     for f in flags:
         actions.append({b'type': f, b'value': True})
 
+    revs = opts.get(b'rev')
+    if revs:
+        if not repo:
+            raise error.InputError(_(b'--rev requires a repository'))
+
+        if specs:
+            raise error.InputError(_(b'cannot specify both DREVSPEC and --rev'))
+
+        drevmap = getdrevmap(repo, scmutil.revrange(repo, [revs]))
+        specs = []
+        unknown = []
+        for r, d in pycompat.iteritems(drevmap):
+            if d is None:
+                unknown.append(repo[r])
+            else:
+                specs.append(b'D%d' % d)
+        if unknown:
+            raise error.InputError(
+                _(b'selected revisions without a Differential: %s')
+                % scmutil.nodesummaries(repo, unknown)
+            )
+
     drevs = _getdrevs(ui, opts.get(b'stack'), specs)
     for i, drev in enumerate(drevs):
         if i + 1 == len(drevs) and opts.get(b'comment'):
@@ -2232,7 +2310,10 @@ def template_review(context, mapping):
     m = _differentialrevisiondescre.search(ctx.description())
     if m:
         return templateutil.hybriddict(
-            {b'url': m.group('url'), b'id': b"D%s" % m.group('id'),}
+            {
+                b'url': m.group('url'),
+                b'id': b"D%s" % m.group('id'),
+            }
         )
     else:
         tags = ctx.repo().nodetags(ctx.node())
@@ -2243,14 +2324,18 @@ def template_review(context, mapping):
                     url += b'/'
                 url += t
 
-                return templateutil.hybriddict({b'url': url, b'id': t,})
+                return templateutil.hybriddict(
+                    {
+                        b'url': url,
+                        b'id': t,
+                    }
+                )
     return None
 
 
 @eh.templatekeyword(b'phabstatus', requires={b'ctx', b'repo', b'ui'})
 def template_status(context, mapping):
-    """:phabstatus: String. Status of Phabricator differential.
-    """
+    """:phabstatus: String. Status of Phabricator differential."""
     ctx = context.resource(mapping, b'ctx')
     repo = context.resource(mapping, b'repo')
     ui = context.resource(mapping, b'ui')
@@ -2264,7 +2349,10 @@ def template_status(context, mapping):
     for drev in drevs:
         if int(drev[b'id']) == drevid:
             return templateutil.hybriddict(
-                {b'url': drev[b'uri'], b'status': drev[b'statusName'],}
+                {
+                    b'url': drev[b'uri'],
+                    b'status': drev[b'statusName'],
+                }
             )
     return None
 

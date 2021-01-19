@@ -60,7 +60,7 @@ Rename is tracked:
 Rebase the revision containing the rename:
 
   $ hg rebase -s 3 -d 2
-  rebasing 3:73a3ee40125d "rename A" (tip)
+  rebasing 3:73a3ee40125d tip "rename A"
   saved backup bundle to $TESTTMP/a/.hg/strip-backup/73a3ee40125d-1d78ebcf-rebase.hg
 
   $ hg tglog
@@ -134,8 +134,8 @@ Rebased revision does not contain information about b (issue3739)
   o  0: 1994f17a630e 'A'
   
   $ hg rebase -s 5 -d 4
-  rebasing 5:af8ad1f97097 "E" (tip)
-  note: not rebasing 5:af8ad1f97097 "E" (tip), its destination already has all its changes
+  rebasing 5:af8ad1f97097 tip "E"
+  note: not rebasing 5:af8ad1f97097 tip "E", its destination already has all its changes
   saved backup bundle to $TESTTMP/a/.hg/strip-backup/af8ad1f97097-c3e90708-rebase.hg
   $ hg tglog
   @  4: 60f545c27784 'E'
@@ -207,7 +207,7 @@ Copy is tracked:
 Rebase the revision containing the copy:
 
   $ hg rebase -s 3 -d 2
-  rebasing 3:0a8162ff18a8 "copy A" (tip)
+  rebasing 3:0a8162ff18a8 tip "copy A"
   saved backup bundle to $TESTTMP/b/.hg/strip-backup/0a8162ff18a8-dd06302a-rebase.hg
 
   $ hg tglog
@@ -291,7 +291,7 @@ Test rebase across repeating renames:
   
 
   $ hg rebase -s 4 -d 3
-  rebasing 4:b918d683b091 "Another unrelated change" (tip)
+  rebasing 4:b918d683b091 tip "Another unrelated change"
   saved backup bundle to $TESTTMP/repo/.hg/strip-backup/b918d683b091-3024bc57-rebase.hg
 
   $ hg diff --stat -c .
@@ -312,14 +312,14 @@ Verify that copies get preserved (issue4192).
   $ hg commit --message "File b created as copy of a and modified"
   $ hg copy b c
   $ echo c > c
-  $ hg commit --message "File c created as copy of b and modified"
+  $ hg commit --message "File c created as copy of b and modified" ##
   $ hg copy c d
   $ echo d > d
-  $ hg commit --message "File d created as copy of c and modified"
+  $ hg commit --message "File d created as copy of c and modified (child of 327f772bc074)"
 
 Note that there are four entries in the log for d
   $ hg tglog --follow d
-  @  3: 421b7e82bb85 'File d created as copy of c and modified'
+  @  3: 6be224292cfa 'File d created as copy of c and modified (child of 327f772bc074)'
   |
   o  2: 327f772bc074 'File c created as copy of b and modified'
   |
@@ -342,14 +342,14 @@ Rebase the copies on top of the unrelated change.
   $ hg rebase --source 1 --dest 4
   rebasing 1:79d255d24ad2 "File b created as copy of a and modified"
   rebasing 2:327f772bc074 "File c created as copy of b and modified"
-  rebasing 3:421b7e82bb85 "File d created as copy of c and modified"
-  saved backup bundle to $TESTTMP/copy-gets-preserved/.hg/strip-backup/79d255d24ad2-a2265555-rebase.hg
+  rebasing 3:6be224292cfa "File d created as copy of c and modified (child of 327f772bc074)"
+  saved backup bundle to $TESTTMP/copy-gets-preserved/.hg/strip-backup/79d255d24ad2-a3e674e3-rebase.hg
   $ hg update 4
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
 There should still be four entries in the log for d
   $ hg tglog --follow d
-  @  4: dbb9ba033561 'File d created as copy of c and modified'
+  @  4: afbdde3a60d5 'File d created as copy of c and modified (child of af74b229bc02)'
   |
   o  3: af74b229bc02 'File c created as copy of b and modified'
   |
@@ -368,9 +368,9 @@ copy records collapse correctly.
   rebasing 2:68bf06433839 "File b created as copy of a and modified"
   rebasing 3:af74b229bc02 "File c created as copy of b and modified"
   merging b and c to c
-  rebasing 4:dbb9ba033561 "File d created as copy of c and modified"
+  rebasing 4:afbdde3a60d5 "File d created as copy of c and modified (child of af74b229bc02)"
   merging c and d to d
-  saved backup bundle to $TESTTMP/copy-gets-preserved/.hg/strip-backup/68bf06433839-dde37595-rebase.hg
+  saved backup bundle to $TESTTMP/copy-gets-preserved/.hg/strip-backup/68bf06433839-29d5057f-rebase.hg
   $ hg co tip
   3 files updated, 0 files merged, 0 files removed, 0 files unresolved
 
@@ -378,11 +378,24 @@ This should show both revision 3 and 0 since 'd' was transitively a
 copy of 'a'.
 
   $ hg tglog --follow d
-  @  3: 5a46b94210e5 'Collapsed revision
+  @  3: 75708a266e56 'Collapsed revision
   :  * File b created as copy of a and modified
   :  * File c created as copy of b and modified
-  :  * File d created as copy of c and modified'
+  :  * File d created as copy of c and modified (child of af74b229bc02)'
   o  0: b220cd6d2326 'File a created'
+  
+  $ hg log -G -Tcompact
+  @  3[tip]   75708a266e56   1970-01-01 00:00 +0000   test
+  |    Collapsed revision
+  |
+  o  2   15258cf0cf10   1970-01-01 00:00 +0000   test
+  |    unrelated commit is unrelated
+  |
+  o  1   1d689898494b   1970-01-01 00:00 +0000   test
+  |    Unrelated file created
+  |
+  o  0   b220cd6d2326   1970-01-01 00:00 +0000   test
+       File a created
   
 
   $ cd ..

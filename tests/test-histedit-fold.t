@@ -291,7 +291,7 @@ folded content is dropped during a merge. The folded commit should properly disa
   warning: conflicts while merging file! (edit, then use 'hg resolve --mark')
   Fix up the change (fold 251d831eeec5)
   (hg histedit --continue to resume)
-  [1]
+  [240]
 There were conflicts, we keep P1 content. This
 should effectively drop the changes from +6.
 
@@ -364,7 +364,7 @@ dropped revision.
   warning: conflicts while merging file! (edit, then use 'hg resolve --mark')
   Fix up the change (fold 251d831eeec5)
   (hg histedit --continue to resume)
-  [1]
+  [240]
   $ cat > file << EOF
   > 1
   > 2
@@ -588,7 +588,7 @@ Test rolling into a commit with multiple children (issue5498)
   > r 5db65b93a12b
   > EOF
   hg: parse error: first changeset cannot use verb "roll"
-  [255]
+  [10]
   $ hg log -G -T '{node|short} {desc}'
   @  5db65b93a12b cc
   |
